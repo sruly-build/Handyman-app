@@ -68,12 +68,12 @@ export function LinesTable({
             <tr key={i} className="border-b border-hairline align-top">
               <td className={`py-2 pr-2 ${l.kind === 'part' ? 'pl-3' : ''}`}>
                 <span className={l.kind === 'part' ? '' : 'font-semibold'}>{l.description}</span>
-                {l.kind === 'labour' && l.detail && <span className="block text-[13px] text-muted">{l.detail}</span>}
-                {l.kind === 'labour' && <span className="block text-[13px] text-muted">Labour</span>}
+                {l.kind !== 'part' && l.detail && <span className="block text-[13px] text-muted">{l.detail}</span>}
               </td>
               <td className="whitespace-nowrap py-2 text-right text-muted">{qty(l)}</td>
               <td className="whitespace-nowrap py-2 pl-2 text-right">
-                {l.kind === 'work' ? <span className="text-muted">Included</span> : formatMoney(l.amount)}
+                {/* Work done shows no price of its own; labour is charged on the service call lines */}
+                {l.kind === 'work' ? '' : formatMoney(l.amount)}
               </td>
             </tr>
           ))}

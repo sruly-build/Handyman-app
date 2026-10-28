@@ -76,7 +76,7 @@ export function SettingsScreen() {
           <Card>
             <div className="grid grid-cols-2">
               <Field
-                label="First hour $"
+                label="Service call (first hour) $"
                 inputMode="decimal"
                 value={form.first_hour_rate}
                 onChange={(e) => set({ first_hour_rate: e.target.value.replace(/[^\d.]/g, '') })}
@@ -95,7 +95,7 @@ export function SettingsScreen() {
             {first
               ? `The first hour of each job is ${labourPrice(first)}, then ${labourPrice(rate)} per hour. Example: 3 hours = ${labourPrice(first + 2 * rate)}.`
               : `Every hour is ${labourPrice(rate)}. Fill in First hour to charge more for the first hour of a job.`}{' '}
-            Every job is charged at least 1 hour of labour.
+            Every job is charged at least 1 hour. Bills show labour as the service call plus any additional time, not per item.
           </p>
         </section>
 
@@ -145,8 +145,8 @@ export function SettingsScreen() {
           />
           <p className="mt-1.5 px-4 text-[13px] text-muted">
             {form.labour_mode === 'task'
-              ? 'Invoices charge the time on each task timer, listed per task.'
-              : 'Invoices charge the whole time on site, from Arrived to Finished, for everyone.'}{' '}
+              ? 'Labour is the total of everyone\'s task timers on the job.'
+              : 'Labour is the whole time on site, from Arrived to Finished, for everyone.'}{' '}
             You can switch any time before making an invoice.
           </p>
         </section>

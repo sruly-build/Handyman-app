@@ -20,12 +20,12 @@ export interface BillPart {
 }
 
 export interface BillSection {
-  /** The punch list item this section is for, or null for "Labour" / "Other parts" */
+  /** The punch list item this section is for, or null for labour lines and "Other parts" */
   itemId: string | null
   title: string
   detail: string
-  /** firstHours = how much of this time was billed at the first-hour rate */
-  labour: { hours: number; amount: number; firstHours: number } | null
+  /** Only on the job's labour lines (service call, additional time); items show no time or price */
+  labour: { hours: number; amount: number } | null
   parts: BillPart[]
 }
 
@@ -73,24 +73,18 @@ export function partsMarkup(settings: Settings, job?: { markup_parts?: boolean |
 
 /**
  * Builds an estimate (from expected hours) or a bill (from tracked time).
- * Labour is charged either per task timer, or from arrival to finish,
- * depending on the setting.
+ *
+ * The bill lists the work done (each item and its parts, without time or
+ * price per item), then labour for the whole job as at most two lines:
+ * the service call / first hour, then any additional time at the hourly
+ * rate. Labour is always at least 1 hour. The time comes from the expected
+ * hours (estimate), the task timers, or arrival to finish (setting).
  */
 export function buildBill(input: BillInput, basis: 'estimate' | 'actual'): Bill {
   const { items, parts, entries, settings, job, now } = input
   const rate = billedRate(settings)
   const firstRate = billedFirstRate(settings)
   const pct = partsMarkup(settings, job)
-  const perTask = basis === 'estimate' || settings.labour_mode === 'task'
-
-  // The first hour of the whole job is charged at the first-hour rate, once,
-  // taken from the first labour on the bill; everything after is the normal rate.
-  let firstLeft = firstRate === null ? 0 : 1
-  const labourFor = (hours: number) => {
-    const firstHours = Math.min(hours, firstLeft)
-    firstLeft -= firstHours
-    return { hours, firstHours, amount: roundMoney(firstHours * (firstRate ?? 0) + (hours - firstHours) * rate) }
-  }
 
   const toBillPart = (p: Part): BillPart => ({
     id: p.id,
@@ -100,60 +94,58 @@ export function buildBill(input: BillInput, basis: 'estimate' | 'actual'): Bill 
     price: withMarkup(p.cost ?? 0, pct),
   })
 
-  const sections: BillSection[] = []
-
-  if (!perTask) {
-    const hours = msToHours(totalMs(entries.filter((e) => e.kind === 'visit'), now))
-    sections.push({
-      itemId: null,
-      title: 'Labour',
-      detail: 'Time on site',
-      labour: labourFor(hours),
-      parts: [],
-    })
-  }
-
-  for (const item of items) {
-    let labour: BillSection['labour'] = null
-    if (perTask) {
-      const hours =
-        basis === 'estimate'
-          ? (item.estimated_hours ?? 0)
-          : msToHours(totalMs(entries.filter((e) => e.kind === 'task' && e.item_id === item.id), now))
-      if (hours > 0) labour = labourFor(hours)
-    }
-    const itemParts = parts.filter((p) => p.item_id === item.id).map(toBillPart)
-    if (labour || itemParts.length || !perTask) {
-      sections.push({ itemId: item.id, title: item.title, detail: item.location, labour, parts: itemParts })
-    }
-  }
+  const sections: BillSection[] = items.map((item) => ({
+    itemId: item.id,
+    title: item.title,
+    detail: item.location,
+    labour: null,
+    parts: parts.filter((p) => p.item_id === item.id).map(toBillPart),
+  }))
 
   const itemIds = new Set(items.map((i) => i.id))
   const otherParts = parts.filter((p) => !p.item_id || !itemIds.has(p.item_id)).map(toBillPart)
   if (otherParts.length) sections.push({ itemId: null, title: 'Other parts', detail: '', labour: null, parts: otherParts })
 
-  // Labour is charged for at least one hour per job
-  const worked = sections.reduce((sum, x) => sum + (x.labour?.hours ?? 0), 0)
-  if (worked > 0 && worked < 1) {
-    const topUp = 1 - worked
-    // Still within the first hour, so it's charged at the first-hour rate when there is one
-    const amount = roundMoney(topUp * (firstRate ?? rate))
-    // Goes after the work it tops up, before any "Other parts"
-    const at = sections.findIndex((x) => x.title === 'Other parts')
-    sections.splice(at === -1 ? sections.length : at, 0, {
-      itemId: null,
-      title: 'Minimum charge',
-      detail: '1 hour minimum',
-      labour: { hours: topUp, firstHours: 0, amount },
-      parts: [],
-    })
+  const worked =
+    basis === 'estimate'
+      ? items.reduce((sum, i) => sum + (i.estimated_hours ?? 0), 0)
+      : msToHours(totalMs(entries.filter((e) => e.kind === (settings.labour_mode === 'visit' ? 'visit' : 'task')), now))
+
+  if (worked > 0) {
+    const billed = Math.max(worked, 1) // 1 hour minimum
+    if (firstRate !== null) {
+      sections.push({
+        itemId: null,
+        title: 'Service call',
+        detail: worked < 1 ? 'First hour (minimum charge)' : 'First hour',
+        labour: { hours: 1, amount: firstRate },
+        parts: [],
+      })
+      if (billed > 1) {
+        sections.push({
+          itemId: null,
+          title: 'Additional time',
+          detail: `${formatMoney(rate)}/hour`,
+          labour: { hours: billed - 1, amount: roundMoney((billed - 1) * rate) },
+          parts: [],
+        })
+      }
+    } else {
+      sections.push({
+        itemId: null,
+        title: 'Labour',
+        detail: worked < 1 ? `${formatMoney(rate)}/hour, 1 hour minimum` : `${formatMoney(rate)}/hour`,
+        labour: { hours: billed, amount: roundMoney(billed * rate) },
+        parts: [],
+      })
+    }
   }
 
-  const allParts = sections.flatMap((s) => s.parts)
-  const partsCost = roundMoney(allParts.reduce((s, p) => s + p.cost, 0))
-  const partsTotal = roundMoney(allParts.reduce((s, p) => s + p.price, 0))
-  const labourHours = sections.reduce((s, x) => s + (x.labour?.hours ?? 0), 0)
-  const labourTotal = roundMoney(sections.reduce((s, x) => s + (x.labour?.amount ?? 0), 0))
+  const allParts = sections.flatMap((x) => x.parts)
+  const partsCost = roundMoney(allParts.reduce((sum, p) => sum + p.cost, 0))
+  const partsTotal = roundMoney(allParts.reduce((sum, p) => sum + p.price, 0))
+  const labourHours = sections.reduce((sum, x) => sum + (x.labour?.hours ?? 0), 0)
+  const labourTotal = roundMoney(sections.reduce((sum, x) => sum + (x.labour?.amount ?? 0), 0))
   return {
     sections,
     rate,
@@ -172,12 +164,9 @@ export function invoiceLines(bill: Bill): InvoiceLine[] {
   return bill.sections.flatMap((s) => {
     const lines: InvoiceLine[] = []
     if (s.labour) {
-      const firstNote =
-        s.labour.firstHours > 0 && bill.firstRate !== null ? `includes first hour at ${formatMoney(bill.firstRate)}/h` : ''
-      const detail = [s.detail, firstNote].filter(Boolean).join(' · ')
-      lines.push({ kind: 'labour', description: s.title, detail, quantity: s.labour.hours, amount: s.labour.amount })
+      lines.push({ kind: 'labour', description: s.title, detail: s.detail, quantity: s.labour.hours, amount: s.labour.amount })
     } else if (s.itemId) {
-      // Work done with no separate labour charge (e.g. labour billed as time on site)
+      // Work done; its labour is in the job's labour lines
       lines.push({ kind: 'work', description: s.title, detail: s.detail, quantity: 0, amount: 0 })
     }
     for (const p of s.parts) {

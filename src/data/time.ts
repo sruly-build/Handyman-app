@@ -12,12 +12,13 @@ export function totalMs(entries: TimeEntry[], now: number): number {
 
 export const msToHours = (ms: number) => ms / 3_600_000
 
-/** "2 h 05 min", "45 min", "0 min" */
+/** "2 h 05 min", "1 h", "45 min", "0 min" */
 export function formatDuration(ms: number): string {
   const totalMin = Math.round(ms / 60_000)
   const h = Math.floor(totalMin / 60)
   const m = totalMin % 60
   if (h === 0) return `${m} min`
+  if (m === 0) return `${h} h`
   return `${h} h ${String(m).padStart(2, '0')} min`
 }
 

@@ -60,7 +60,9 @@ describe('buildBill', () => {
     expect(bill.partsTotal).toBe(72)
     expect(bill.partsCost).toBe(60)
     expect(bill.total).toBe(192)
-    expect(bill.sections.map((s) => s.title)).toEqual(['Item a', 'Other parts'])
+    // Work done first (no time or price per item), then labour for the whole job
+    expect(bill.sections.map((s) => s.title)).toEqual(['Item a', 'Item b', 'Other parts', 'Labour'])
+    expect(bill.sections.filter((s) => s.itemId).every((s) => s.labour === null)).toBe(true)
   })
 
   it('actual per task uses task timers from every worker', () => {
@@ -103,23 +105,31 @@ describe('first hour rate', () => {
     expect(bill.labourTotal).toBe(330)
   })
 
-  it('only counts the first hour once per job, across tasks and workers', () => {
-    // a: 0.5 h (all first-hour rate), b: 2 h (0.5 h first-hour rate + 1.5 h normal)
+  it('adds up the time of everyone on every task into one service call plus additional time', () => {
+    // 0.5 h + 2 h = 2.5 h → $150 first hour + 1.5 h × $90
     const entries = [entry('task', 'a', 0.5), entry('task', 'b', 2, 'u2')]
     const bill = buildBill({ items: [item('a', null), item('b', null)], parts: [], entries, settings: plain, now: 0 }, 'actual')
-    expect(bill.sections[0].labour).toMatchObject({ hours: 0.5, firstHours: 0.5, amount: 75 })
-    expect(bill.sections[1].labour).toMatchObject({ hours: 2, firstHours: 0.5, amount: 75 + 135 })
     expect(bill.labourTotal).toBe(285)
-    expect(invoiceLines(bill)[0].detail).toContain('first hour at $150.00/h')
+    const lines = invoiceLines(bill)
+    expect(lines.map((l) => [l.kind, l.description, l.amount])).toEqual([
+      ['work', 'Item a', 0],
+      ['work', 'Item b', 0],
+      ['labour', 'Service call', 150],
+      ['labour', 'Additional time', 135],
+    ])
+    expect(lines[3]).toMatchObject({ quantity: 1.5, detail: '$90.00/hour' })
   })
 
-  it('a job shorter than an hour is charged a full first hour', () => {
-    const bill = buildBill({ items: [item('a', 0.5)], parts: [], entries: [], settings: plain, now: 0 }, 'estimate')
+  it('a job shorter than an hour is charged the full service call', () => {
+    // 20 minutes on site → $150
+    const bill = buildBill(
+      { items: [item('a', null)], parts: [], entries: [entry('visit', null, 1 / 3)], settings: { ...plain, labour_mode: 'visit' }, now: 0 },
+      'actual',
+    )
     expect(bill.labourTotal).toBe(150)
-    expect(bill.labourHours).toBe(1)
     const lines = invoiceLines(bill)
-    expect(lines.map((l) => l.description)).toEqual(['Item a', 'Minimum charge'])
-    expect(lines[1]).toMatchObject({ kind: 'labour', detail: '1 hour minimum', amount: 75 })
+    expect(lines.map((l) => l.description)).toEqual(['Item a', 'Service call'])
+    expect(lines[1]).toMatchObject({ detail: 'First hour (minimum charge)', quantity: 1, amount: 150 })
   })
 
   it('the 1 hour minimum also applies without a first-hour rate, but not when there is no labour', () => {
@@ -128,7 +138,7 @@ describe('first hour rate', () => {
     expect(short.labourTotal).toBe(90)
     const none = buildBill({ items: [item('a', null)], parts: [], entries: [], settings: flat, now: 0 }, 'estimate')
     expect(none.labourTotal).toBe(0)
-    expect(none.sections.some((s) => s.title === 'Minimum charge')).toBe(false)
+    expect(none.sections.some((s) => s.labour)).toBe(false)
   })
 
   it('with no first-hour rate every hour is the same', () => {
