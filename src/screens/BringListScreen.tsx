@@ -10,13 +10,17 @@ import { keys, refreshAll, useBringChecks, useItems, useJob, useParts } from '..
 import type { BringCheck } from '../data/types'
 import { bringReminderIcs, downloadFile } from '../lib/calendar'
 import { friendlyDate } from '../lib/dates'
+import { isPartnerJob } from '../data/api'
+import { useUser } from '../lib/auth'
 
 /** Everything to load in the van for one job, checked off as you go */
 export function BringListScreen() {
   const { jobId = '' } = useParams()
   const { data: job, isLoading, error } = useJob(jobId)
   const { data: items = [] } = useItems(jobId)
-  const { data: parts = [] } = useParts(jobId)
+  // Another company's job: we tick our own copy, but can't change their list
+  const partner = job ? isPartnerJob(job, useUser()) : false
+  const { data: parts = [] } = useParts(jobId, partner, Boolean(job))
   const { data: checks = [] } = useBringChecks(jobId)
   const qc = useQueryClient()
 
@@ -25,7 +29,7 @@ export function BringListScreen() {
     onMutate: ({ key, checked }) => {
       // Tick instantly; the save happens in the background
       qc.setQueryData<BringCheck[]>(keys.bring(jobId), (old = []) =>
-        checked ? [...old, { id: `${jobId}:${key}`, job_id: jobId, key }] : old.filter((c) => c.key !== key),
+        checked ? [...old, { id: `new:${jobId}:${key}`, job_id: jobId, key }] : old.filter((c) => c.key !== key),
       )
     },
     onSettled: () => refreshAll(qc),
@@ -90,7 +94,7 @@ export function BringListScreen() {
                   )}
                 </span>
               </button>
-              {isExtra(e) && e.sources.length === 0 && (
+              {!partner && isExtra(e) && e.sources.length === 0 && (
                 <button
                   onClick={() => setExtras.mutate(extras.filter((x) => `tool:${normalize(x)}` !== e.key))}
                   className="flex h-14 w-12 items-center justify-center text-muted"
@@ -139,10 +143,16 @@ export function BringListScreen() {
         </section>
       )}
 
-      <section className="mb-5">
-        <GroupLabel>Add something else to bring</GroupLabel>
-        <ListEditor value={[]} onChange={(fresh) => setExtras.mutate([...extras, ...fresh])} placeholder="e.g. Ladder, drop cloths" />
-      </section>
+      {!partner && (
+        <section className="mb-5">
+          <GroupLabel>Add something else to bring</GroupLabel>
+          <ListEditor
+            value={[]}
+            onChange={(fresh) => setExtras.mutate([...extras, ...fresh])}
+            placeholder="e.g. Ladder, drop cloths"
+          />
+        </section>
+      )}
 
       <div className="space-y-3">
         {job.job_date && (

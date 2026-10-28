@@ -8,6 +8,8 @@ import { backend } from '../data/backend'
 import { formatMoney, partsMarkup, withMarkup } from '../data/billing'
 import { refreshAll, useItems, useJob, usePart, useSettings } from '../data/queries'
 import type { PartStatus } from '../data/types'
+import { isPartnerJob } from '../data/api'
+import { useUser } from '../lib/auth'
 
 interface Form {
   name: string
@@ -28,10 +30,14 @@ export function PartFormScreen() {
   const { data: items = [] } = useItems(jobId)
   const { data: job } = useJob(jobId, Boolean(jobId))
   const { data: settings } = useSettings()
+  // Adding a part to another company's job: no cost (only they set prices)
+  const shared = job ? isPartnerJob(job, useUser()) : false
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [form, setForm] = useState<Form | null>(
-    editing ? null : { name: '', quantity: '1', cost: '', supplier: '', status: 'needed', item_id: search.get('item') ?? '' },
+    editing
+      ? null
+      : { name: '', quantity: '1', cost: '', supplier: '', status: 'needed', item_id: search.get('item') ?? '' },
   )
 
   useEffect(() => {
@@ -59,6 +65,7 @@ export function PartFormScreen() {
         supplier: f.supplier.trim(),
         status: f.status,
       }
+      if (shared) return backend.addSharedPart(input)
       return part ? backend.updatePart(part, input) : backend.createPart(input)
     },
     onSuccess: () => {
@@ -96,12 +103,17 @@ export function PartFormScreen() {
   return (
     <Screen title={editing ? 'Edit part' : 'New part'} back={back}>
       <form onSubmit={submit} className="space-y-6">
-        <Segmented
-          label="Order status"
-          value={form.status}
-          onChange={(status) => set({ status })}
-          options={(['needed', 'ordered', 'received'] as const).map((v) => ({ value: v, label: partStatusLabels[v] }))}
-        />
+        {!shared && (
+          <Segmented
+            label="Order status"
+            value={form.status}
+            onChange={(status) => set({ status })}
+            options={(['needed', 'ordered', 'received'] as const).map((v) => ({
+              value: v,
+              label: partStatusLabels[v],
+            }))}
+          />
+        )}
         <Card>
           <Field
             label="Part"
@@ -112,21 +124,23 @@ export function PartFormScreen() {
             placeholder="e.g. Moen 1225 cartridge"
           />
           <Divider />
-          <div className="grid grid-cols-2">
+          <div className={shared ? '' : 'grid grid-cols-2'}>
             <Field
               label="Quantity"
               inputMode="decimal"
               value={form.quantity}
               onChange={(e) => set({ quantity: e.target.value.replace(/[^\d.]/g, '') })}
             />
-            <Field
-              label="Cost paid (total) $"
-              inputMode="decimal"
-              value={form.cost}
-              onChange={(e) => set({ cost: e.target.value.replace(/[^\d.]/g, '') })}
-              placeholder="0.00"
-              className="border-l border-hairline"
-            />
+            {!shared && (
+              <Field
+                label="Cost paid (total) $"
+                inputMode="decimal"
+                value={form.cost}
+                onChange={(e) => set({ cost: e.target.value.replace(/[^\d.]/g, '') })}
+                placeholder="0.00"
+                className="border-l border-hairline"
+              />
+            )}
           </div>
           <Divider />
           <Field
@@ -136,7 +150,7 @@ export function PartFormScreen() {
             placeholder="e.g. Home Depot"
           />
         </Card>
-        {settings && Number.isFinite(costNumber) && costNumber > 0 && partsMarkup(settings, job) > 0 && (
+        {!shared && settings && Number.isFinite(costNumber) && costNumber > 0 && partsMarkup(settings, job) > 0 && (
           <p className="-mt-3 px-4 text-[14px] text-muted">
             Customer pays {formatMoney(withMarkup(costNumber, partsMarkup(settings, job)))} with your{' '}
             {partsMarkup(settings, job)}% markup.

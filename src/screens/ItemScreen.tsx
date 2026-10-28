@@ -8,10 +8,20 @@ import { PartRow } from '../components/PartRow'
 import { PhotoGrid, PhotoSection } from '../components/PhotoSection'
 import { Screen } from '../components/Screen'
 import { TaskTimer } from '../components/TimeWidgets'
-import { Button, Card, Divider, ErrorNote, Field, Loading, SectionTitle, StatusPicker, TextArea } from '../components/ui'
+import {
+  Button,
+  Card,
+  Divider,
+  ErrorNote,
+  Field,
+  Loading,
+  SectionTitle,
+  StatusPicker,
+  TextArea,
+} from '../components/ui'
 import { backend } from '../data/backend'
 import { isPartnerJob } from '../data/api'
-import { keys, refreshAll, useItem, useJob, useParts, usePhotos } from '../data/queries'
+import { keys, refreshAll, useItem, useJob, useMyShare, useParts, usePhotos } from '../data/queries'
 import { useUser } from '../lib/auth'
 import type { ItemPatch, PunchItem } from '../data/types'
 
@@ -36,9 +46,12 @@ export function ItemScreen() {
   const { jobId = '', itemId = '' } = useParams()
   const { data: item, isLoading, error } = useItem(itemId)
   const { data: job } = useJob(jobId)
-  // Another company's shared job: punch list and photos only, no time, parts or pricing
+  // Another company's shared job: punch list and photos, plus parts and time if they shared them; never pricing
   const partner = job ? isPartnerJob(job, useUser()) : false
-  const { data: parts = [] } = useParts(jobId)
+  const { data: myShare } = useMyShare(jobId, partner)
+  const showParts = !partner || Boolean(myShare?.share_parts)
+  const showTime = !partner || Boolean(myShare?.share_time)
+  const { data: parts = [] } = useParts(jobId, partner, Boolean(job))
   const { data: photos = [] } = usePhotos(itemId)
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -78,7 +91,7 @@ export function ItemScreen() {
       action={<SaveIndicator state={saveState} />}
     >
       <StatusPicker value={draft.status} onChange={(status) => set({ status })} />
-      {!partner && (
+      {showTime && (
         <div className="mt-3">
           <TaskTimer
             jobId={jobId}
@@ -103,7 +116,9 @@ export function ItemScreen() {
         <PencilIcon size={22} />
         New sketch
       </Link>
-      <p className="mt-1.5 px-2 text-center text-[13px] text-muted">To draw on a photo, tap the photo, then Draw on it.</p>
+      <p className="mt-1.5 px-2 text-center text-[13px] text-muted">
+        To draw on a photo, tap the photo, then Draw on it.
+      </p>
 
       <SectionTitle>Details</SectionTitle>
       <Card>
@@ -132,7 +147,7 @@ export function ItemScreen() {
       <SectionTitle>Measurements</SectionTitle>
       <MeasurementsEditor value={draft.measurements} onChange={(measurements) => set({ measurements })} />
 
-      {!partner && (
+      {showParts && (
         <>
           <SectionTitle>Parts to order</SectionTitle>
           {itemParts.length > 0 && (
@@ -140,7 +155,7 @@ export function ItemScreen() {
               {itemParts.map((p, i) => (
                 <div key={p.id}>
                   {i > 0 && <Divider />}
-                  <PartRow part={p} />
+                  <PartRow part={p} shared={partner} />
                 </div>
               ))}
             </Card>
@@ -183,7 +198,9 @@ export function ItemScreen() {
         <Button
           variant="danger"
           disabled={remove.isPending}
-          onClick={() => confirm('Delete this item, its photos and its timers? This cannot be undone.') && remove.mutate()}
+          onClick={() =>
+            confirm('Delete this item, its photos and its timers? This cannot be undone.') && remove.mutate()
+          }
         >
           {remove.isPending ? 'Deleting…' : 'Delete item'}
         </Button>

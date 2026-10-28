@@ -12,7 +12,7 @@ All five stages from the build plan are built:
 - **Sign-up by approval only.** Nobody can create an account unless their email has been approved. Only the app's admin (super admin: the first person who signed up) can approve anyone, in **Me → Approve sign-ups**, choosing whether each person starts a new company or joins an existing one. Company owners can't approve people. Approved people tap **Sign up**, enter their email, then choose their own name and password. The database itself turns away everyone else.
 - **Companies.** Each approved new sign-up gets their own company with its business profile (name, email, phone, address). A company sees only its own jobs, prices, parts, time, estimates and invoices. The database itself enforces this.
 - **Your team.** To add a worker to a company, the admin approves their email for that company. When they sign up with that email, they join the company and see all its jobs, clock in, run timers and so on. Only the owner changes the business profile and prices.
-- **Sharing a job with another company.** On a job, tap **Share with another company** and enter an email someone at that company logs in with. They then see that job's **punch list and photos only**, and can update them. They never see your prices, parts, time, estimates or invoices.
+- **Sharing a job with another company.** On a job, tap the small **Share with another company** line under the Call and Directions buttons and enter an email someone at that company logs in with. They always get the **punch list and photos**, and you choose whether they also get the **parts to buy** (without costs; they can add parts and mark them ordered or received), the **bring list** (they tick off their own copy) and **time** (they can clock in; their hours show on your Time screen and count in your bill). Tap a company on the Share screen to change this or stop sharing. They never see your prices, part costs, estimates, invoices or payments.
 - **Forgot password.** The login screen sends a reset link by email, which opens the app to choose a new password.
 - **Each punch list item** has:
   - status: to do, in progress (orange) or done (green check)
@@ -134,7 +134,7 @@ On your worker's phone: approve their email in **Me → Approve sign-ups** (choo
 **Accounts and sharing**
 - [ ] Log out, tap **Forgot password?**, and check the reset email brings you back to choose a new password
 - [ ] Try signing up with an email nobody approved: it should be turned away
-- [ ] Approve another company in **Me → Approve sign-ups**, have them sign up, then **Share with another company** on a job. Log in as them: they should see that job's punch list and photos, but no prices, parts, time or bill.
+- [ ] Approve another company in **Me → Approve sign-ups**, have them sign up, then **Share with another company** on a job. Log in as them: they should see the punch list and photos, plus only what you switched on, and never any prices or bill.
 
 ---
 

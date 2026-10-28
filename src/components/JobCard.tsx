@@ -16,13 +16,13 @@ export function JobCard({ job }: { job: JobSummary }) {
             <p className="flex items-center gap-2 text-[19px] font-semibold">
               <span className="truncate">{job.customer_name}</span>
               {shared && (
-                <span
-                  className="flex shrink-0 items-center gap-1 rounded-full bg-brand-soft px-2 py-0.5 text-[12px] font-semibold text-brand-dark"
-                  title={fromOther ? `Shared with you by ${job.from_company}` : `Shared with ${job.shared_with.join(', ')}`}
-                >
-                  <PeopleIcon size={13} strokeWidth={2.4} />
-                  {fromOther ? `From ${job.from_company}` : 'Shared'}
-                </span>
+                <PeopleIcon
+                  size={15}
+                  className="shrink-0 text-[#aeaeb2]"
+                  aria-label={
+                    fromOther ? `Shared with you by ${job.from_company}` : `Shared with ${job.shared_with.join(', ')}`
+                  }
+                />
               )}
               {job.on_site.length > 0 && (
                 <span className="shrink-0 rounded-full bg-progress-soft px-2 py-0.5 text-[12px] font-semibold text-[#c26a00]">

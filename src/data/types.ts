@@ -33,7 +33,14 @@ export interface Company {
 }
 
 /** A job one company shared with another (punch list and photos only) */
-export interface JobShare {
+/** What a company sees on a job shared with it, besides the punch list and photos */
+export interface ShareOptions {
+  share_parts: boolean
+  share_bring: boolean
+  share_time: boolean
+}
+
+export interface JobShare extends ShareOptions {
   job_id: string
   company_id: string
   /** Filled in by the app for display */
@@ -138,10 +145,12 @@ export interface Part {
 }
 
 export interface BringCheck {
-  /** `${job_id}:${key}` so the same thing can't be ticked twice */
+  /** `${company}:${job_id}:${key}` (older ticks: `${job_id}:${key}`) */
   id: string
   job_id: string
   key: string
+  /** Each company ticks its own list */
+  company_id?: string
 }
 
 export interface TimeEntry {

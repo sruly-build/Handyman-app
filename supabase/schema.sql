@@ -12,8 +12,9 @@
 --     Nobody else can approve anyone, and anyone not approved is turned away
 --     by the database. Approved people choose their own password.
 --   * A company can share a job with another company. The other company
---     then sees only that job's punch list and photos (never prices, parts,
---     time or invoices).
+--     sees that job's punch list and photos, plus (if chosen) the parts to
+--     buy, the bring list and time. Never prices, estimates, invoices or
+--     payments.
 
 -- ---------------------------------------------------------------
 -- Companies (the business profile shown on estimates and invoices)
@@ -234,6 +235,11 @@ create table if not exists public.job_shares (
   primary key (job_id, company_id)
 );
 create index if not exists job_shares_company_id_idx on public.job_shares (company_id);
+-- What else the other company sees, besides the punch list and photos.
+-- Prices, estimates, invoices and payments are never shared.
+alter table public.job_shares add column if not exists share_parts boolean not null default false;
+alter table public.job_shares add column if not exists share_bring boolean not null default false;
+alter table public.job_shares add column if not exists share_time boolean not null default false;
 -- Upgrading: earlier versions shared jobs with people; share with their company instead
 insert into public.job_shares (job_id, company_id)
 select j.id, p.company_id
@@ -451,8 +457,23 @@ as $$
   )
 $$;
 
--- Share one of my company's jobs with the company of the person who uses this email
-create or replace function public.share_job(job uuid, with_email text)
+-- A job shared with my company, including this extra part ('parts', 'bring' or 'time')
+create or replace function public.shared_with_me_for(j uuid, what text)
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select exists (
+    select 1 from public.job_shares
+    where job_id = j and company_id = public.my_company()
+      and case what when 'parts' then share_parts when 'bring' then share_bring when 'time' then share_time else false end
+  )
+$$;
+
+-- Share one of my company's jobs with the company of the person who uses this email,
+-- choosing what else they see. Sharing again just changes the choices.
+drop function if exists public.share_job(uuid, text);
+create or replace function public.share_job(job uuid, with_email text, parts boolean default false,
+                                            bring boolean default false, hours boolean default false)
 returns text
 language plpgsql security definer set search_path = public
 as $$
@@ -472,9 +493,78 @@ begin
   if target = public.my_company() then
     raise exception 'That person is already in your company, so they can already see this job.';
   end if;
-  insert into public.job_shares (job_id, company_id) values (job, target) on conflict do nothing;
+  insert into public.job_shares (job_id, company_id, share_parts, share_bring, share_time)
+  values (job, target, parts, bring, hours)
+  on conflict (job_id, company_id) do update
+    set share_parts = excluded.share_parts, share_bring = excluded.share_bring, share_time = excluded.share_time;
   select name into target_name from public.companies where id = target;
   return target_name;
+end;
+$$;
+
+-- Change what a company I shared a job with can see
+create or replace function public.set_job_share(job uuid, company uuid, parts boolean, bring boolean, hours boolean)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+begin
+  if not public.is_my_job(job) then
+    raise exception 'You can only change sharing on your own company''s jobs.';
+  end if;
+  update public.job_shares set share_parts = parts, share_bring = bring, share_time = hours
+  where job_id = job and company_id = company;
+end;
+$$;
+
+-- Parts on a job shared with me: what to buy, never what it cost
+create or replace function public.shared_parts(job uuid)
+returns table (id uuid, job_id uuid, item_id uuid, name text, quantity numeric, supplier text, status text,
+               created_at timestamptz, ordered_at timestamptz, received_at timestamptz)
+language sql stable security definer set search_path = public
+as $$
+  select p.id, p.job_id, p.item_id, p.name, p.quantity, p.supplier, p.status, p.created_at, p.ordered_at, p.received_at
+  from public.parts p
+  where p.job_id = job and public.shared_with_me_for(job, 'parts')
+$$;
+
+-- Add a part to a job shared with me (no cost: only the job's company sets prices)
+create or replace function public.add_shared_part(job uuid, item uuid, part_name text, qty numeric, part_supplier text)
+returns uuid
+language plpgsql security definer set search_path = public
+as $$
+declare
+  new_id uuid;
+begin
+  if not public.shared_with_me_for(job, 'parts') then
+    raise exception 'Parts on this job aren''t shared with you.';
+  end if;
+  if item is not null and not exists (select 1 from public.punch_items where id = item and job_id = job) then
+    raise exception 'That item isn''t on this job.';
+  end if;
+  insert into public.parts (job_id, item_id, name, quantity, supplier)
+  values (job, item, trim(part_name), greatest(coalesce(qty, 1), 0.01), coalesce(trim(part_supplier), ''))
+  returning id into new_id;
+  return new_id;
+end;
+$$;
+
+-- Mark a part on a job shared with me as needed, ordered or received
+create or replace function public.set_shared_part_status(part uuid, new_status text)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+declare
+  j uuid;
+begin
+  select job_id into j from public.parts where id = part;
+  if j is null or not public.shared_with_me_for(j, 'parts') then
+    raise exception 'Parts on this job aren''t shared with you.';
+  end if;
+  update public.parts
+  set status = new_status,
+      ordered_at = case when new_status = 'needed' then null else coalesce(ordered_at, now()) end,
+      received_at = case when new_status = 'received' then coalesce(received_at, now()) else null end
+  where id = part;
 end;
 $$;
 
@@ -659,17 +749,31 @@ drop policy if exists "photos of my and shared jobs" on public.photos;
 create policy "photos of my and shared jobs" on public.photos for all to authenticated
   using (public.can_access_item(item_id)) with check (public.can_access_item(item_id));
 
--- Parts, bring list, extra charges, payments and invoices: your company's jobs only
+-- Parts, extra charges, payments and invoices: your company's jobs only
+-- (a company a job is shared with gets parts through shared_parts, without costs)
 do $$
 declare t text;
 begin
-  foreach t in array array['parts', 'bring_checks', 'invoices', 'job_charges', 'payments']
+  foreach t in array array['parts', 'invoices', 'job_charges', 'payments']
   loop
     execute format('drop policy if exists "my company''s jobs only" on public.%I', t);
     execute format('create policy "my company''s jobs only" on public.%I for all to authenticated
       using (public.is_my_job(job_id)) with check (public.is_my_job(job_id))', t);
   end loop;
 end $$;
+
+-- Bring list ticks: each company ticks its own (each loads its own van), on its
+-- own jobs and on jobs whose bring list is shared with it
+alter table public.bring_checks add column if not exists company_id uuid references public.companies (id) on delete cascade;
+update public.bring_checks b set company_id = j.company_id
+from public.jobs j
+where b.company_id is null and j.id = b.job_id;
+alter table public.bring_checks alter column company_id set default public.my_company();
+drop policy if exists "my company's jobs only" on public.bring_checks;
+drop policy if exists "my company's bring ticks" on public.bring_checks;
+create policy "my company's bring ticks" on public.bring_checks for all to authenticated
+  using (company_id = public.my_company() and (public.is_my_job(job_id) or public.shared_with_me_for(job_id, 'bring')))
+  with check (company_id = public.my_company() and (public.is_my_job(job_id) or public.shared_with_me_for(job_id, 'bring')));
 
 -- Price list: everyone in the company uses it; only the owner changes it
 drop policy if exists "see my company's price list" on public.price_list;
@@ -680,8 +784,9 @@ create policy "owner manages price list" on public.price_list for all to authent
   using (company_id = public.my_company() and public.i_am_owner())
   with check (company_id = public.my_company() and public.i_am_owner());
 
--- Time: your company's jobs only. You log your own time; the owner can also
--- add or fix time for anyone in the company (time typed in by hand)
+-- Time: your company's jobs, and jobs whose time is shared with you. You log
+-- your own time; an owner can also add or fix time for anyone in their company
+-- (time typed in by hand). Nobody can change another company's time.
 create or replace function public.in_my_company(person uuid)
 returns boolean
 language sql stable security definer set search_path = public
@@ -690,20 +795,20 @@ as $$
 $$;
 drop policy if exists "see my company's time" on public.time_entries;
 create policy "see my company's time" on public.time_entries for select to authenticated
-  using (public.is_my_job(job_id));
+  using (public.is_my_job(job_id) or public.shared_with_me_for(job_id, 'time'));
 drop policy if exists "log own time" on public.time_entries;
 create policy "log own time" on public.time_entries for insert to authenticated
   with check (
-    public.is_my_job(job_id)
+    (public.is_my_job(job_id) or public.shared_with_me_for(job_id, 'time'))
     and (user_id = auth.uid() or (public.i_am_owner() and public.in_my_company(user_id)))
   );
 drop policy if exists "fix my company's time" on public.time_entries;
 create policy "fix my company's time" on public.time_entries for update to authenticated
-  using (public.is_my_job(job_id))
-  with check (public.is_my_job(job_id) and public.in_my_company(user_id));
+  using (public.is_my_job(job_id) or (public.shared_with_me_for(job_id, 'time') and public.in_my_company(user_id)))
+  with check ((public.is_my_job(job_id) or public.shared_with_me_for(job_id, 'time')) and public.in_my_company(user_id));
 drop policy if exists "delete my company's time" on public.time_entries;
 create policy "delete my company's time" on public.time_entries for delete to authenticated
-  using (public.is_my_job(job_id));
+  using (public.is_my_job(job_id) or (public.shared_with_me_for(job_id, 'time') and public.in_my_company(user_id)));
 
 -- ---------------------------------------------------------------
 -- Photo storage bucket (private: photos are only shown to logged-in users

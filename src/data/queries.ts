@@ -46,8 +46,9 @@ export const usePhotos = (itemId: string) =>
   useQuery({ queryKey: keys.photos(itemId), queryFn: () => backend.listPhotos(itemId) })
 export const useJobPhotos = (jobId: string) =>
   useQuery({ queryKey: keys.jobPhotos(jobId), queryFn: () => backend.listJobPhotos(jobId) })
-export const useParts = (jobId?: string) =>
-  useQuery({ queryKey: keys.parts(jobId), queryFn: () => backend.listParts(jobId) })
+/** shared: another company's job (parts without their cost) */
+export const useParts = (jobId?: string, shared = false, enabled = true) =>
+  useQuery({ queryKey: keys.parts(jobId), queryFn: () => backend.listParts(jobId, shared), enabled })
 export const usePart = (id: string, enabled = true) =>
   useQuery({ queryKey: keys.part(id), queryFn: () => backend.getPart(id), enabled })
 export const useBringChecks = (jobId: string) =>
@@ -66,6 +67,9 @@ export const useApprovals = () => useQuery({ queryKey: ['approvals'], queryFn: (
 export const useCompanies = () => useQuery({ queryKey: ['companies'], queryFn: () => backend.listCompanies() })
 export const useShares = (jobId: string, enabled = true) =>
   useQuery({ queryKey: keys.shares(jobId), queryFn: () => backend.listShares(jobId), enabled })
+/** On another company's job: what they shared with us */
+export const useMyShare = (jobId: string, enabled = true) =>
+  useQuery({ queryKey: ['myShare', jobId], queryFn: () => backend.myShare(jobId), enabled })
 export const useCharges = (jobId: string) =>
   useQuery({ queryKey: ['charges', jobId], queryFn: () => backend.listCharges(jobId) })
 export const usePriceList = () => useQuery({ queryKey: ['priceList'], queryFn: () => backend.listPriceList() })

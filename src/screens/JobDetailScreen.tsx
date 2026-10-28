@@ -40,6 +40,7 @@ import {
   usePayments,
   useCharges,
   useSettings,
+  useMyShare,
   useShares,
   useTime,
 } from '../data/queries'
@@ -56,18 +57,19 @@ export function JobDetailScreen() {
   const { jobId = '' } = useParams()
   const { data: job, isLoading, error } = useJob(jobId)
   const { data: items } = useItems(jobId)
-  const { data: parts = [] } = useParts(jobId)
+  const user = useUser()
+  // Another company's job shared with us: punch list and photos, plus what they chose to share
+  const partner = job ? isPartnerJob(job, user) : false
+  const { data: myShare } = useMyShare(jobId, partner)
+  const { data: parts = [] } = useParts(jobId, partner, Boolean(job))
   const { data: checks = [] } = useBringChecks(jobId)
   const { data: entries = [] } = useTime(jobId)
   const { data: settings } = useSettings()
   const { data: invoice } = useInvoice(jobId)
   const { data: charges = [] } = useCharges(jobId)
   const { data: payments = [] } = usePayments(jobId)
-  const user = useUser()
   const navigate = useNavigate()
   const qc = useQueryClient()
-  // Another company's job shared with us: we only get the punch list and photos
-  const partner = job ? isPartnerJob(job, user) : false
   const { data: ownerCompany } = useCompany(job?.company_id, partner)
   const { data: shares = [] } = useShares(jobId, Boolean(job) && !partner)
 
@@ -106,7 +108,10 @@ export function JobDetailScreen() {
   const bring = buildBringList(items ?? [], parts, job.bring_extras ?? [])
   const packed = bring.filter((b) => checks.some((c) => c.key === b.key)).length
   const paid = parts.filter((p) => p.status !== 'needed').reduce((sum, p) => sum + (p.cost ?? 0), 0)
-  const onSite = totalMs(entries.filter((e) => e.kind === 'visit'), Date.now())
+  const onSite = totalMs(
+    entries.filter((e) => e.kind === 'visit'),
+    Date.now(),
+  )
   const estimate = settings
     ? buildBill({ items: items ?? [], parts, entries, settings, job, charges, now: Date.now() }, 'estimate').total
     : 0
@@ -135,7 +140,11 @@ export function JobDetailScreen() {
       {job.address && <p className="-mt-3 mb-4 text-[17px] text-muted">{job.address}</p>}
 
       <div className="grid grid-cols-2 gap-3">
-        <ActionButton href={job.customer_phone ? phoneLink(job.customer_phone) : undefined} label="Call" Icon={PhoneIcon} />
+        <ActionButton
+          href={job.customer_phone ? phoneLink(job.customer_phone) : undefined}
+          label="Call"
+          Icon={PhoneIcon}
+        />
         <ActionButton
           href={job.address ? directionsLink(job.address) : undefined}
           label="Directions"
@@ -155,34 +164,33 @@ export function JobDetailScreen() {
       )}
 
       {partner ? (
-        <div className="mt-4 rounded-2xl bg-brand-soft px-4 py-3 text-[15px] text-brand-dark">
-          <p className="flex items-center gap-2">
-            <PeopleIcon size={18} className="shrink-0" />
-            <span>
-              <strong>{ownerCompany?.name || 'Another company'}</strong> shared this job with you.
-            </span>
-          </p>
-          <p className="mt-1 text-[14px]">You can work on the punch list and photos. Their prices, parts, time and bills stay private.</p>
+        <p className="mt-3 flex flex-wrap items-center gap-x-1.5 px-1 text-[13px] text-muted">
+          <PeopleIcon size={14} className="shrink-0" />
+          <span>Shared by {ownerCompany?.name || 'another company'}</span>
+          <span aria-hidden>·</span>
           <button
             onClick={() => confirm('Remove this job from your list? They can share it again later.') && leave.mutate()}
-            className="mt-2 min-h-11 text-[15px] font-semibold text-problem active:opacity-50"
+            className="min-h-8 text-muted underline active:opacity-50"
           >
             Remove from my list
           </button>
-          {leave.error && <ErrorNote error={leave.error} />}
-        </div>
+        </p>
       ) : (
-        <Card className="mt-4">
-          <RowLink
-            to={`/jobs/${job.id}/share`}
-            Icon={PeopleIcon}
-            title="Share with another company"
-            value={shares.length ? shares.map((s) => s.company_name).join(', ') : 'Not shared'}
-          />
-        </Card>
+        <Link
+          to={`/jobs/${job.id}/share`}
+          className="mt-3 flex min-h-8 items-center gap-1.5 px-1 text-[13px] text-muted active:opacity-50"
+        >
+          <PeopleIcon size={14} className="shrink-0" />
+          <span className="truncate">
+            {shares.length
+              ? `Shared with ${shares.map((s) => s.company_name).join(', ')}`
+              : 'Share with another company'}
+          </span>
+        </Link>
       )}
+      {leave.error && <ErrorNote error={leave.error} />}
 
-      {!partner && (
+      {(!partner || myShare?.share_time) && (
         <>
           <SectionTitle>Time</SectionTitle>
           <ClockCard jobId={job.id} />
@@ -190,7 +198,13 @@ export function JobDetailScreen() {
       )}
 
       <SectionTitle
-        action={total > 0 && <span className="pb-0.5 text-[15px] font-semibold text-muted">{done} of {total} done</span>}
+        action={
+          total > 0 && (
+            <span className="pb-0.5 text-[15px] font-semibold text-muted">
+              {done} of {total} done
+            </span>
+          )
+        }
       >
         Punch list
       </SectionTitle>
@@ -249,6 +263,34 @@ export function JobDetailScreen() {
       <SectionTitle>This job</SectionTitle>
       {partner ? (
         <Card>
+          {myShare?.share_bring && (
+            <>
+              <RowLink
+                to={`/jobs/${job.id}/bring`}
+                Icon={ChecklistIcon}
+                title="Bring list"
+                value={bring.length ? `${packed} of ${bring.length} packed` : 'Empty'}
+              />
+              <Divider />
+            </>
+          )}
+          {myShare?.share_parts && (
+            <>
+              <RowLink
+                to={`/jobs/${job.id}/parts`}
+                Icon={TagIcon}
+                title="Parts to buy"
+                value={parts.length ? `${parts.filter((p) => p.status === 'needed').length} needed` : 'None'}
+              />
+              <Divider />
+            </>
+          )}
+          {myShare?.share_time && (
+            <>
+              <RowLink to={`/jobs/${job.id}/time`} Icon={ClockIcon} title="Time" value={formatDuration(onSite)} />
+              <Divider />
+            </>
+          )}
           <RowLink to={`/jobs/${job.id}/report`} Icon={PhotosIcon} title="Before and after report" />
         </Card>
       ) : (

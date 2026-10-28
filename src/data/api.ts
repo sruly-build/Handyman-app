@@ -14,6 +14,7 @@ import type {
   Job,
   JobInput,
   JobShare,
+  ShareOptions,
   Part,
   PartInput,
   PartStatus,
@@ -225,15 +226,36 @@ export function createApi(db: Db, auth: Auth) {
       await db.remove('jobs', { id })
     },
 
-    // ---- Sharing a job with another company (punch list and photos only) ----
+    // ---- Sharing a job with another company (never prices or billing) ----
     async listShares(jobId: string): Promise<JobShare[]> {
       const shares = await db.select<JobShare>('job_shares', { job_id: jobId })
       const names = await companyNames(shares.map((s) => s.company_id))
       return shares.map((s) => ({ ...s, company_name: names.get(s.company_id) ?? 'Another company' }))
     },
     /** Returns the other company's name */
-    async shareJob(jobId: string, email: string): Promise<string> {
-      return db.rpc<string>('share_job', { job: jobId, with_email: email.trim() })
+    async shareJob(jobId: string, email: string, options: ShareOptions): Promise<string> {
+      return db.rpc<string>('share_job', {
+        job: jobId,
+        with_email: email.trim(),
+        parts: options.share_parts,
+        bring: options.share_bring,
+        hours: options.share_time,
+      })
+    },
+    /** Change what a company the job is shared with can see */
+    async setShareOptions(jobId: string, companyId: string, options: ShareOptions) {
+      await db.rpc('set_job_share', {
+        job: jobId,
+        company: companyId,
+        parts: options.share_parts,
+        bring: options.share_bring,
+        hours: options.share_time,
+      })
+    },
+    /** On another company's job: what they shared with my company */
+    async myShare(jobId: string): Promise<JobShare | null> {
+      const [share] = await db.select<JobShare>('job_shares', { job_id: jobId, company_id: (await me()).companyId })
+      return share ?? null
     },
     /** Stop sharing (the job's company), or remove a shared job from my list (the other company) */
     async unshareJob(jobId: string, companyId: string) {
@@ -308,8 +330,12 @@ export function createApi(db: Db, auth: Auth) {
     },
 
     // ---- Parts and orders ----
-    async listParts(jobId?: string) {
-      const parts = await db.select<Part>('parts', jobId ? { job_id: jobId } : {})
+    /** shared: another company's job, where parts come without their cost */
+    async listParts(jobId?: string, shared = false) {
+      const parts =
+        shared && jobId
+          ? (await db.rpc<Omit<Part, 'cost'>[]>('shared_parts', { job: jobId })).map((p) => ({ ...p, cost: null }))
+          : await db.select<Part>('parts', jobId ? { job_id: jobId } : {})
       return parts.map(fixPart).sort((a, b) => a.created_at.localeCompare(b.created_at))
     },
     async getPart(id: string) {
@@ -339,6 +365,19 @@ export function createApi(db: Db, auth: Auth) {
     async deletePart(id: string) {
       await db.remove('parts', { id })
     },
+    /** Parts on another company's job (no cost: only they set prices) */
+    async addSharedPart(input: Pick<PartInput, 'job_id' | 'item_id' | 'name' | 'quantity' | 'supplier'>) {
+      await db.rpc('add_shared_part', {
+        job: input.job_id,
+        item: input.item_id,
+        part_name: input.name,
+        qty: input.quantity,
+        part_supplier: input.supplier,
+      })
+    },
+    async setSharedPartStatus(partId: string, status: PartStatus) {
+      await db.rpc('set_shared_part_status', { part: partId, new_status: status })
+    },
 
     // ---- Bring list ----
     async listAllBringChecks() {
@@ -348,9 +387,10 @@ export function createApi(db: Db, auth: Auth) {
       return db.select<BringCheck>('bring_checks', { job_id: jobId })
     },
     async setBringCheck(jobId: string, key: string, checked: boolean) {
-      const id = `${jobId}:${key}`
-      if (checked) await db.upsert<BringCheck>('bring_checks', { id, job_id: jobId, key })
-      else await db.remove('bring_checks', { id })
+      const companyId = (await me()).companyId
+      // Only my company's ticks can be removed (each company packs its own van)
+      if (checked) await db.upsert<BringCheck>('bring_checks', { id: `${companyId}:${jobId}:${key}`, job_id: jobId, key })
+      else await db.remove('bring_checks', { job_id: jobId, key })
     },
 
     // ---- Time tracking ----
