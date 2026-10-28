@@ -5,7 +5,7 @@ import { Screen } from '../components/Screen'
 import { Button, Card, Divider, ErrorNote, Field, GroupLabel, Loading, Segmented } from '../components/ui'
 import { partStatusLabels } from '../components/PartRow'
 import { backend } from '../data/backend'
-import { formatMoney, withMarkup } from '../data/billing'
+import { formatMoney, partsMarkup, withMarkup } from '../data/billing'
 import { refreshAll, useItems, useJob, usePart, useSettings } from '../data/queries'
 import type { PartStatus } from '../data/types'
 
@@ -136,10 +136,10 @@ export function PartFormScreen() {
             placeholder="e.g. Home Depot"
           />
         </Card>
-        {settings && Number.isFinite(costNumber) && costNumber > 0 && (
+        {settings && Number.isFinite(costNumber) && costNumber > 0 && partsMarkup(settings, job) > 0 && (
           <p className="-mt-3 px-4 text-[14px] text-muted">
-            Customer pays {formatMoney(withMarkup(costNumber, settings.markup_percent))} with your{' '}
-            {settings.markup_percent}% markup.
+            Customer pays {formatMoney(withMarkup(costNumber, partsMarkup(settings, job)))} with your{' '}
+            {partsMarkup(settings, job)}% markup.
           </p>
         )}
 

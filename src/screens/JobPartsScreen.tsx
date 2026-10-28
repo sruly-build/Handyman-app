@@ -3,7 +3,7 @@ import { PlusIcon } from '../components/Icons'
 import { PartRow } from '../components/PartRow'
 import { Screen } from '../components/Screen'
 import { Card, Divider, EmptyState, Loading } from '../components/ui'
-import { formatMoney, withMarkup } from '../data/billing'
+import { formatMoney, partsMarkup, withMarkup } from '../data/billing'
 import { useItems, useJob, useParts, useSettings } from '../data/queries'
 
 /** Everything ordered for one job, and what was paid */
@@ -36,7 +36,7 @@ export function JobPartsScreen() {
             <Card className="p-4">
               <p className="text-[13px] font-semibold uppercase tracking-wide text-muted">Customer pays</p>
               <p className="text-[24px] font-bold text-brand">
-                {formatMoney(settings ? withMarkup(allCost, settings.markup_percent) : allCost)}
+                {formatMoney(settings ? withMarkup(allCost, partsMarkup(settings, job)) : allCost)}
               </p>
               <p className="text-[13px] text-muted">all parts, with markup</p>
             </Card>

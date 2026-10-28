@@ -29,6 +29,8 @@ export interface Job {
   assigned: string[]
   /** Things to bring that aren't tied to a punch list item */
   bring_extras: string[]
+  /** This job's own "markup on materials" switch (null = use the setting) */
+  markup_parts?: boolean | null
   created_at: string
 }
 
@@ -121,7 +123,12 @@ export interface Settings {
   business_email: string
   business_address: string
   markup_percent: number
+  /** Price of the first hour of a job (null = same as hourly_rate) */
+  first_hour_rate: number | null
+  /** Hourly rate (after the first hour, if there is a first-hour rate) */
   hourly_rate: number
+  /** Add the markup to materials */
+  markup_parts: boolean
   markup_labour: boolean
   labour_mode: LabourMode
 }

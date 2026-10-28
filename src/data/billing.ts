@@ -24,12 +24,18 @@ export interface BillSection {
   itemId: string | null
   title: string
   detail: string
-  labour: { hours: number; amount: number } | null
+  /** firstHours = how much of this time was billed at the first-hour rate */
+  labour: { hours: number; amount: number; firstHours: number } | null
   parts: BillPart[]
 }
 
 export interface Bill {
   sections: BillSection[]
+  /** Hourly rate after the first hour, and the first-hour rate (null if there isn't one) */
+  rate: number
+  firstRate: number | null
+  /** Markup % used on materials (0 when switched off) */
+  partsMarkup: number
   partsCost: number
   partsTotal: number
   labourHours: number
@@ -42,6 +48,8 @@ export interface BillInput {
   parts: Part[]
   entries: TimeEntry[]
   settings: Settings
+  /** The job, for its own "markup on materials" switch */
+  job?: { markup_parts?: boolean | null }
   now: number
 }
 
@@ -50,16 +58,39 @@ export function billedRate(settings: Settings): number {
   return settings.markup_labour ? withMarkup(settings.hourly_rate, settings.markup_percent) : settings.hourly_rate
 }
 
+/** First-hour rate the customer pays, or null when the first hour costs the same as the rest */
+export function billedFirstRate(settings: Settings): number | null {
+  const first = settings.first_hour_rate
+  if (!first || first <= 0) return null
+  return settings.markup_labour ? withMarkup(first, settings.markup_percent) : first
+}
+
+/** Markup % on materials for a job: its own switch if set, otherwise the setting (0 = off) */
+export function partsMarkup(settings: Settings, job?: { markup_parts?: boolean | null }): number {
+  const on = job?.markup_parts ?? settings.markup_parts
+  return on ? settings.markup_percent : 0
+}
+
 /**
  * Builds an estimate (from expected hours) or a bill (from tracked time).
  * Labour is charged either per task timer, or from arrival to finish,
  * depending on the setting.
  */
 export function buildBill(input: BillInput, basis: 'estimate' | 'actual'): Bill {
-  const { items, parts, entries, settings, now } = input
+  const { items, parts, entries, settings, job, now } = input
   const rate = billedRate(settings)
-  const pct = settings.markup_percent
+  const firstRate = billedFirstRate(settings)
+  const pct = partsMarkup(settings, job)
   const perTask = basis === 'estimate' || settings.labour_mode === 'task'
+
+  // The first hour of the whole job is charged at the first-hour rate, once,
+  // taken from the first labour on the bill; everything after is the normal rate.
+  let firstLeft = firstRate === null ? 0 : 1
+  const labourFor = (hours: number) => {
+    const firstHours = Math.min(hours, firstLeft)
+    firstLeft -= firstHours
+    return { hours, firstHours, amount: roundMoney(firstHours * (firstRate ?? 0) + (hours - firstHours) * rate) }
+  }
 
   const toBillPart = (p: Part): BillPart => ({
     id: p.id,
@@ -77,7 +108,7 @@ export function buildBill(input: BillInput, basis: 'estimate' | 'actual'): Bill 
       itemId: null,
       title: 'Labour',
       detail: 'Time on site',
-      labour: { hours, amount: roundMoney(hours * rate) },
+      labour: labourFor(hours),
       parts: [],
     })
   }
@@ -89,7 +120,7 @@ export function buildBill(input: BillInput, basis: 'estimate' | 'actual'): Bill 
         basis === 'estimate'
           ? (item.estimated_hours ?? 0)
           : msToHours(totalMs(entries.filter((e) => e.kind === 'task' && e.item_id === item.id), now))
-      if (hours > 0) labour = { hours, amount: roundMoney(hours * rate) }
+      if (hours > 0) labour = labourFor(hours)
     }
     const itemParts = parts.filter((p) => p.item_id === item.id).map(toBillPart)
     if (labour || itemParts.length || !perTask) {
@@ -108,6 +139,9 @@ export function buildBill(input: BillInput, basis: 'estimate' | 'actual'): Bill 
   const labourTotal = roundMoney(sections.reduce((s, x) => s + (x.labour?.amount ?? 0), 0))
   return {
     sections,
+    rate,
+    firstRate,
+    partsMarkup: pct,
     partsCost,
     partsTotal,
     labourHours,
@@ -121,7 +155,10 @@ export function invoiceLines(bill: Bill): InvoiceLine[] {
   return bill.sections.flatMap((s) => {
     const lines: InvoiceLine[] = []
     if (s.labour) {
-      lines.push({ kind: 'labour', description: s.title, detail: s.detail, quantity: s.labour.hours, amount: s.labour.amount })
+      const firstNote =
+        s.labour.firstHours > 0 && bill.firstRate !== null ? `includes first hour at ${formatMoney(bill.firstRate)}/h` : ''
+      const detail = [s.detail, firstNote].filter(Boolean).join(' · ')
+      lines.push({ kind: 'labour', description: s.title, detail, quantity: s.labour.hours, amount: s.labour.amount })
     } else if (s.itemId) {
       // Work done with no separate labour charge (e.g. labour billed as time on site)
       lines.push({ kind: 'work', description: s.title, detail: s.detail, quantity: 0, amount: 0 })

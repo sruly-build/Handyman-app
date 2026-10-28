@@ -26,7 +26,9 @@ export const defaultSettings: Settings = {
   business_email: '',
   business_address: '',
   markup_percent: 20,
+  first_hour_rate: null,
   hourly_rate: 75,
+  markup_parts: true,
   markup_labour: true,
   labour_mode: 'task',
 }
@@ -101,7 +103,13 @@ export function createApi(db: Db, auth: Auth) {
       const id = ownerId || (await me())
       const [row] = await db.select<Settings>('settings', { id })
       const s = { ...defaultSettings, ...row, id }
-      return { ...s, markup_percent: Number(s.markup_percent), hourly_rate: Number(s.hourly_rate) }
+      return {
+        ...s,
+        markup_percent: Number(s.markup_percent),
+        hourly_rate: Number(s.hourly_rate),
+        first_hour_rate: num(s.first_hour_rate),
+        markup_parts: s.markup_parts ?? true,
+      }
     },
     async saveSettings(settings: Settings) {
       return db.upsert<Settings>('settings', { ...settings, id: await me() })

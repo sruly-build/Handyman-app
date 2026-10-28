@@ -92,7 +92,7 @@ export function JobDetailScreen() {
   const paid = parts.filter((p) => p.status !== 'needed').reduce((sum, p) => sum + (p.cost ?? 0), 0)
   const onSite = totalMs(entries.filter((e) => e.kind === 'visit'), Date.now())
   const estimate = settings
-    ? buildBill({ items: items ?? [], parts, entries, settings, now: Date.now() }, 'estimate').total
+    ? buildBill({ items: items ?? [], parts, entries, settings, job, now: Date.now() }, 'estimate').total
     : 0
 
   return (

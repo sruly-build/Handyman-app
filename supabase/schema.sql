@@ -51,6 +51,9 @@ create table if not exists public.settings (
   markup_labour boolean not null default true,
   labour_mode text not null default 'task' check (labour_mode in ('task', 'visit'))
 );
+-- First-hour price (empty = same as the hourly rate) and the markup-on-materials switch
+alter table public.settings add column if not exists first_hour_rate numeric;
+alter table public.settings add column if not exists markup_parts boolean not null default true;
 -- Earlier versions had one shared row called 'main'
 alter table public.settings drop constraint if exists settings_id_check;
 alter table public.settings alter column id set default auth.uid()::text;
@@ -78,6 +81,8 @@ create table if not exists public.jobs (
 );
 alter table public.jobs add column if not exists assigned jsonb not null default '[]'::jsonb;
 alter table public.jobs add column if not exists bring_extras jsonb not null default '[]'::jsonb;
+-- Each job can turn the markup on materials on or off (empty = use the person's setting)
+alter table public.jobs add column if not exists markup_parts boolean;
 -- created_by is the job's owner. assigned lists the people it is shared with.
 -- Jobs made before ownership existed go to the first person who signed up.
 update public.jobs set created_by = (select id from auth.users order by created_at limit 1) where created_by is null;

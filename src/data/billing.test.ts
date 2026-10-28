@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { defaultSettings } from './api'
-import { buildBill, compareTime, invoiceLines, withMarkup } from './billing'
+import { buildBill, compareTime, invoiceLines, partsMarkup, withMarkup } from './billing'
 import type { Part, PunchItem, Settings, TimeEntry } from './types'
 
 const item = (id: string, estimated_hours: number | null): PunchItem => ({
@@ -88,5 +88,56 @@ describe('buildBill', () => {
   it('compares expected and actual time', () => {
     const c = compareTime(items, [entry('task', 'a', 3)], 0)
     expect(c[0]).toMatchObject({ estimated: 2, actual: 3 })
+  })
+})
+
+describe('first hour rate', () => {
+  const plain: Settings = { ...settings, first_hour_rate: 150, hourly_rate: 90, markup_labour: false }
+
+  it('charges the first hour of the job at the first-hour rate, then the hourly rate', () => {
+    // 3 hours on site: $150 + 2 × $90 = $330
+    const bill = buildBill(
+      { items: [item('a', null)], parts: [], entries: [entry('visit', null, 3)], settings: { ...plain, labour_mode: 'visit' }, now: 0 },
+      'actual',
+    )
+    expect(bill.labourTotal).toBe(330)
+  })
+
+  it('only counts the first hour once per job, across tasks and workers', () => {
+    // a: 0.5 h (all first-hour rate), b: 2 h (0.5 h first-hour rate + 1.5 h normal)
+    const entries = [entry('task', 'a', 0.5), entry('task', 'b', 2, 'u2')]
+    const bill = buildBill({ items: [item('a', null), item('b', null)], parts: [], entries, settings: plain, now: 0 }, 'actual')
+    expect(bill.sections[0].labour).toMatchObject({ hours: 0.5, firstHours: 0.5, amount: 75 })
+    expect(bill.sections[1].labour).toMatchObject({ hours: 2, firstHours: 0.5, amount: 75 + 135 })
+    expect(bill.labourTotal).toBe(285)
+    expect(invoiceLines(bill)[0].detail).toContain('first hour at $150.00/h')
+  })
+
+  it('a job shorter than an hour is charged only for the time worked', () => {
+    const bill = buildBill({ items: [item('a', 0.5)], parts: [], entries: [], settings: plain, now: 0 }, 'estimate')
+    expect(bill.labourTotal).toBe(75)
+  })
+
+  it('with no first-hour rate every hour is the same', () => {
+    const bill = buildBill({ items: [item('a', 2)], parts: [], entries: [], settings: { ...plain, first_hour_rate: null }, now: 0 }, 'estimate')
+    expect(bill.labourTotal).toBe(180)
+    expect(bill.firstRate).toBeNull()
+  })
+})
+
+describe('markup on materials switch', () => {
+  const parts = [part('p1', null, 50)]
+  it('is on by default', () => {
+    expect(buildBill({ items: [], parts, entries: [], settings, now: 0 }, 'estimate').partsTotal).toBe(60)
+  })
+  it('can be turned off in settings', () => {
+    const off = { ...settings, markup_parts: false }
+    expect(buildBill({ items: [], parts, entries: [], settings: off, now: 0 }, 'estimate').partsTotal).toBe(50)
+  })
+  it('a job can override the setting either way', () => {
+    expect(buildBill({ items: [], parts, entries: [], settings, job: { markup_parts: false }, now: 0 }, 'estimate').partsTotal).toBe(50)
+    const off = { ...settings, markup_parts: false }
+    expect(buildBill({ items: [], parts, entries: [], settings: off, job: { markup_parts: true }, now: 0 }, 'estimate').partsTotal).toBe(60)
+    expect(partsMarkup(off, { markup_parts: null })).toBe(0)
   })
 })

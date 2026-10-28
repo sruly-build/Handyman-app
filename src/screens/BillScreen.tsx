@@ -5,7 +5,7 @@ import { BeforeAfterList, DocHeader, LinesTable, Paper, PrintButton } from '../c
 import { Screen } from '../components/Screen'
 import { Button, Card, ErrorNote, Loading, Segmented, Toggle } from '../components/ui'
 import { backend } from '../data/backend'
-import { billedRate, buildBill, formatMoney, invoiceLines } from '../data/billing'
+import { buildBill, formatMoney, invoiceLines } from '../data/billing'
 import { refreshAll, useInvoice, useItems, useJob, useJobPhotos, useParts, useSettings, useTime } from '../data/queries'
 
 const longDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
@@ -26,19 +26,23 @@ export function BillScreen() {
 
   const create = useMutation({
     mutationFn: () => {
-      const bill = buildBill({ items: items!, parts: parts!, entries: entries!, settings: settings!, now: Date.now() }, 'actual')
+      const bill = buildBill({ items: items!, parts: parts!, entries: entries!, settings: settings!, job, now: Date.now() }, 'actual')
       return backend.createInvoice(jobId, {
         lines: invoiceLines(bill),
         parts_total: bill.partsTotal,
         labour_total: bill.labourTotal,
         total: bill.total,
-        markup_percent: settings!.markup_percent,
+        markup_percent: bill.partsMarkup,
       })
     },
     onSettled: () => refreshAll(qc),
   })
   const setPaid = useMutation({
     mutationFn: (paid: boolean) => backend.setInvoicePaid(invoice!.id, paid),
+    onSettled: () => refreshAll(qc),
+  })
+  const setMaterialsMarkup = useMutation({
+    mutationFn: (on: boolean) => backend.updateJob(jobId, { markup_parts: on }),
     onSettled: () => refreshAll(qc),
   })
   const remove = useMutation({
@@ -56,14 +60,17 @@ export function BillScreen() {
   }
 
   const shown = tab ?? (invoice ? 'invoice' : 'estimate')
-  const input = { items, parts, entries, settings, now: Date.now() }
+  const input = { items, parts, entries, settings, job, now: Date.now() }
   const estimate = buildBill(input, 'estimate')
   const actual = buildBill(input, 'actual')
   const missingHours = items.filter((i) => !i.estimated_hours).length
   const notDone = items.filter((i) => i.status !== 'done').length
-  const rateNote = `Labour at ${formatMoney(billedRate(settings))}/hour${
-    settings.labour_mode === 'visit' ? ', from arrival to finish' : ', per task'
-  }.`
+  const rates =
+    estimate.firstRate !== null
+      ? `First hour ${formatMoney(estimate.firstRate)}, then ${formatMoney(estimate.rate)}/hour`
+      : `Labour at ${formatMoney(estimate.rate)}/hour`
+  const rateNote = `${rates}${settings.labour_mode === 'visit' ? ', from arrival to finish' : ', per task'}.`
+  const materialsMarkupOn = (job.markup_parts ?? settings.markup_parts) === true
 
   return (
     <Screen title="Billing" eyebrow={job.customer_name} back={back}>
@@ -77,6 +84,21 @@ export function BillScreen() {
             { value: 'invoice', label: invoice ? `Invoice #${invoice.number}` : 'Invoice' },
           ]}
         />
+        {!invoice && (
+          <Card className="mt-3">
+            <Toggle
+              label={`Add ${settings.markup_percent}% markup to materials`}
+              hint={
+                materialsMarkupOn
+                  ? `Parts cost ${formatMoney(estimate.partsCost)}, customer pays ${formatMoney(estimate.partsTotal)}`
+                  : `Customer pays what you paid: ${formatMoney(estimate.partsCost)}`
+              }
+              checked={materialsMarkupOn}
+              onChange={(on) => setMaterialsMarkup.mutate(on)}
+            />
+          </Card>
+        )}
+        {setMaterialsMarkup.error && <ErrorNote error={setMaterialsMarkup.error} />}
       </div>
 
       {shown === 'estimate' && (
@@ -96,8 +118,7 @@ export function BillScreen() {
               total={estimate.total}
             />
             <p className="mt-4 text-[13px] text-muted">
-              Labour at {formatMoney(billedRate(settings))}/hour. This is an estimate; the final bill is based on the actual
-              time and parts.
+              {rates}. This is an estimate; the final bill is based on the actual time and parts.
             </p>
           </Paper>
           <PrintButton />
