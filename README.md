@@ -9,9 +9,9 @@ The full plan is in [docs/BUILD_PLAN.md](docs/BUILD_PLAN.md).
 All five stages from the build plan are built:
 
 - **Jobs and punch lists.** Create a job with the customer's details (the address box suggests real addresses as you type). **Call** and **Directions** are one tap away. Add each thing that needs fixing as a punch list item.
-- **Sign-up by approval only.** Nobody can create an account unless their email has been approved. The app's admin (the first person who signed up) approves new companies in **Me → Approve sign-ups**; company owners approve their own workers in **Me → Team**. Approved people tap **Sign up**, enter their email, then choose their own name and password. The database itself turns away everyone else.
+- **Sign-up by approval only.** Nobody can create an account unless their email has been approved. Only the app's admin (super admin: the first person who signed up) can approve anyone, in **Me → Approve sign-ups**, choosing whether each person starts a new company or joins an existing one. Company owners can't approve people. Approved people tap **Sign up**, enter their email, then choose their own name and password. The database itself turns away everyone else.
 - **Companies.** Each approved new sign-up gets their own company with its business profile (name, email, phone, address). A company sees only its own jobs, prices, parts, time, estimates and invoices. The database itself enforces this.
-- **Your team.** The company owner approves workers' emails from **Me → Team**. When a worker signs up with that email, they join the owner's company and see all its jobs, clock in, run timers and so on. Only the owner changes the business profile and prices.
+- **Your team.** To add a worker to a company, the admin approves their email for that company. When they sign up with that email, they join the company and see all its jobs, clock in, run timers and so on. Only the owner changes the business profile and prices.
 - **Sharing a job with another company.** On a job, tap **Share with another company** and enter an email someone at that company logs in with. They then see that job's **punch list and photos only**, and can update them. They never see your prices, parts, time, estimates or invoices.
 - **Forgot password.** The login screen sends a reset link by email, which opens the app to choose a new password.
 - **Each punch list item** has:
@@ -96,7 +96,7 @@ From now on, every change pushed to GitHub updates the app automatically.
 2. Tap the **Share** button (the square with an arrow), then **Add to Home Screen**, then **Add**.
 3. Open it from the green house icon. It opens full screen like a normal app.
 
-On your worker's phone: approve their email from **Me → Team** first, then have them open the link and tap **Sign up** with that email.
+On your worker's phone: approve their email in **Me → Approve sign-ups** (choose your company) first, then have them open the link and tap **Sign up** with that email.
 
 ---
 
@@ -117,7 +117,7 @@ On your worker's phone: approve their email from **Me → Team** first, then hav
 
 **Time**
 - [ ] Tap **Arrived**, start and stop a task timer, then tap **Finished**
-- [ ] Approve your worker's email in **Me → Team**, have them **Sign up** with that email on their phone, then tap **Arrived** on the same job. Your phone should show they're on site.
+- [ ] Approve your worker's email in **Me → Approve sign-ups** for your company, have them **Sign up** with that email on their phone, then tap **Arrived** on the same job. Your phone should show they're on site.
 - [ ] Open the job's **Time** screen and check the totals per person
 
 **Billing**

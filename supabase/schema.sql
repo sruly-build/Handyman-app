@@ -7,10 +7,10 @@
 -- How the data is organised:
 --   * Every login belongs to one COMPANY. A company sees only its own jobs,
 --     prices, parts, time and invoices.
---   * Sign-up is by approval only. The app's admin approves an email to start
---     a new company; a company owner approves an email to join their team.
---     Anyone else is turned away by the database. Approved people choose
---     their own password when they sign up.
+--   * Sign-up is by approval only, and only the app's admin (super admin) can
+--     approve: an email either starts a new company or joins an existing one.
+--     Nobody else can approve anyone, and anyone not approved is turned away
+--     by the database. Approved people choose their own password.
 --   * A company can share a job with another company. The other company
 --     then sees only that job's punch list and photos (never prices, parts,
 --     time or invoices).
@@ -64,9 +64,10 @@ alter table public.settings drop constraint if exists settings_id_check;
 alter table public.settings alter column id drop default;
 
 -- ---------------------------------------------------------------
--- Approved sign-ups. Only these emails can create an account.
---   company_id set:   approved by that company's owner, joins their team
---   company_id empty: approved by the app's admin, starts a new company
+-- Approved sign-ups (made only by the app's admin). Only these emails can
+-- create an account.
+--   company_id set:   joins that company as a team member
+--   company_id empty: starts a new company as its owner
 -- ---------------------------------------------------------------
 create table if not exists public.company_invites (
   email text primary key,
@@ -75,7 +76,7 @@ create table if not exists public.company_invites (
 );
 alter table public.company_invites alter column company_id drop not null;
 
--- The app's admins: they approve new companies
+-- The app's admin (super admin): the only one who can approve sign-ups
 create table if not exists public.app_admins (
   user_id uuid primary key references auth.users (id) on delete cascade
 );
@@ -437,32 +438,9 @@ begin
 end;
 $$;
 
--- Invite someone to join my company (owners only)
-create or replace function public.invite_member(invite_email text)
-returns void
-language plpgsql security definer set search_path = public
-as $$
-declare
-  clean text := lower(trim(invite_email));
-begin
-  if not public.i_am_owner() then
-    raise exception 'Only the company owner can invite people.';
-  end if;
-  if clean !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' then
-    raise exception 'That doesn''t look like an email address.';
-  end if;
-  if exists (select 1 from auth.users where lower(email) = clean) then
-    raise exception '% already has an account. Invites only work for people who haven''t signed up yet.', clean;
-  end if;
-  if exists (select 1 from public.company_invites where email = clean and company_id <> public.my_company()) then
-    raise exception '% has already been invited by another company.', clean;
-  end if;
-  -- An admin approval to start a company becomes an invite to this team instead
-  insert into public.company_invites (email, company_id) values (clean, public.my_company())
-  on conflict (email) do update set company_id = excluded.company_id
-  where public.company_invites.company_id is null;
-end;
-$$;
+-- Earlier versions let company owners invite their own team; now only the
+-- app's admin approves anyone (see approve_signup)
+drop function if exists public.invite_member(text);
 
 create or replace function public.i_am_admin()
 returns boolean
@@ -471,8 +449,10 @@ as $$
   select exists (select 1 from public.app_admins where user_id = auth.uid())
 $$;
 
--- Approve someone to sign up and start their own company (admins only)
-create or replace function public.approve_signup(approve_email text)
+-- Approve someone to sign up (the app's admin only). Leave join_company empty
+-- to let them start a new company, or pick a company for them to join.
+drop function if exists public.approve_signup(text);
+create or replace function public.approve_signup(approve_email text, join_company uuid default null)
 returns void
 language plpgsql security definer set search_path = public
 as $$
@@ -480,7 +460,7 @@ declare
   clean text := lower(trim(approve_email));
 begin
   if not public.i_am_admin() then
-    raise exception 'Only the app''s admin can approve new companies.';
+    raise exception 'Only the app''s admin can approve people.';
   end if;
   if clean !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' then
     raise exception 'That doesn''t look like an email address.';
@@ -488,8 +468,12 @@ begin
   if exists (select 1 from auth.users where lower(email) = clean) then
     raise exception '% already has an account.', clean;
   end if;
-  insert into public.company_invites (email, company_id) values (clean, null)
-  on conflict (email) do nothing;
+  if join_company is not null and not exists (select 1 from public.companies where id = join_company) then
+    raise exception 'That company doesn''t exist.';
+  end if;
+  -- Approving the same email again just changes where they go
+  insert into public.company_invites (email, company_id) values (clean, join_company)
+  on conflict (email) do update set company_id = excluded.company_id, created_at = now();
 end;
 $$;
 
@@ -557,7 +541,7 @@ drop policy if exists "delete time on my jobs" on public.time_entries;
 -- only the owner edits the business profile
 drop policy if exists "see own and partner companies" on public.companies;
 create policy "see own and partner companies" on public.companies for select to authenticated
-  using (id = public.my_company() or public.knows_company(id));
+  using (id = public.my_company() or public.knows_company(id) or public.i_am_admin());
 drop policy if exists "owner edits company" on public.companies;
 create policy "owner edits company" on public.companies for update to authenticated
   using (id = public.my_company() and public.i_am_owner())
@@ -586,14 +570,16 @@ create policy "owner changes prices" on public.settings for update to authentica
   using (id = public.my_company()::text and public.i_am_owner())
   with check (id = public.my_company()::text and public.i_am_owner());
 
--- Approvals: owners see and cancel their team's; the admin sees and cancels
--- new-company ones. New ones only go through invite_member / approve_signup.
+-- Approvals: only the app's admin sees and cancels them; new ones only go
+-- through approve_signup
 drop policy if exists "owner sees invites" on public.company_invites;
-create policy "owner sees invites" on public.company_invites for select to authenticated
-  using ((company_id = public.my_company() and public.i_am_owner()) or (company_id is null and public.i_am_admin()));
 drop policy if exists "owner cancels invites" on public.company_invites;
-create policy "owner cancels invites" on public.company_invites for delete to authenticated
-  using ((company_id = public.my_company() and public.i_am_owner()) or (company_id is null and public.i_am_admin()));
+drop policy if exists "admin sees approvals" on public.company_invites;
+create policy "admin sees approvals" on public.company_invites for select to authenticated
+  using (public.i_am_admin());
+drop policy if exists "admin cancels approvals" on public.company_invites;
+create policy "admin cancels approvals" on public.company_invites for delete to authenticated
+  using (public.i_am_admin());
 
 -- Admins: you can see whether you are one; nobody can make themselves one
 alter table public.app_admins enable row level security;

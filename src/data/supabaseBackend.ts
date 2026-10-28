@@ -13,7 +13,7 @@ function friendly(message: string): string {
   if (/signups not allowed/i.test(message)) return 'Sign-up is switched off in Supabase. Ask the app\'s admin to turn on "Allow new users to sign up".'
   // The database turned the sign-up away (see check_signup_allowed in supabase/schema.sql)
   if (/database error saving new user|not been approved/i.test(message))
-    return "This email hasn't been approved to sign up. Ask the app's admin, or your boss, to approve it first."
+    return "This email hasn't been approved to sign up. Ask the app's admin to approve it first."
   if (/at least 6 characters/i.test(message)) return 'The password needs at least 6 characters.'
   return message
 }

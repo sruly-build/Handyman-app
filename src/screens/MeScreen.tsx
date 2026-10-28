@@ -82,7 +82,7 @@ export function MeScreen() {
         <Divider />
         <RowLink to="/settings" Icon={GearIcon} title="Prices" value={user.role === 'owner' ? undefined : 'View'} />
         <Divider />
-        <RowLink to="/team" Icon={PeopleIcon} title="Team" value={user.role === 'owner' ? 'Add people' : undefined} />
+        <RowLink to="/team" Icon={PeopleIcon} title="Team" />
       </Card>
 
       {user.isAdmin && (
@@ -91,7 +91,9 @@ export function MeScreen() {
           <Card>
             <RowLink to="/approvals" Icon={CheckIcon} title="Approve sign-ups" />
           </Card>
-          <p className="mt-1.5 px-4 text-[13px] text-muted">Only people you approve can create a new company.</p>
+          <p className="mt-1.5 px-4 text-[13px] text-muted">
+            Only you can approve people. Nobody else can sign up, start a company or join one.
+          </p>
         </>
       )}
 

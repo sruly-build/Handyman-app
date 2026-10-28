@@ -121,23 +121,23 @@ export function createApi(db: Db, auth: Auth) {
     async saveCompany(patch: Omit<Company, 'id'>) {
       return db.update<Company>('companies', (await me()).companyId, patch)
     },
-    async listInvites(): Promise<Invite[]> {
-      return db.select<Invite>('company_invites', { company_id: (await me()).companyId })
-    },
-    /** Admin: emails approved to start a new company */
+    /** Admin only: every approved email that hasn't signed up yet */
     async listApprovals(): Promise<Invite[]> {
-      return db.select<Invite>('company_invites', {}, { isNull: 'company_id' })
+      const rows = await db.select<Invite>('company_invites')
+      return rows.sort((a, b) => b.created_at.localeCompare(a.created_at))
     },
-    async approveSignup(email: string) {
-      await db.rpc('approve_signup', { approve_email: email.trim() })
+    /** Admin only: approve an email to start a new company (no companyId) or join one */
+    async approveSignup(email: string, companyId: string | null) {
+      await db.rpc('approve_signup', { approve_email: email.trim(), join_company: companyId })
+    },
+    /** Admin only: every company, to choose where an approved person goes */
+    async listCompanies(): Promise<Company[]> {
+      return (await db.select<Company>('companies')).sort((a, b) => a.name.localeCompare(b.name))
     },
     /** Before signing up: may this email sign up, and how? */
     async signupStatus(email: string): Promise<SignupStatus> {
       if (db.mode === 'demo') return 'company'
       return db.rpc<SignupStatus>('signup_status', { check_email: email.trim() })
-    },
-    async inviteMember(email: string) {
-      await db.rpc('invite_member', { invite_email: email.trim() })
     },
     async cancelInvite(email: string) {
       await db.remove('company_invites', { email })

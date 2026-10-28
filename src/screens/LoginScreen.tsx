@@ -29,7 +29,7 @@ export function LoginScreen() {
     const status = await backend.signupStatus(email)
     if (status === 'none') {
       throw new Error(
-        "This email hasn't been approved to sign up yet. Ask the app's admin (or, to join a team, your boss) to approve it first.",
+        "This email hasn't been approved to sign up yet. Ask the app's admin to approve it first.",
       )
     }
     if (status === 'exists') {

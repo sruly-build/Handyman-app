@@ -19,7 +19,6 @@ export const keys = {
   people: ['people'] as const,
   settings: ['settings'] as const,
   company: (id?: string | null) => ['company', id ?? 'mine'] as const,
-  invites: ['invites'] as const,
   shares: (jobId: string) => ['shares', jobId] as const,
   invoice: (jobId: string) => ['invoice', jobId] as const,
 }
@@ -63,8 +62,8 @@ export const useSettings = () => useQuery({ queryKey: keys.settings, queryFn: ()
 /** A company's business profile (mine if no id is given) */
 export const useCompany = (id?: string | null, enabled = true) =>
   useQuery({ queryKey: keys.company(id), queryFn: () => backend.getCompany(id), enabled })
-export const useInvites = () => useQuery({ queryKey: keys.invites, queryFn: () => backend.listInvites() })
 export const useApprovals = () => useQuery({ queryKey: ['approvals'], queryFn: () => backend.listApprovals() })
+export const useCompanies = () => useQuery({ queryKey: ['companies'], queryFn: () => backend.listCompanies() })
 export const useShares = (jobId: string, enabled = true) =>
   useQuery({ queryKey: keys.shares(jobId), queryFn: () => backend.listShares(jobId), enabled })
 export const useInvoice = (jobId: string) =>
