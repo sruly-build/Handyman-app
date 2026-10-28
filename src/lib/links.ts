@@ -12,6 +12,16 @@ export function smsLink(phone: string, body: string): string {
 }
 
 /**
+ * Link that opens WhatsApp with a message ready to send. WhatsApp needs the
+ * country code: numbers typed without one are taken as US/Canada (+1).
+ */
+export function whatsappLink(phone: string, body: string): string {
+  let digits = phone.replace(/\D/g, '')
+  if (!phone.trim().startsWith('+') && digits.length === 10) digits = `1${digits}`
+  return `https://wa.me/${digits}?text=${encodeURIComponent(body)}`
+}
+
+/**
  * Directions to an address. Apple Maps links open the Maps app on iPhone
  * and automatically fall back to Google Maps on other devices.
  */

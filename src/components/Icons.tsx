@@ -75,6 +75,12 @@ export const MessageIcon = (p: IconProps) => (
     <path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5 4V6a1 1 0 0 1 1-1Z" />
   </Icon>
 )
+export const WhatsAppIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 20l1.3-3.9A8 8 0 1 1 8 18.8L4 20Z" />
+    <path d="M9.5 9.5c0 2.5 2.5 5 5 5l1-1.2-1.6-.8-.7.7a3.5 3.5 0 0 1-2.4-2.4l.7-.7-.8-1.6-1.2 1Z" />
+  </Icon>
+)
 export const DirectionsIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M3 11 21 3l-8 18-2-8-8-2Z" />

@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { directionsLink, phoneLink } from './links'
+import { smsLink, whatsappLink } from './links'
 
-describe('links', () => {
-  it('strips formatting from phone numbers', () => {
-    expect(phoneLink('(555) 123-4567')).toBe('tel:5551234567')
-    expect(phoneLink('+44 20 7946 0000')).toBe('tel:+442079460000')
+describe('message links', () => {
+  it('texts the number with the message', () => {
+    expect(smsLink('(555) 123-4567', 'On my way')).toBe('sms:5551234567?&body=On%20my%20way')
   })
-  it('encodes addresses for maps', () => {
-    expect(directionsLink('12 Oak St, Springfield')).toBe('https://maps.apple.com/?daddr=12%20Oak%20St%2C%20Springfield')
+  it('adds +1 for WhatsApp when there is no country code', () => {
+    expect(whatsappLink('(555) 123-4567', 'Hi')).toBe('https://wa.me/15551234567?text=Hi')
+    expect(whatsappLink('1-555-123-4567', 'Hi')).toBe('https://wa.me/15551234567?text=Hi')
+  })
+  it('keeps a country code that was typed in', () => {
+    expect(whatsappLink('+44 7700 900123', 'Hi')).toBe('https://wa.me/447700900123?text=Hi')
+    expect(whatsappLink('+972 50 123 4567', 'Hi')).toBe('https://wa.me/972501234567?text=Hi')
   })
 })

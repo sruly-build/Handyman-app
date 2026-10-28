@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useCompany } from '../data/queries'
 import { useUser } from '../lib/auth'
-import { smsLink } from '../lib/links'
-import { CloseIcon, MessageIcon } from './Icons'
+import { smsLink, whatsappLink } from '../lib/links'
+import { CloseIcon, MessageIcon, WhatsAppIcon } from './Icons'
 import { TextArea } from './ui'
 
 type Kind = 'way' | 'late' | 'here' | 'custom'
@@ -28,7 +28,7 @@ export function arrivalMessage(kind: Kind, minutes: number, customer: string, me
   return `${hello} `
 }
 
-/** Pop-up for texting the customer when you'll be there; opens Messages with the text filled in */
+/** Pop-up for messaging the customer when you'll be there; opens Messages or WhatsApp with the text filled in */
 export function TextClientSheet({ phone, customer, onClose }: { phone: string; customer: string; onClose: () => void }) {
   const user = useUser()
   const { data: company } = useCompany()
@@ -46,12 +46,12 @@ export function TextClientSheet({ phone, customer, onClose }: { phone: string; c
     <div className="animate-fade-in fixed inset-0 z-50 flex items-end bg-black/40" onClick={onClose}>
       <div
         role="dialog"
-        aria-label="Text the customer"
+        aria-label="Message the customer"
         className="animate-sheet-up mx-auto w-full max-w-lg rounded-t-3xl bg-card px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center">
-          <h2 className="flex-1 text-[20px] font-bold">Text {customer.trim().split(/\s+/)[0] || 'the customer'}</h2>
+          <h2 className="flex-1 text-[20px] font-bold">Message {customer.trim().split(/\s+/)[0] || 'the customer'}</h2>
           <button onClick={onClose} className="flex h-11 w-11 items-center justify-center text-muted" aria-label="Close">
             <CloseIcon size={22} />
           </button>
@@ -108,14 +108,26 @@ export function TextClientSheet({ phone, customer, onClose }: { phone: string; c
         </div>
         <p className="mt-1.5 px-1 text-[13px] text-muted">You can change the words before sending.</p>
 
-        <a
-          href={smsLink(phone, message)}
-          onClick={() => setTimeout(onClose, 300)}
-          className="mt-4 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-[17px] font-semibold text-white active:bg-brand-dark"
-        >
-          <MessageIcon size={22} />
-          Open in Messages
-        </a>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <a
+            href={smsLink(phone, message)}
+            onClick={() => setTimeout(onClose, 300)}
+            className="flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-brand text-[17px] font-semibold text-white active:bg-brand-dark"
+          >
+            <MessageIcon size={22} />
+            Text
+          </a>
+          <a
+            href={whatsappLink(phone, message)}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => setTimeout(onClose, 300)}
+            className="flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-[#25D366] text-[17px] font-semibold text-white active:opacity-80"
+          >
+            <WhatsAppIcon size={22} />
+            WhatsApp
+          </a>
+        </div>
       </div>
     </div>
   )
