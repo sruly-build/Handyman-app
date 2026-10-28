@@ -9,8 +9,9 @@ The full plan is in [docs/BUILD_PLAN.md](docs/BUILD_PLAN.md).
 All five stages from the build plan are built:
 
 - **Jobs and punch lists.** Create a job with the customer's details (the address box suggests real addresses as you type). **Call** and **Directions** are one tap away. Add each thing that needs fixing as a punch list item.
-- **Companies.** Anyone can **Sign up** on the login screen, which creates their own company with its business profile (name, email, phone, address). A company sees only its own jobs, prices, parts, time, estimates and invoices. The database itself enforces this.
-- **Your team.** The company owner invites workers from **Me → Team** by email. When a worker signs up with that email, they join the owner's company and see all its jobs, clock in, run timers and so on. Only the owner changes the business profile and prices.
+- **Sign-up by approval only.** Nobody can create an account unless their email has been approved. The app's admin (the first person who signed up) approves new companies in **Me → Approve sign-ups**; company owners approve their own workers in **Me → Team**. Approved people tap **Sign up**, enter their email, then choose their own name and password. The database itself turns away everyone else.
+- **Companies.** Each approved new sign-up gets their own company with its business profile (name, email, phone, address). A company sees only its own jobs, prices, parts, time, estimates and invoices. The database itself enforces this.
+- **Your team.** The company owner approves workers' emails from **Me → Team**. When a worker signs up with that email, they join the owner's company and see all its jobs, clock in, run timers and so on. Only the owner changes the business profile and prices.
 - **Sharing a job with another company.** On a job, tap **Share with another company** and enter an email someone at that company logs in with. They then see that job's **punch list and photos only**, and can update them. They never see your prices, parts, time, estimates or invoices.
 - **Forgot password.** The login screen sends a reset link by email, which opens the app to choose a new password.
 - **Each punch list item** has:
@@ -60,9 +61,9 @@ You need three free accounts: **GitHub** (you already have it), **Supabase** (da
 
 ### Step 2: Turn on sign-up and password emails
 
-People now create their own accounts from the app's **Sign up** button, so:
+Approved people create their own accounts (and passwords) from the app's **Sign up** button. Nobody else can: the database turns away any email that hasn't been approved. So:
 
-1. In Supabase, go to **Authentication → Sign In / Providers** and make sure **Allow new users to sign up** is **on**.
+1. In Supabase, go to **Authentication → Sign In / Providers** and make sure **Allow new users to sign up** is **on**. (This is safe: the approval check happens in the database, so only approved emails get through.)
 2. On the same page, leave **Confirm email** **on**. New people get an email with a link to confirm their address before they can log in.
 3. Once your app is on the web (Step 4), go to **Authentication → URL Configuration**:
    - Set **Site URL** to your app's link, e.g. `https://handyman-app.vercel.app`
@@ -70,9 +71,11 @@ People now create their own accounts from the app's **Sign up** button, so:
 
    This is where the confirm-email and reset-password links send people back to.
 
-> ⚠️ **Email limit:** Supabase's built-in email service only sends a few emails per hour, and is meant for testing. Before you open sign-ups to other companies, connect a real email service under **Project Settings → Authentication → SMTP Settings** (for example Resend, which has a free plan).
+> ⚠️ **Email limit:** Supabase's built-in email service only sends a few emails per hour, and is meant for testing. Before you approve other companies, connect a real email service under **Project Settings → Authentication → SMTP Settings** (for example Resend, which has a free plan).
 
-**Existing logins** (made before this version) keep working. Each one became its own company, with its business details and prices kept.
+**Existing logins** (made before this version) keep working. Each one became its own company, with its business details and prices kept. The first person who ever signed up is the app's admin.
+
+**Adding a login from the Supabase dashboard** (Authentication → Users → Add user) also needs the email approved in the app first.
 
 ### Step 3: Connect the app to Supabase ✅ done
 
@@ -93,7 +96,7 @@ From now on, every change pushed to GitHub updates the app automatically.
 2. Tap the **Share** button (the square with an arrow), then **Add to Home Screen**, then **Add**.
 3. Open it from the green house icon. It opens full screen like a normal app.
 
-On your worker's phone: invite their email from **Me → Team** first, then have them open the link and tap **Sign up** with that email.
+On your worker's phone: approve their email from **Me → Team** first, then have them open the link and tap **Sign up** with that email.
 
 ---
 
@@ -114,7 +117,7 @@ On your worker's phone: invite their email from **Me → Team** first, then have
 
 **Time**
 - [ ] Tap **Arrived**, start and stop a task timer, then tap **Finished**
-- [ ] Invite your worker from **Me → Team**, have them **Sign up** with that email on their phone, then tap **Arrived** on the same job. Your phone should show they're on site.
+- [ ] Approve your worker's email in **Me → Team**, have them **Sign up** with that email on their phone, then tap **Arrived** on the same job. Your phone should show they're on site.
 - [ ] Open the job's **Time** screen and check the totals per person
 
 **Billing**
@@ -123,7 +126,8 @@ On your worker's phone: invite their email from **Me → Team** first, then have
 
 **Accounts and sharing**
 - [ ] Log out, tap **Forgot password?**, and check the reset email brings you back to choose a new password
-- [ ] Have another company sign up (or use a second email), then **Share with another company** on a job. Log in as them: they should see that job's punch list and photos, but no prices, parts, time or bill.
+- [ ] Try signing up with an email nobody approved: it should be turned away
+- [ ] Approve another company in **Me → Approve sign-ups**, have them sign up, then **Share with another company** on a job. Log in as them: they should see that job's punch list and photos, but no prices, parts, time or bill.
 
 ---
 

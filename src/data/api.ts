@@ -20,6 +20,7 @@ import type {
   Profile,
   PunchItem,
   Settings,
+  SignupStatus,
   TimeEntry,
 } from './types'
 
@@ -122,6 +123,18 @@ export function createApi(db: Db, auth: Auth) {
     },
     async listInvites(): Promise<Invite[]> {
       return db.select<Invite>('company_invites', { company_id: (await me()).companyId })
+    },
+    /** Admin: emails approved to start a new company */
+    async listApprovals(): Promise<Invite[]> {
+      return db.select<Invite>('company_invites', {}, { isNull: 'company_id' })
+    },
+    async approveSignup(email: string) {
+      await db.rpc('approve_signup', { approve_email: email.trim() })
+    },
+    /** Before signing up: may this email sign up, and how? */
+    async signupStatus(email: string): Promise<SignupStatus> {
+      if (db.mode === 'demo') return 'company'
+      return db.rpc<SignupStatus>('signup_status', { check_email: email.trim() })
     },
     async inviteMember(email: string) {
       await db.rpc('invite_member', { invite_email: email.trim() })

@@ -10,7 +10,10 @@ function friendly(message: string): string {
   if (message === 'Email not confirmed') return 'Please confirm your email first: open the link we emailed you.'
   if (/already registered/i.test(message)) return 'That email already has an account. Try logging in, or reset your password.'
   if (/rate limit/i.test(message)) return 'Too many emails were sent just now. Please wait a few minutes and try again.'
-  if (/signups not allowed/i.test(message)) return 'Sign-up is switched off for this app. Ask the owner to turn it on in Supabase.'
+  if (/signups not allowed/i.test(message)) return 'Sign-up is switched off in Supabase. Ask the app\'s admin to turn on "Allow new users to sign up".'
+  // The database turned the sign-up away (see check_signup_allowed in supabase/schema.sql)
+  if (/database error saving new user|not been approved/i.test(message))
+    return "This email hasn't been approved to sign up. Ask the app's admin, or your boss, to approve it first."
   if (/at least 6 characters/i.test(message)) return 'The password needs at least 6 characters.'
   return message
 }
@@ -24,7 +27,10 @@ export function createSupabase(url: string, anonKey: string): { db: Db; auth: Au
 
   async function toAppUser(user: User | null): Promise<AppUser | null> {
     if (!user) return null
-    const { data } = await sb.from('profiles').select('full_name, company_id, role').eq('id', user.id).maybeSingle()
+    const [{ data }, { data: admin }] = await Promise.all([
+      sb.from('profiles').select('full_name, company_id, role').eq('id', user.id).maybeSingle(),
+      sb.from('app_admins').select('user_id').eq('user_id', user.id).maybeSingle(),
+    ])
     const email = user.email ?? ''
     return {
       id: user.id,
@@ -32,6 +38,7 @@ export function createSupabase(url: string, anonKey: string): { db: Db; auth: Au
       name: data?.full_name || email.split('@')[0],
       companyId: data?.company_id ?? user.id,
       role: (data?.role as Role) ?? 'owner',
+      isAdmin: Boolean(admin),
     }
   }
 

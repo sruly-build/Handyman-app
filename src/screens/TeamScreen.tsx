@@ -65,7 +65,7 @@ export function TeamScreen() {
         <>
           {invites.length > 0 && (
             <section className="mt-6">
-              <GroupLabel>Invited, not signed up yet</GroupLabel>
+              <GroupLabel>Approved, not signed up yet</GroupLabel>
               <Card>
                 {invites.map((inv, i) => (
                   <div key={inv.email}>
@@ -87,7 +87,7 @@ export function TeamScreen() {
           )}
 
           <form onSubmit={submit} className="mt-6 space-y-3">
-            <GroupLabel>Add someone to your team</GroupLabel>
+            <GroupLabel>Approve someone to join your team</GroupLabel>
             <Card>
               <Field
                 label="Their email"
@@ -103,15 +103,15 @@ export function TeamScreen() {
             {invite.error && <ErrorNote error={invite.error} />}
             {sent && (
               <p className="rounded-2xl bg-brand-soft px-4 py-3 text-[15px] text-brand-dark">
-                Invite saved. Now send <strong>{sent}</strong> the app link and ask them to tap <strong>Sign up</strong>{' '}
-                using that email. They'll join your company automatically.
+                Approved. Now send <strong>{sent}</strong> the app link and ask them to tap <strong>Sign up</strong> with
+                that email. They choose their own password and join your company automatically.
               </p>
             )}
             <Button type="submit" variant="secondary" disabled={invite.isPending || !email.trim()}>
-              {invite.isPending ? 'Saving…' : 'Invite'}
+              {invite.isPending ? 'Saving…' : 'Approve'}
             </Button>
             <p className="px-4 text-[13px] text-muted">
-              The app doesn't send the invite email itself: tell them about it by text or email.
+              Only approved emails can sign up. The app doesn't email them: let them know by text or email.
             </p>
           </form>
         </>

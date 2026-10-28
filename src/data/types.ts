@@ -12,6 +12,8 @@ export interface AppUser {
   companyId: string
   /** owner runs the company (profile, prices, team); member works jobs */
   role: Role
+  /** The app's admin approves who may sign up and start a new company */
+  isAdmin: boolean
 }
 
 export interface Profile {
@@ -38,11 +40,15 @@ export interface JobShare {
   company_name?: string
 }
 
+/** An email approved to sign up: to join a team (company_id) or start a new company (null) */
 export interface Invite {
   email: string
-  company_id: string
+  company_id: string | null
   created_at: string
 }
+
+/** Whether an email may sign up: start a company, join a team, already has an account, or not approved */
+export type SignupStatus = 'company' | 'team' | 'exists' | 'none'
 
 export interface Job {
   id: string

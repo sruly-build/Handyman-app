@@ -64,6 +64,7 @@ export const useSettings = () => useQuery({ queryKey: keys.settings, queryFn: ()
 export const useCompany = (id?: string | null, enabled = true) =>
   useQuery({ queryKey: keys.company(id), queryFn: () => backend.getCompany(id), enabled })
 export const useInvites = () => useQuery({ queryKey: keys.invites, queryFn: () => backend.listInvites() })
+export const useApprovals = () => useQuery({ queryKey: ['approvals'], queryFn: () => backend.listApprovals() })
 export const useShares = (jobId: string, enabled = true) =>
   useQuery({ queryKey: keys.shares(jobId), queryFn: () => backend.listShares(jobId), enabled })
 export const useInvoice = (jobId: string) =>

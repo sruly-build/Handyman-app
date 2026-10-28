@@ -128,6 +128,7 @@ export function createDemo(): { db: Db; auth: Auth } {
       name: profile?.full_name || fallback.charAt(0).toUpperCase() + fallback.slice(1),
       companyId: DEMO_COMPANY,
       role: 'owner',
+      isAdmin: true,
     }
   }
 

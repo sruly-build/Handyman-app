@@ -7,8 +7,10 @@
 -- How the data is organised:
 --   * Every login belongs to one COMPANY. A company sees only its own jobs,
 --     prices, parts, time and invoices.
---   * Signing up creates a new company, unless the email was invited by a
---     company owner, in which case the person joins that company.
+--   * Sign-up is by approval only. The app's admin approves an email to start
+--     a new company; a company owner approves an email to join their team.
+--     Anyone else is turned away by the database. Approved people choose
+--     their own password when they sign up.
 --   * A company can share a job with another company. The other company
 --     then sees only that job's punch list and photos (never prices, parts,
 --     time or invoices).
@@ -62,16 +64,53 @@ alter table public.settings drop constraint if exists settings_id_check;
 alter table public.settings alter column id drop default;
 
 -- ---------------------------------------------------------------
--- Team invitations: when this email signs up, it joins the company
+-- Approved sign-ups. Only these emails can create an account.
+--   company_id set:   approved by that company's owner, joins their team
+--   company_id empty: approved by the app's admin, starts a new company
 -- ---------------------------------------------------------------
 create table if not exists public.company_invites (
   email text primary key,
-  company_id uuid not null references public.companies (id) on delete cascade,
+  company_id uuid references public.companies (id) on delete cascade,
   created_at timestamptz not null default now()
 );
+alter table public.company_invites alter column company_id drop not null;
+
+-- The app's admins: they approve new companies
+create table if not exists public.app_admins (
+  user_id uuid primary key references auth.users (id) on delete cascade
+);
+-- Upgrading: the first person who ever signed up becomes the admin
+insert into public.app_admins (user_id)
+select id from auth.users
+where not exists (select 1 from public.app_admins)
+order by created_at
+limit 1;
 
 -- ---------------------------------------------------------------
--- New sign-ups: join the company that invited them, or start a new one
+-- Turn away sign-ups that weren't approved. (On a brand-new app with no
+-- admin yet, the very first sign-up is allowed and becomes the admin.)
+-- ---------------------------------------------------------------
+create or replace function public.check_signup_allowed()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  if exists (select 1 from public.app_admins)
+     and not exists (select 1 from public.company_invites where email = lower(new.email)) then
+    raise exception 'This email has not been approved to sign up.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists before_auth_user_created on auth.users;
+create trigger before_auth_user_created
+  before insert on auth.users
+  for each row execute function public.check_signup_allowed();
+
+-- ---------------------------------------------------------------
+-- New sign-ups: join the team that approved them, or start a new company
 -- ---------------------------------------------------------------
 create or replace function public.handle_new_user()
 returns trigger
@@ -84,10 +123,11 @@ declare
   person_role text := 'owner';
 begin
   select * into invite from public.company_invites where email = lower(new.email);
-  if found then
+  -- The approval is used up either way
+  delete from public.company_invites where email = lower(new.email);
+  if invite.company_id is not null then
     company := invite.company_id;
     person_role := 'member';
-    delete from public.company_invites where email = invite.email;
   else
     company := new.id;
     insert into public.companies (id, name, email)
@@ -108,6 +148,11 @@ begin
     person_role
   )
   on conflict (id) do nothing;
+
+  -- A brand-new app's first sign-up becomes its admin
+  if not exists (select 1 from public.app_admins) then
+    insert into public.app_admins (user_id) values (new.id);
+  end if;
   return new;
 end;
 $$;
@@ -412,10 +457,67 @@ begin
   if exists (select 1 from public.company_invites where email = clean and company_id <> public.my_company()) then
     raise exception '% has already been invited by another company.', clean;
   end if;
+  -- An admin approval to start a company becomes an invite to this team instead
   insert into public.company_invites (email, company_id) values (clean, public.my_company())
+  on conflict (email) do update set company_id = excluded.company_id
+  where public.company_invites.company_id is null;
+end;
+$$;
+
+create or replace function public.i_am_admin()
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select exists (select 1 from public.app_admins where user_id = auth.uid())
+$$;
+
+-- Approve someone to sign up and start their own company (admins only)
+create or replace function public.approve_signup(approve_email text)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+declare
+  clean text := lower(trim(approve_email));
+begin
+  if not public.i_am_admin() then
+    raise exception 'Only the app''s admin can approve new companies.';
+  end if;
+  if clean !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' then
+    raise exception 'That doesn''t look like an email address.';
+  end if;
+  if exists (select 1 from auth.users where lower(email) = clean) then
+    raise exception '% already has an account.', clean;
+  end if;
+  insert into public.company_invites (email, company_id) values (clean, null)
   on conflict (email) do nothing;
 end;
 $$;
+
+-- Before signing up: is this email approved? Returns 'company' (start a new
+-- company), 'team' (join the team that invited it), 'exists' (already has an
+-- account) or 'none' (not approved). Anyone can ask, including before logging in.
+create or replace function public.signup_status(check_email text)
+returns text
+language plpgsql stable security definer set search_path = public
+as $$
+declare
+  clean text := lower(trim(check_email));
+  invite public.company_invites;
+begin
+  if exists (select 1 from auth.users where lower(email) = clean) then
+    return 'exists';
+  end if;
+  if not exists (select 1 from public.app_admins) then
+    return 'company';
+  end if;
+  select * into invite from public.company_invites where email = clean;
+  if not found then
+    return 'none';
+  end if;
+  return case when invite.company_id is null then 'company' else 'team' end;
+end;
+$$;
+grant execute on function public.signup_status(text) to anon, authenticated;
 
 -- ---------------------------------------------------------------
 -- Security rules. The database itself enforces these, so nobody can see
@@ -484,13 +586,20 @@ create policy "owner changes prices" on public.settings for update to authentica
   using (id = public.my_company()::text and public.i_am_owner())
   with check (id = public.my_company()::text and public.i_am_owner());
 
--- Invitations: the owner sees and cancels them (new ones go through invite_member)
+-- Approvals: owners see and cancel their team's; the admin sees and cancels
+-- new-company ones. New ones only go through invite_member / approve_signup.
 drop policy if exists "owner sees invites" on public.company_invites;
 create policy "owner sees invites" on public.company_invites for select to authenticated
-  using (company_id = public.my_company() and public.i_am_owner());
+  using ((company_id = public.my_company() and public.i_am_owner()) or (company_id is null and public.i_am_admin()));
 drop policy if exists "owner cancels invites" on public.company_invites;
 create policy "owner cancels invites" on public.company_invites for delete to authenticated
-  using (company_id = public.my_company() and public.i_am_owner());
+  using ((company_id = public.my_company() and public.i_am_owner()) or (company_id is null and public.i_am_admin()));
+
+-- Admins: you can see whether you are one; nobody can make themselves one
+alter table public.app_admins enable row level security;
+drop policy if exists "see own admin row" on public.app_admins;
+create policy "see own admin row" on public.app_admins for select to authenticated
+  using (user_id = auth.uid());
 
 -- Jobs: your company's jobs, plus the basic details of jobs shared with you
 drop policy if exists "see my company's and shared jobs" on public.jobs;

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { GearIcon, InvoiceIcon, PeopleIcon } from '../components/Icons'
+import { CheckIcon, GearIcon, InvoiceIcon, PeopleIcon } from '../components/Icons'
 import { Screen } from '../components/Screen'
 import { Button, Card, Divider, ErrorNote, Field, RowLink, SectionTitle } from '../components/ui'
 import { backend } from '../data/backend'
@@ -82,8 +82,18 @@ export function MeScreen() {
         <Divider />
         <RowLink to="/settings" Icon={GearIcon} title="Prices" value={user.role === 'owner' ? undefined : 'View'} />
         <Divider />
-        <RowLink to="/team" Icon={PeopleIcon} title="Team" value={user.role === 'owner' ? 'Invite' : undefined} />
+        <RowLink to="/team" Icon={PeopleIcon} title="Team" value={user.role === 'owner' ? 'Add people' : undefined} />
       </Card>
+
+      {user.isAdmin && (
+        <>
+          <SectionTitle>App admin</SectionTitle>
+          <Card>
+            <RowLink to="/approvals" Icon={CheckIcon} title="Approve sign-ups" />
+          </Card>
+          <p className="mt-1.5 px-4 text-[13px] text-muted">Only people you approve can create a new company.</p>
+        </>
+      )}
 
       <SectionTitle>App</SectionTitle>
       <Card>

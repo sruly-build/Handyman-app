@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { TabBar } from './components/TabBar'
 import { Loading } from './components/ui'
 import { useAuth } from './lib/auth'
+import { ApprovalsScreen } from './screens/ApprovalsScreen'
 import { BillScreen } from './screens/BillScreen'
 import { BusinessProfileScreen } from './screens/BusinessProfileScreen'
 import { SetPasswordScreen } from './screens/SetPasswordScreen'
@@ -56,6 +57,7 @@ export function App() {
         <Route path="/settings" element={<SettingsScreen />} />
         <Route path="/business" element={<BusinessProfileScreen />} />
         <Route path="/team" element={<TeamScreen />} />
+        <Route path="/approvals" element={<ApprovalsScreen />} />
         <Route path="/jobs/:jobId/share" element={<ShareJobScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
