@@ -70,6 +70,11 @@ export const PhoneIcon = (p: IconProps) => (
     <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2" />
   </Icon>
 )
+export const MessageIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5 4V6a1 1 0 0 1 1-1Z" />
+  </Icon>
+)
 export const DirectionsIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M3 11 21 3l-8 18-2-8-8-2Z" />

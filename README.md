@@ -8,7 +8,7 @@ The full plan is in [docs/BUILD_PLAN.md](docs/BUILD_PLAN.md).
 
 All five stages from the build plan are built:
 
-- **Jobs and punch lists.** Create a job with the customer's details (the address box suggests real addresses as you type). **Call** and **Directions** are one tap away. Add each thing that needs fixing as a punch list item.
+- **Jobs and punch lists.** Create a job with the customer's details (the address box suggests real addresses as you type). **Call**, **Text** and **Directions** are one tap away. **Text** offers ready-made messages ("On my way, there in about 30 minutes", "Running late", "I'm here", or your own), which you can edit before it opens in Messages. Add each thing that needs fixing as a punch list item.
 - **Sign-up by approval only.** Nobody can create an account unless their email has been approved. Only the app's admin (super admin: the first person who signed up) can approve anyone, in **Me → Approve sign-ups**, choosing whether each person starts a new company or joins an existing one. Company owners can't approve people. Approved people tap **Sign up**, enter their email, then choose their own name and password. The database itself turns away everyone else.
 - **Companies.** Each approved new sign-up gets their own company with its business profile (name, email, phone, address). A company sees only its own jobs, prices, parts, time, estimates and invoices. The database itself enforces this.
 - **Your team.** To add a worker to a company, the admin approves their email for that company. When they sign up with that email, they join the company and see all its jobs, clock in, run timers and so on. Only the owner changes the business profile and prices.
@@ -109,7 +109,7 @@ On your worker's phone: approve their email in **Me → Approve sign-ups** (choo
 - [ ] Log in with your email and password
 - [ ] Open **Me → Business profile** and check your business name, email, phone and address
 - [ ] Open **Me → Prices** and set your service call, hourly rate and markup
-- [ ] Create a job with a real phone number and address. Check that **Call** and **Directions** work.
+- [ ] Create a job with a real phone number and address. Check that **Call**, **Text** and **Directions** work.
 - [ ] Add an item, take a **before photo**, add a measurement, tools and notes, and add the expected hours. Go back and reopen it: everything should still be there.
 - [ ] Tap a photo, then **Draw on it**. Draw a line, add text, and save.
 

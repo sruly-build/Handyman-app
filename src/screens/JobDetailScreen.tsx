@@ -1,10 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ChecklistIcon,
   ChevronIcon,
   ClockIcon,
   DirectionsIcon,
+  MessageIcon,
   InvoiceIcon,
   PhoneIcon,
   PhotosIcon,
@@ -13,6 +15,7 @@ import {
   TagIcon,
 } from '../components/Icons'
 import { Screen } from '../components/Screen'
+import { TextClientSheet } from '../components/TextClient'
 import { ClockCard } from '../components/TimeWidgets'
 import {
   Card,
@@ -70,6 +73,7 @@ export function JobDetailScreen() {
   const { data: payments = [] } = usePayments(jobId)
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const [texting, setTexting] = useState(false)
   const { data: ownerCompany } = useCompany(job?.company_id, partner)
   const { data: shares = [] } = useShares(jobId, Boolean(job) && !partner)
 
@@ -139,11 +143,16 @@ export function JobDetailScreen() {
     >
       {job.address && <p className="-mt-3 mb-4 text-[17px] text-muted">{job.address}</p>}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <ActionButton
           href={job.customer_phone ? phoneLink(job.customer_phone) : undefined}
           label="Call"
           Icon={PhoneIcon}
+        />
+        <ActionButton
+          onClick={job.customer_phone ? () => setTexting(true) : undefined}
+          label="Text"
+          Icon={MessageIcon}
         />
         <ActionButton
           href={job.address ? directionsLink(job.address) : undefined}
@@ -152,6 +161,10 @@ export function JobDetailScreen() {
           newTab
         />
       </div>
+
+      {texting && (
+        <TextClientSheet phone={job.customer_phone} customer={job.customer_name} onClose={() => setTexting(false)} />
+      )}
 
       {(job.customer_phone || job.customer_email || job.notes) && (
         <Card className="mt-4">
@@ -327,11 +340,13 @@ export function JobDetailScreen() {
 
 function ActionButton({
   href,
+  onClick,
   label,
   Icon,
   newTab,
 }: {
   href?: string
+  onClick?: () => void
   label: string
   Icon: typeof PhoneIcon
   newTab?: boolean
@@ -343,6 +358,14 @@ function ActionButton({
     </>
   )
   const base = 'flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-2xl text-[15px] font-semibold'
+  const active = `${base} bg-card text-brand transition active:scale-[0.97] active:bg-brand-soft`
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={active}>
+        {content}
+      </button>
+    )
+  }
   if (!href) {
     return <span className={`${base} bg-card text-[#c7c7cc]`}>{content}</span>
   }
@@ -351,7 +374,7 @@ function ActionButton({
       href={href}
       target={newTab ? '_blank' : undefined}
       rel={newTab ? 'noreferrer' : undefined}
-      className={`${base} bg-card text-brand transition active:scale-[0.97] active:bg-brand-soft`}
+      className={active}
     >
       {content}
     </a>
