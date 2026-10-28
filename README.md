@@ -60,23 +60,16 @@ You need three free accounts: **GitHub** (you already have it), **Supabase** (da
 2. Enter your email and a password, and tick **Auto Confirm User**. Do the same for your worker.
 3. Turn off public sign-ups so nobody else can make an account: go to **Authentication → Sign In / Providers** and switch off **Allow new users to sign up**.
 
-### Step 3: Copy the two keys
+### Step 3: Connect the app to Supabase ✅ done
 
-In Supabase, open **Project Settings → API** (on some versions it's **Data API** and **API Keys**). Copy:
-
-- the **Project URL** (it looks like `https://abcd1234.supabase.co`)
-- the **anon public** key (a long string starting with `eyJ...`, or a "publishable" key starting with `sb_publishable_`)
-
-The anon key is safe to put in the app because the database only lets logged-in users in. **Never** copy the `service_role` or secret key anywhere.
+Your project's URL and publishable key are already built into the app (in `.env.production`). Both are safe to include, because the database only lets logged-in users see anything. **Never** put the `service_role` or secret key anywhere.
 
 ### Step 4: Put the app on the web with Vercel
 
 1. Go to <https://vercel.com> and sign up with your GitHub account.
 2. Click **Add New → Project** and import the **handyman-app** repository.
-3. Before clicking Deploy, open **Environment Variables** and add these two:
-   - `VITE_SUPABASE_URL`: the Project URL from Step 3
-   - `VITE_SUPABASE_ANON_KEY`: the anon key from Step 3
-4. Click **Deploy**. After a minute you'll get a link like `https://handyman-app.vercel.app`.
+3. Leave all the settings as they are and click **Deploy**. There's nothing to fill in, because the Supabase keys are already in the app.
+4. Wait for it to finish. After a minute you'll get a link like `https://handyman-app.vercel.app`.
 
 From now on, every change pushed to GitHub updates the app automatically.
 
@@ -119,8 +112,8 @@ Do the same on your worker's phone.
 
 ```bash
 npm install
-cp .env.example .env.local   # optional: add Supabase keys; leave empty for Demo mode
-npm run dev                  # http://localhost:5173 (also reachable from a phone on the same Wi-Fi)
+npm run dev                  # Demo mode at http://localhost:5173 (data on this device only)
+npm run build && npm run preview  # uses the real Supabase project from .env.production
 npm test                     # unit tests
 npm run build                # type-check and production build
 ```
