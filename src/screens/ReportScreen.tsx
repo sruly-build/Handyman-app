@@ -11,7 +11,7 @@ export function ReportScreen() {
   const { data: job, error } = useJob(jobId)
   const { data: items } = useItems(jobId)
   const { data: photos } = useJobPhotos(jobId)
-  const { data: settings } = useSettings()
+  const { data: settings } = useSettings(job?.created_by, Boolean(job))
 
   const back = { to: `/jobs/${jobId}`, label: 'Job' }
   if (error || !job || !items || !photos || !settings) {

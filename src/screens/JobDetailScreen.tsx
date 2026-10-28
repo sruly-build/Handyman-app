@@ -8,6 +8,7 @@ import {
   InvoiceIcon,
   PhoneIcon,
   PhotosIcon,
+  PeopleIcon,
   PlusIcon,
   TagIcon,
 } from '../components/Icons'
@@ -41,6 +42,8 @@ import {
 } from '../data/queries'
 import { formatDuration, totalMs } from '../data/time'
 import type { ItemStatus, PunchItem } from '../data/types'
+import { sharing } from '../data/summary'
+import { useUser } from '../lib/auth'
 import { friendlyDate } from '../lib/dates'
 import { directionsLink, phoneLink } from '../lib/links'
 
@@ -53,9 +56,10 @@ export function JobDetailScreen() {
   const { data: parts = [] } = useParts(jobId)
   const { data: checks = [] } = useBringChecks(jobId)
   const { data: entries = [] } = useTime(jobId)
-  const { data: settings } = useSettings()
+  const { data: settings } = useSettings(job?.created_by, Boolean(job))
   const { data: invoice } = useInvoice(jobId)
   const nameOf = usePeopleNames()
+  const user = useUser()
   const qc = useQueryClient()
 
   // Tapping the circle moves an item along: to do → in progress → done
@@ -79,6 +83,7 @@ export function JobDetailScreen() {
     )
   }
 
+  const share = sharing(job, user.id)
   const done = items?.filter((i) => i.status === 'done').length ?? 0
   const total = items?.length ?? 0
 
@@ -123,11 +128,7 @@ export function JobDetailScreen() {
         </Card>
       )}
 
-      {(job.assigned ?? []).length > 0 && (
-        <p className="mt-3 px-1 text-[15px] text-muted">
-          Working this job: <span className="text-ink">{job.assigned.map(nameOf).join(', ')}</span>
-        </p>
-      )}
+      <ShareLine mine={share.mine} owner={nameOf(job.created_by ?? '')} sharedWith={share.sharedWith.map(nameOf)} />
 
       <SectionTitle>Time</SectionTitle>
       <ClockCard jobId={job.id} />
@@ -259,5 +260,19 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <p className="text-[13px] font-medium text-muted">{label}</p>
       <p className="whitespace-pre-wrap text-[17px]">{value}</p>
     </div>
+  )
+}
+
+function ShareLine({ mine, owner, sharedWith }: { mine: boolean; owner: string; sharedWith: string[] }) {
+  const text = !mine
+    ? <><strong className="text-ink">{owner}</strong> shared this job with you</>
+    : sharedWith.length > 0
+      ? <>Shared with <strong className="text-ink">{sharedWith.join(', ')}</strong></>
+      : <>Only you can see this job. Tap Edit to share it.</>
+  return (
+    <p className="mt-3 flex items-center gap-2 px-1 text-[15px] text-muted">
+      <PeopleIcon size={18} className="shrink-0" />
+      <span>{text}</span>
+    </p>
   )
 }

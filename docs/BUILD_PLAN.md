@@ -20,6 +20,7 @@ Every stage has been tested in a phone-sized browser in Demo mode. All of it sti
 - **Labour charging:** a setting lets you choose per task timer (the default) or arrival to finish. The markup applies to labour too by default, and there's a switch to turn that off.
 - **Night-before reminder:** a calendar event with a 7pm alert, added from the bring list. In the evening, the Home screen also shows "Load the van for tomorrow". True push notifications would need an extra server, so they're left for later.
 - **Sending to clients:** estimates, invoices and the before and after report can be printed or saved as a PDF, then texted or emailed from the phone. Sending directly from the app is still to be decided.
+- **Private jobs with optional sharing:** each person sees only the jobs they created, plus jobs someone shared with them. Sharing gives full access to that job, but only the owner can unshare or delete it. Each person also has their own business settings (markup, rate, invoice details), and a shared job's bill uses its owner's settings.
 - **Invoices** keep a fixed copy of the amounts when they're created. To redo one, delete it and create it again. Numbers start at 1001.
 
 ## Approach

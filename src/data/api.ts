@@ -20,7 +20,7 @@ import type {
 } from './types'
 
 export const defaultSettings: Settings = {
-  id: 'main',
+  id: '',
   business_name: '',
   business_phone: '',
   business_email: '',
@@ -96,13 +96,15 @@ export function createApi(db: Db, auth: Auth) {
     },
 
     // ---- Settings ----
-    async getSettings(): Promise<Settings> {
-      const [row] = await db.select<Settings>('settings', { id: 'main' })
-      const s = { ...defaultSettings, ...row }
+    /** Someone's business settings (yours if no id is given). A shared job's bill uses its owner's. */
+    async getSettings(ownerId?: string | null): Promise<Settings> {
+      const id = ownerId || (await me())
+      const [row] = await db.select<Settings>('settings', { id })
+      const s = { ...defaultSettings, ...row, id }
       return { ...s, markup_percent: Number(s.markup_percent), hourly_rate: Number(s.hourly_rate) }
     },
     async saveSettings(settings: Settings) {
-      return db.upsert<Settings>('settings', settings)
+      return db.upsert<Settings>('settings', { ...settings, id: await me() })
     },
 
     // ---- Jobs ----
@@ -126,7 +128,7 @@ export function createApi(db: Db, auth: Auth) {
       return job
     },
     async createJob(input: JobInput) {
-      return db.insert<Job>('jobs', { ...input, id: newId(), created_at: now() })
+      return db.insert<Job>('jobs', { ...input, id: newId(), created_by: await me(), created_at: now() })
     },
     async updateJob(id: string, patch: Partial<JobInput>) {
       return db.update<Job>('jobs', id, patch)

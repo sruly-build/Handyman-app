@@ -183,3 +183,9 @@ export const TextIcon = (p: IconProps) => (
     <path d="M5 6V4h14v2M12 4v16M9 20h6" />
   </Icon>
 )
+export const PeopleIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="9" cy="8" r="3.5" />
+    <path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5" />
+  </Icon>
+)

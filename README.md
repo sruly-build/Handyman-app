@@ -8,7 +8,8 @@ The full plan is in [docs/BUILD_PLAN.md](docs/BUILD_PLAN.md).
 
 All five stages from the build plan are built:
 
-- **Jobs and punch lists.** Create a job with the customer's details. **Call** and **Directions** are one tap away. Add each thing that needs fixing as a punch list item.
+- **Jobs and punch lists.** Create a job with the customer's details (the address box suggests real addresses as you type). **Call** and **Directions** are one tap away. Add each thing that needs fixing as a punch list item.
+- **Everyone has their own jobs.** A job is private to the person who created it. To work on one together, the owner taps **Edit → Share this job** and ticks the other person. Then both of you see everything on that job: items, photos, parts, time and the bill. Only the owner can unshare or delete it. The database itself enforces this, so nobody can see a job that isn't theirs or shared with them.
 - **Each punch list item** has:
   - status: to do, in progress (orange) or done (green check)
   - a task timer
@@ -54,11 +55,13 @@ You need three free accounts: **GitHub** (you already have it), **Supabase** (da
 
 > **After an app update** that changes `supabase/schema.sql`, run it again the same way. It's safe to run any number of times and never deletes your data.
 
-### Step 2: Create the two logins
+### Step 2: Create the logins
 
 1. In Supabase, open **Authentication → Users** and click **Add user → Create new user**.
-2. Enter your email and a password, and tick **Auto Confirm User**. Do the same for your worker.
+2. Enter your email and a password, and tick **Auto Confirm User**. Do the same for each person who will use the app.
 3. Turn off public sign-ups so nobody else can make an account: go to **Authentication → Sign In / Providers** and switch off **Allow new users to sign up**.
+
+**Adding someone later:** follow steps 1–2 above for them, then send them the app link with their email and password. They start with no jobs. Share a job with them from **Edit → Share this job**.
 
 ### Step 3: Connect the app to Supabase ✅ done
 

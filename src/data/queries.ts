@@ -17,7 +17,7 @@ export const keys = {
   myTime: ['myTime'] as const,
   running: ['running'] as const,
   people: ['people'] as const,
-  settings: ['settings'] as const,
+  settings: (ownerId?: string | null) => ['settings', ownerId ?? 'mine'] as const,
   invoice: (jobId: string) => ['invoice', jobId] as const,
 }
 
@@ -55,7 +55,9 @@ export const useTime = (jobId: string) => useQuery({ queryKey: keys.time(jobId),
 export const useMyTime = () => useQuery({ queryKey: keys.myTime, queryFn: () => backend.listMyTime() })
 export const useRunning = () => useQuery({ queryKey: keys.running, queryFn: () => backend.myRunning() })
 export const usePeople = () => useQuery({ queryKey: keys.people, queryFn: () => backend.listPeople(), staleTime: 300_000 })
-export const useSettings = () => useQuery({ queryKey: keys.settings, queryFn: () => backend.getSettings() })
+/** Business settings: yours, or a job owner's when you pass their id */
+export const useSettings = (ownerId?: string | null, enabled = true) =>
+  useQuery({ queryKey: keys.settings(ownerId), queryFn: () => backend.getSettings(ownerId), enabled })
 export const useInvoice = (jobId: string) =>
   useQuery({ queryKey: keys.invoice(jobId), queryFn: () => backend.getInvoice(jobId) })
 

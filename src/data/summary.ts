@@ -22,3 +22,9 @@ export function sortJobs<T extends Job>(jobs: T[], today: string): T[] {
     return b.created_at.localeCompare(a.created_at)
   })
 }
+
+/** How a job is shared, from the point of view of the person using the phone */
+export function sharing(job: Job, me: string): { mine: boolean; sharedWith: string[] } {
+  const mine = !job.created_by || job.created_by === me
+  return { mine, sharedWith: (job.assigned ?? []).filter((id) => id !== job.created_by) }
+}

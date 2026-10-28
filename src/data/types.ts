@@ -23,7 +23,9 @@ export interface Job {
   /** Calendar date as YYYY-MM-DD, or null if not booked yet */
   job_date: string | null
   notes: string
-  /** Ids of the people working this job */
+  /** The person who created the job and owns it (null only in Demo mode's old data) */
+  created_by: string | null
+  /** Ids of the people the owner shared this job with */
   assigned: string[]
   /** Things to bring that aren't tied to a punch list item */
   bring_extras: string[]
@@ -112,7 +114,8 @@ export interface TimeEntry {
 }
 
 export interface Settings {
-  id: 'main'
+  /** The login id of the person these settings belong to */
+  id: string
   business_name: string
   business_phone: string
   business_email: string
@@ -146,7 +149,7 @@ export interface Invoice {
   markup_percent: number
 }
 
-export type JobInput = Omit<Job, 'id' | 'created_at'>
+export type JobInput = Omit<Job, 'id' | 'created_at' | 'created_by'>
 export type ItemPatch = Partial<
   Pick<PunchItem, 'title' | 'location' | 'notes' | 'status' | 'measurements' | 'tools' | 'estimated_hours'>
 >

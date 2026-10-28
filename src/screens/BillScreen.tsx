@@ -17,7 +17,7 @@ export function BillScreen() {
   const { data: items } = useItems(jobId)
   const { data: parts } = useParts(jobId)
   const { data: entries } = useTime(jobId)
-  const { data: settings } = useSettings()
+  const { data: settings } = useSettings(job?.created_by, Boolean(job))
   const { data: invoice, isLoading: invoiceLoading } = useInvoice(jobId)
   const { data: photos = [] } = useJobPhotos(jobId)
   const [tab, setTab] = useState<'estimate' | 'invoice' | null>(null)

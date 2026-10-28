@@ -6,7 +6,7 @@ import { Button, Card, Divider, ErrorNote, Field, GroupLabel, Loading, Segmented
 import { partStatusLabels } from '../components/PartRow'
 import { backend } from '../data/backend'
 import { formatMoney, withMarkup } from '../data/billing'
-import { refreshAll, useItems, usePart, useSettings } from '../data/queries'
+import { refreshAll, useItems, useJob, usePart, useSettings } from '../data/queries'
 import type { PartStatus } from '../data/types'
 
 interface Form {
@@ -26,7 +26,8 @@ export function PartFormScreen() {
   const { data: part, isLoading, error } = usePart(partId ?? '', editing)
   const jobId = jobFromUrl ?? part?.job_id ?? ''
   const { data: items = [] } = useItems(jobId)
-  const { data: settings } = useSettings()
+  const { data: job } = useJob(jobId, Boolean(jobId))
+  const { data: settings } = useSettings(job?.created_by, Boolean(job))
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [form, setForm] = useState<Form | null>(

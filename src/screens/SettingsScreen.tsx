@@ -122,6 +122,10 @@ export function SettingsScreen() {
           </Card>
         </section>
 
+        <p className="px-4 text-[13px] text-muted">
+          These are your own settings, used on your jobs. Jobs shared with you use their owner's settings.
+        </p>
+
         {save.error && <ErrorNote error={save.error} />}
         <Button type="submit" disabled={save.isPending}>
           {save.isPending ? 'Saving…' : 'Save settings'}

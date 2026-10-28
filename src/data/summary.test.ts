@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sortJobs, summarize } from './summary'
+import { sharing, sortJobs, summarize } from './summary'
 import type { Job } from './types'
 
 const job = (id: string, job_date: string | null, created_at = '2026-01-01T00:00:00Z'): Job => ({
@@ -11,6 +11,7 @@ const job = (id: string, job_date: string | null, created_at = '2026-01-01T00:00
   customer_email: '',
   address: '',
   notes: '',
+  created_by: 'u1',
   assigned: [],
   bring_extras: [],
 })
@@ -32,5 +33,14 @@ describe('sortJobs', () => {
       job('past-recent', '2026-10-20'),
     ]
     expect(sortJobs(jobs, '2026-10-27').map((j) => j.id)).toEqual(['today', 'later', 'none', 'past-recent', 'past-old'])
+  })
+})
+
+describe('sharing', () => {
+  it('knows whose job it is and who else can see it', () => {
+    const j = { ...job('a', null), created_by: 'owner', assigned: ['owner', 'worker'] }
+    expect(sharing(j, 'owner')).toEqual({ mine: true, sharedWith: ['worker'] })
+    expect(sharing(j, 'worker')).toEqual({ mine: false, sharedWith: ['worker'] })
+    expect(sharing({ ...j, assigned: [] }, 'owner')).toEqual({ mine: true, sharedWith: [] })
   })
 })
