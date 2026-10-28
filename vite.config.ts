@@ -27,6 +27,8 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: '/index.html',
+        // Remove files from old versions so they can't be served again
+        cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
       },
     }),
