@@ -2,9 +2,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Screen } from '../components/Screen'
-import { Button, Card, Divider, ErrorNote, Field, Loading, TextArea } from '../components/ui'
+import { Button, Card, CheckCircle, Divider, ErrorNote, Field, GroupLabel, Loading, TextArea } from '../components/ui'
 import { backend } from '../data/backend'
-import { keys, useJob } from '../data/queries'
+import { keys, refreshAll, useJob, usePeople } from '../data/queries'
+import { useUser } from '../lib/auth'
 import type { JobInput } from '../data/types'
 import { todayISO } from '../lib/dates'
 
@@ -15,6 +16,8 @@ const blank: JobInput = {
   address: '',
   job_date: todayISO(),
   notes: '',
+  assigned: [],
+  bring_extras: [],
 }
 
 /** Used for both "New job" and "Edit job" */
@@ -24,7 +27,9 @@ export function JobFormScreen() {
   const { data: existing, isLoading } = useJob(jobId ?? '', editing)
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const [form, setForm] = useState<JobInput | null>(editing ? null : blank)
+  const user = useUser()
+  const { data: people = [] } = usePeople()
+  const [form, setForm] = useState<JobInput | null>(editing ? null : { ...blank, assigned: [user.id] })
 
   useEffect(() => {
     if (existing && !form) {
@@ -34,18 +39,21 @@ export function JobFormScreen() {
   }, [existing, form])
 
   const save = useMutation({
-    mutationFn: (input: JobInput) => (jobId ? backend.updateJob(jobId, input) : backend.createJob(input)),
+    mutationFn: ({ bring_extras: _keep, ...input }: JobInput) =>
+      // The bring list is edited on its own screen, so leave it as it is
+      jobId ? backend.updateJob(jobId, input) : backend.createJob({ ...input, bring_extras: [] }),
     onSuccess: (job) => {
-      qc.invalidateQueries({ queryKey: keys.jobs })
+      void refreshAll(qc)
       qc.setQueryData(keys.job(job.id), job)
-      navigate(`/jobs/${job.id}`, { replace: true })
+      if (editing) navigate(-1)
+      else navigate(`/jobs/${job.id}`, { replace: true })
     },
   })
 
   const remove = useMutation({
     mutationFn: () => backend.deleteJob(jobId!),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.jobs })
+      void refreshAll(qc)
       navigate('/jobs', { replace: true })
     },
   })
@@ -131,6 +139,33 @@ export function JobFormScreen() {
             />
           </Card>
         </section>
+
+        {people.length > 1 && (
+          <section>
+            <GroupLabel>Who's working this job</GroupLabel>
+            <Card>
+              {people.map((p, i) => {
+                const on = form.assigned.includes(p.id)
+                return (
+                  <div key={p.id}>
+                    {i > 0 && <Divider />}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        set({ assigned: on ? form.assigned.filter((id) => id !== p.id) : [...form.assigned, p.id] })
+                      }
+                      className="flex min-h-14 w-full items-center gap-3 px-4 text-left text-[17px] active:bg-canvas"
+                    >
+                      <CheckCircle checked={on} />
+                      {p.full_name || 'Unnamed'}
+                      {p.id === user.id && <span className="text-muted">(you)</span>}
+                    </button>
+                  </div>
+                )
+              })}
+            </Card>
+          </section>
+        )}
 
         {save.error && <ErrorNote error={save.error} />}
         <Button type="submit" disabled={save.isPending || !form.customer_name.trim()}>

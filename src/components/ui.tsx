@@ -1,6 +1,7 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react'
 import type { ItemStatus } from '../data/types'
-import { CheckIcon } from './Icons'
+import { Link } from 'react-router-dom'
+import { CheckIcon, ChevronIcon } from './Icons'
 
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return <div className={`rounded-2xl bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${className}`}>{children}</div>
@@ -175,4 +176,90 @@ export function ErrorNote({ error }: { error: unknown }) {
       {message}
     </div>
   )
+}
+
+/** Apple-style segmented control */
+export function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+  label,
+}: {
+  options: { value: T; label: string }[]
+  value: T
+  onChange: (v: T) => void
+  label: string
+}) {
+  return (
+    <div className="flex gap-1 rounded-2xl bg-hairline p-1" role="radiogroup" aria-label={label}>
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          role="radio"
+          aria-checked={value === o.value}
+          onClick={() => onChange(o.value)}
+          className={`min-h-11 flex-1 rounded-xl px-2 text-[15px] font-semibold transition ${
+            value === o.value ? 'bg-white text-ink shadow' : 'text-[#636366] active:opacity-60'
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** On/off switch row */
+export function Toggle({ label, hint, checked, onChange }: { label: string; hint?: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex min-h-14 items-center gap-3 px-4 py-2.5">
+      <span className="flex-1">
+        <span className="block text-[17px]">{label}</span>
+        {hint && <span className="block text-[13px] text-muted">{hint}</span>}
+      </span>
+      <input type="checkbox" className="peer sr-only" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span className="relative h-8 w-[52px] shrink-0 rounded-full bg-hairline transition peer-checked:bg-brand after:absolute after:left-0.5 after:top-0.5 after:h-7 after:w-7 after:rounded-full after:bg-white after:shadow after:transition peer-checked:after:translate-x-5" />
+    </label>
+  )
+}
+
+/** Tappable row inside a card: icon, title, value on the right, chevron */
+export function RowLink({
+  to,
+  Icon,
+  title,
+  value,
+}: {
+  to: string
+  Icon: (p: { size?: number }) => ReactNode
+  title: string
+  value?: ReactNode
+}) {
+  return (
+    <Link to={to} className="flex min-h-14 items-center gap-3 px-4 py-2 active:bg-canvas">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand">
+        <Icon size={20} />
+      </span>
+      <span className="flex-1 text-[17px]">{title}</span>
+      {value !== undefined && <span className="text-[15px] text-muted">{value}</span>}
+      <ChevronIcon size={18} className="shrink-0 text-[#c7c7cc]" />
+    </Link>
+  )
+}
+
+/** Round tick box for checklists */
+export function CheckCircle({ checked }: { checked: boolean }) {
+  return checked ? (
+    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand text-white">
+      <CheckIcon size={17} strokeWidth={3} />
+    </span>
+  ) : (
+    <span className="h-7 w-7 shrink-0 rounded-full border-[2.5px] border-[#c7c7cc]" />
+  )
+}
+
+/** Small grey caption above a card */
+export function GroupLabel({ children }: { children: ReactNode }) {
+  return <h2 className="mb-1.5 px-4 text-[13px] font-semibold uppercase tracking-wide text-muted">{children}</h2>
 }

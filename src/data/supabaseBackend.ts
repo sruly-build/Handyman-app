@@ -1,12 +1,10 @@
 import { createClient, type User } from '@supabase/supabase-js'
-import { summarize } from './summary'
-import type { AppUser, Backend, Job, JobInput, Photo, PunchItem } from './types'
+import type { Auth, Db } from './db'
+import type { AppUser } from './types'
 
 const BUCKET = 'photos'
 
-type PhotoRow = Omit<Photo, 'url'> & { storage_path: string }
-
-export function createSupabaseBackend(url: string, anonKey: string): Backend {
+export function createSupabase(url: string, anonKey: string): { db: Db; auth: Auth } {
   const sb = createClient(url, anonKey)
   const listeners = new Set<(user: AppUser | null) => void>()
 
@@ -23,21 +21,42 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     return result.data
   }
 
-  /** For writes that don't send anything back (updates without select, deletes) */
-  function ok(result: { error: { message: string } | null }) {
-    if (result.error) throw new Error(result.error.message)
-  }
-
-  async function withUrls(rows: PhotoRow[]): Promise<Photo[]> {
-    if (rows.length === 0) return []
-    // Links stay valid for 6 hours; the app fetches fresh ones each time a screen opens
-    const signed = check(await sb.storage.from(BUCKET).createSignedUrls(rows.map((r) => r.storage_path), 60 * 60 * 6))
-    return rows.map(({ storage_path: _path, ...r }, i) => ({ ...r, url: signed[i]?.signedUrl ?? '' }))
-  }
-
-  return {
+  const db: Db = {
     mode: 'supabase',
+    async select(table, where = {}, options = {}) {
+      let query = sb.from(table).select('*').match(where)
+      if (options.isNull) query = query.is(options.isNull, null)
+      return check(await query)
+    },
+    async insert(table, row) {
+      return check(await sb.from(table).insert(row).select().single())
+    },
+    async update(table, id, patch) {
+      return check(await sb.from(table).update(patch as never).eq('id', id).select().single())
+    },
+    async upsert(table, row) {
+      return check(await sb.from(table).upsert(row).select().single())
+    },
+    async remove(table, where) {
+      const { error } = await sb.from(table).delete().match(where)
+      if (error) throw new Error(error.message)
+    },
 
+    async upload(path, file) {
+      check(await sb.storage.from(BUCKET).upload(path, file, { contentType: file.type || 'image/jpeg' }))
+    },
+    async fileUrls(paths) {
+      if (paths.length === 0) return []
+      // Links stay valid for 6 hours; screens fetch fresh ones each time they open
+      const signed = check(await sb.storage.from(BUCKET).createSignedUrls(paths, 60 * 60 * 6))
+      return paths.map((_, i) => signed[i]?.signedUrl ?? '')
+    },
+    async removeFiles(paths) {
+      if (paths.length) await sb.storage.from(BUCKET).remove(paths)
+    },
+  }
+
+  const auth: Auth = {
     async getUser() {
       const { data } = await sb.auth.getSession()
       return toAppUser(data.session?.user ?? null)
@@ -53,6 +72,10 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         data.subscription.unsubscribe()
       }
     },
+    async refresh() {
+      const user = await auth.getUser()
+      listeners.forEach((l) => l(user))
+    },
     async signIn(email, password) {
       const { error } = await sb.auth.signInWithPassword({ email, password })
       if (error) throw new Error(error.message === 'Invalid login credentials' ? 'Wrong email or password.' : error.message)
@@ -60,77 +83,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     async signOut() {
       await sb.auth.signOut()
     },
-    async updateMyName(name) {
-      const { data } = await sb.auth.getUser()
-      if (!data.user) throw new Error('Not logged in')
-      ok(await sb.from('profiles').upsert({ id: data.user.id, full_name: name }))
-      const updated = await toAppUser(data.user)
-      listeners.forEach((l) => l(updated))
-    },
-
-    async listJobs() {
-      const rows = check(await sb.from('jobs').select('*, punch_items(status)'))
-      return rows.map(({ punch_items, ...job }) => summarize(job as Job, (punch_items ?? []).map((p: PunchItem) => p.status)))
-    },
-    async getJob(id) {
-      return check(await sb.from('jobs').select('*').eq('id', id).single()) as Job
-    },
-    async createJob(input: JobInput) {
-      return check(await sb.from('jobs').insert(input).select().single()) as Job
-    },
-    async updateJob(id, input) {
-      return check(await sb.from('jobs').update(input).eq('id', id).select().single()) as Job
-    },
-    async deleteJob(id) {
-      const items = check(await sb.from('punch_items').select('id').eq('job_id', id))
-      const itemIds = items.map((i) => i.id)
-      if (itemIds.length) {
-        const photos = check(await sb.from('photos').select('storage_path').in('item_id', itemIds))
-        if (photos.length) await sb.storage.from(BUCKET).remove(photos.map((p) => p.storage_path))
-      }
-      ok(await sb.from('jobs').delete().eq('id', id))
-    },
-
-    async listItems(jobId) {
-      return check(
-        await sb.from('punch_items').select('*').eq('job_id', jobId).order('position').order('created_at'),
-      ) as PunchItem[]
-    },
-    async getItem(id) {
-      return check(await sb.from('punch_items').select('*').eq('id', id).single()) as PunchItem
-    },
-    async createItem(jobId, title, location) {
-      const last = check(
-        await sb.from('punch_items').select('position').eq('job_id', jobId).order('position', { ascending: false }).limit(1),
-      )
-      const position = (last[0]?.position ?? -1) + 1
-      return check(
-        await sb.from('punch_items').insert({ job_id: jobId, title, location, position }).select().single(),
-      ) as PunchItem
-    },
-    async updateItem(id, patch) {
-      return check(await sb.from('punch_items').update(patch).eq('id', id).select().single()) as PunchItem
-    },
-    async deleteItem(id) {
-      const photos = check(await sb.from('photos').select('storage_path').eq('item_id', id))
-      if (photos.length) await sb.storage.from(BUCKET).remove(photos.map((p) => p.storage_path))
-      ok(await sb.from('punch_items').delete().eq('id', id))
-    },
-
-    async listPhotos(itemId) {
-      const rows = check(await sb.from('photos').select('*').eq('item_id', itemId).order('created_at'))
-      return withUrls(rows as PhotoRow[])
-    },
-    async addPhoto(itemId, kind, image) {
-      const path = `${itemId}/${crypto.randomUUID()}.jpg`
-      check(await sb.storage.from(BUCKET).upload(path, image, { contentType: 'image/jpeg' }))
-      const row = check(await sb.from('photos').insert({ item_id: itemId, kind, storage_path: path }).select().single())
-      return (await withUrls([row as PhotoRow]))[0]
-    },
-    async deletePhoto(photo) {
-      const row = check(await sb.from('photos').select('storage_path').eq('id', photo.id).single())
-      await sb.storage.from(BUCKET).remove([row.storage_path])
-      ok(await sb.from('photos').delete().eq('id', photo.id))
-    },
   }
+
+  return { db, auth }
 }

@@ -11,7 +11,14 @@ export function JobCard({ job }: { job: JobSummary }) {
       <Card className="p-4">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[19px] font-semibold">{job.customer_name}</p>
+            <p className="flex items-center gap-2 text-[19px] font-semibold">
+              <span className="truncate">{job.customer_name}</span>
+              {job.on_site.length > 0 && (
+                <span className="shrink-0 rounded-full bg-progress-soft px-2 py-0.5 text-[12px] font-semibold text-[#c26a00]">
+                  On site
+                </span>
+              )}
+            </p>
             {job.address && (
               <p className="mt-0.5 flex items-center gap-1 truncate text-[15px] text-muted">
                 <PinIcon size={15} className="shrink-0" />

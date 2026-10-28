@@ -1,15 +1,20 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { PencilIcon, PlusIcon } from '../components/Icons'
+import { ListEditor } from '../components/ListEditor'
 import { MeasurementsEditor } from '../components/MeasurementsEditor'
-import { PhotoSection } from '../components/PhotoSection'
+import { PartRow } from '../components/PartRow'
+import { PhotoGrid, PhotoSection } from '../components/PhotoSection'
 import { Screen } from '../components/Screen'
+import { TaskTimer } from '../components/TimeWidgets'
 import { Button, Card, Divider, ErrorNote, Field, Loading, SectionTitle, StatusPicker, TextArea } from '../components/ui'
 import { backend } from '../data/backend'
-import { keys, useItem } from '../data/queries'
+import { keys, refreshAll, useItem, useParts, usePhotos } from '../data/queries'
 import type { ItemPatch, PunchItem } from '../data/types'
 
-type Draft = Required<ItemPatch>
+/** Like the item, but hours are kept as typed text until saved */
+type Draft = Omit<Required<ItemPatch>, 'estimated_hours'> & { estimated_hours: string }
 
 const pickDraft = (i: PunchItem): Draft => ({
   title: i.title,
@@ -17,19 +22,23 @@ const pickDraft = (i: PunchItem): Draft => ({
   notes: i.notes,
   status: i.status,
   measurements: i.measurements,
+  tools: i.tools ?? [],
+  estimated_hours: i.estimated_hours == null ? '' : String(i.estimated_hours),
 })
 
 /**
  * Everything about one punch list item. Changes save automatically
- * (like Apple Notes) — there is no Save button to forget.
+ * (like Apple Notes), so there is no Save button to forget.
  */
 export function ItemScreen() {
   const { jobId = '', itemId = '' } = useParams()
   const { data: item, isLoading, error } = useItem(itemId)
+  const { data: parts = [] } = useParts(jobId)
+  const { data: photos = [] } = usePhotos(itemId)
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [draft, setDraft] = useState<Draft | null>(null)
-  const { saveState, saveError } = useAutosave(itemId, jobId, draft)
+  const { saveState, saveError } = useAutosave(itemId, draft)
 
   useEffect(() => {
     if (item && !draft) setDraft(pickDraft(item))
@@ -38,9 +47,8 @@ export function ItemScreen() {
   const remove = useMutation({
     mutationFn: () => backend.deleteItem(itemId),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.items(jobId) })
-      qc.invalidateQueries({ queryKey: keys.jobs })
-      navigate(`/jobs/${jobId}`, { replace: true })
+      void refreshAll(qc)
+      navigate(-1)
     },
   })
 
@@ -54,6 +62,8 @@ export function ItemScreen() {
   }
 
   const set = (patch: Partial<Draft>) => setDraft({ ...draft, ...patch })
+  const itemParts = parts.filter((p) => p.item_id === itemId)
+  const sketches = photos.filter((p) => p.kind === 'sketch')
 
   return (
     <Screen
@@ -63,9 +73,30 @@ export function ItemScreen() {
       action={<SaveIndicator state={saveState} />}
     >
       <StatusPicker value={draft.status} onChange={(status) => set({ status })} />
+      <div className="mt-3">
+        <TaskTimer
+          jobId={jobId}
+          itemId={itemId}
+          onStart={() => setDraft((d) => (d && d.status === 'todo' ? { ...d, status: 'in_progress' } : d))}
+        />
+      </div>
 
       <SectionTitle>Before photos</SectionTitle>
-      <PhotoSection itemId={itemId} kind="before" />
+      <PhotoSection jobId={jobId} itemId={itemId} kind="before" />
+
+      <SectionTitle>After photos</SectionTitle>
+      <PhotoSection jobId={jobId} itemId={itemId} kind="after" />
+
+      <SectionTitle>Sketches</SectionTitle>
+      <PhotoGrid photos={sketches} jobId={jobId} itemId={itemId} />
+      <Link
+        to={`/jobs/${jobId}/items/${itemId}/sketch`}
+        className="flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-brand-soft text-[17px] font-semibold text-brand-dark active:opacity-70"
+      >
+        <PencilIcon size={22} />
+        New sketch
+      </Link>
+      <p className="mt-1.5 px-2 text-center text-[13px] text-muted">To draw on a photo, tap the photo, then Draw on it.</p>
 
       <SectionTitle>Details</SectionTitle>
       <Card>
@@ -77,10 +108,45 @@ export function ItemScreen() {
           onChange={(e) => set({ location: e.target.value })}
           placeholder="e.g. Upstairs bathroom"
         />
+        <Divider />
+        <Field
+          label="Expected time (hours), for the estimate"
+          inputMode="decimal"
+          value={draft.estimated_hours}
+          onChange={(e) => set({ estimated_hours: e.target.value.replace(/[^\d.]/g, '') })}
+          placeholder="e.g. 1.5"
+        />
       </Card>
 
       <SectionTitle>Measurements</SectionTitle>
       <MeasurementsEditor value={draft.measurements} onChange={(measurements) => set({ measurements })} />
+
+      <SectionTitle>Parts to order</SectionTitle>
+      {itemParts.length > 0 && (
+        <Card className="mb-3">
+          {itemParts.map((p, i) => (
+            <div key={p.id}>
+              {i > 0 && <Divider />}
+              <PartRow part={p} />
+            </div>
+          ))}
+        </Card>
+      )}
+      <Link
+        to={`/jobs/${jobId}/parts/new?item=${itemId}`}
+        className="flex min-h-14 items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[#c7c7cc] text-[17px] font-semibold text-brand active:bg-white"
+      >
+        <PlusIcon size={22} />
+        Add part
+      </Link>
+
+      <SectionTitle>Tools and materials</SectionTitle>
+      <ListEditor
+        value={draft.tools}
+        onChange={(tools) => set({ tools })}
+        placeholder="e.g. Drill, 1/4in bit, wall anchors x8"
+      />
+      <p className="mt-1.5 px-2 text-[13px] text-muted">These go on the job's bring list automatically.</p>
 
       <SectionTitle>Notes</SectionTitle>
       <Card>
@@ -102,7 +168,7 @@ export function ItemScreen() {
         <Button
           variant="danger"
           disabled={remove.isPending}
-          onClick={() => confirm('Delete this item and its photos? This cannot be undone.') && remove.mutate()}
+          onClick={() => confirm('Delete this item, its photos and its timers? This cannot be undone.') && remove.mutate()}
         >
           {remove.isPending ? 'Deleting…' : 'Delete item'}
         </Button>
@@ -115,7 +181,7 @@ export function ItemScreen() {
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
 /** Saves the draft about half a second after the last change, and right away when leaving the screen. */
-function useAutosave(itemId: string, jobId: string, draft: Draft | null) {
+function useAutosave(itemId: string, draft: Draft | null) {
   const qc = useQueryClient()
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [saveError, setSaveError] = useState<unknown>(null)
@@ -132,11 +198,15 @@ function useAutosave(itemId: string, jobId: string, draft: Draft | null) {
     const snapshot = JSON.stringify(next)
     setSaveState('saving')
     try {
-      const saved = await backend.updateItem(itemId, { ...next, title: next.title.trim() || 'Untitled item' })
+      const hours = parseFloat(next.estimated_hours)
+      const saved = await backend.updateItem(itemId, {
+        ...next,
+        title: next.title.trim() || 'Untitled item',
+        estimated_hours: Number.isFinite(hours) ? hours : null,
+      })
       lastSaved.current = snapshot
       qc.setQueryData(keys.item(itemId), saved)
-      qc.invalidateQueries({ queryKey: keys.items(jobId) })
-      qc.invalidateQueries({ queryKey: keys.jobs })
+      void refreshAll(qc)
       setSaveError(null)
       setSaveState('saved')
     } catch (err) {
@@ -156,7 +226,7 @@ function useAutosave(itemId: string, jobId: string, draft: Draft | null) {
     pending.current = draft
     window.clearTimeout(timer.current)
     // Status taps save at once; typing waits for a short pause
-    const statusChanged = JSON.parse(lastSaved.current).status !== draft.status
+    const statusChanged = (JSON.parse(lastSaved.current) as Draft).status !== draft.status
     timer.current = window.setTimeout(() => void flush.current(), statusChanged ? 0 : 600)
   }, [draft])
 

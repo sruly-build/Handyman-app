@@ -5,7 +5,7 @@ import { Screen } from '../components/Screen'
 import { Card, EmptyState, ErrorNote, Loading, SectionTitle } from '../components/ui'
 import { useJobs } from '../data/queries'
 import { sortJobs } from '../data/summary'
-import { greeting, todayISO } from '../lib/dates'
+import { friendlyDate, greeting, todayISO } from '../lib/dates'
 import { useUser } from '../lib/auth'
 
 export function HomeScreen() {
@@ -17,6 +17,12 @@ export function HomeScreen() {
     (jobs ?? []).filter((j) => j.job_date !== null && j.job_date > today),
     today,
   ).slice(0, 3)
+
+  const tomorrow = sortJobs(
+    (jobs ?? []).filter((j) => j.job_date !== null && friendlyDate(j.job_date, today) === 'Tomorrow'),
+    today,
+  )
+  const evening = new Date().getHours() >= 15
 
   const dateLine = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
 
@@ -34,6 +40,23 @@ export function HomeScreen() {
         <QuickLink to="/orders" label="Orders" Icon={OrdersIcon} />
         <QuickLink to="/bring" label="Bring list" Icon={ChecklistIcon} />
       </div>
+
+      {evening && tomorrow.length > 0 && (
+        <Link
+          to={tomorrow.length === 1 ? `/jobs/${tomorrow[0].id}/bring` : '/bring'}
+          className="mt-4 flex items-center gap-3 rounded-2xl bg-progress-soft p-4 active:opacity-70"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-progress text-white">
+            <ChecklistIcon size={22} />
+          </span>
+          <span className="flex-1">
+            <span className="block text-[17px] font-semibold">Load the van for tomorrow</span>
+            <span className="block text-[14px] text-[#9a5300]">
+              {tomorrow.map((j) => j.customer_name).join(', ')}
+            </span>
+          </span>
+        </Link>
+      )}
 
       <SectionTitle>Today</SectionTitle>
       {isLoading && <Loading />}

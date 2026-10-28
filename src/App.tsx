@@ -2,15 +2,24 @@ import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { TabBar } from './components/TabBar'
 import { Loading } from './components/ui'
 import { useAuth } from './lib/auth'
-import { ComingSoonScreen } from './screens/ComingSoonScreen'
+import { BillScreen } from './screens/BillScreen'
+import { BringListScreen } from './screens/BringListScreen'
+import { BringOverviewScreen } from './screens/BringOverviewScreen'
 import { HomeScreen } from './screens/HomeScreen'
 import { ItemScreen } from './screens/ItemScreen'
 import { JobDetailScreen } from './screens/JobDetailScreen'
 import { JobFormScreen } from './screens/JobFormScreen'
+import { JobPartsScreen } from './screens/JobPartsScreen'
 import { JobsScreen } from './screens/JobsScreen'
 import { LoginScreen } from './screens/LoginScreen'
 import { MeScreen } from './screens/MeScreen'
 import { NewItemScreen } from './screens/NewItemScreen'
+import { OrdersScreen } from './screens/OrdersScreen'
+import { PartFormScreen } from './screens/PartFormScreen'
+import { ReportScreen } from './screens/ReportScreen'
+import { SettingsScreen } from './screens/SettingsScreen'
+import { SketchScreen } from './screens/SketchScreen'
+import { TimeScreen } from './screens/TimeScreen'
 
 export function App() {
   const { user, loading } = useAuth()
@@ -28,35 +37,18 @@ export function App() {
         <Route path="/jobs/:jobId/edit" element={<Keyed param="jobId" Component={JobFormScreen} />} />
         <Route path="/jobs/:jobId/items/new" element={<NewItemScreen />} />
         <Route path="/jobs/:jobId/items/:itemId" element={<Keyed param="itemId" Component={ItemScreen} />} />
-        <Route
-          path="/orders"
-          element={
-            <ComingSoonScreen
-              title="Orders"
-              stage={2}
-              points={[
-                'One list of every part across all jobs',
-                'Each part moves from needed → ordered → received',
-                'Cost paid and supplier for each part',
-              ]}
-            />
-          }
-        />
-        <Route
-          path="/bring"
-          element={
-            <ComingSoonScreen
-              title="Bring list"
-              stage={2}
-              points={[
-                'Every tool and material for the job in one checklist',
-                'Built from the punch list items, no duplicates',
-                'Check items off while loading the van',
-              ]}
-            />
-          }
-        />
+        <Route path="/jobs/:jobId/items/:itemId/sketch" element={<SketchScreen />} />
+        <Route path="/jobs/:jobId/parts" element={<JobPartsScreen />} />
+        <Route path="/jobs/:jobId/parts/new" element={<PartFormScreen key="new" />} />
+        <Route path="/parts/:partId" element={<Keyed param="partId" Component={PartFormScreen} />} />
+        <Route path="/jobs/:jobId/bring" element={<BringListScreen />} />
+        <Route path="/jobs/:jobId/time" element={<TimeScreen />} />
+        <Route path="/jobs/:jobId/bill" element={<BillScreen />} />
+        <Route path="/jobs/:jobId/report" element={<ReportScreen />} />
+        <Route path="/orders" element={<OrdersScreen />} />
+        <Route path="/bring" element={<BringOverviewScreen />} />
         <Route path="/more" element={<MeScreen />} />
+        <Route path="/settings" element={<SettingsScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <TabBar />

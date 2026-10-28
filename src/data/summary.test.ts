@@ -11,6 +11,8 @@ const job = (id: string, job_date: string | null, created_at = '2026-01-01T00:00
   customer_email: '',
   address: '',
   notes: '',
+  assigned: [],
+  bring_extras: [],
 })
 
 describe('summarize', () => {

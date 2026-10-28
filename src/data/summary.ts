@@ -1,11 +1,12 @@
 import type { ItemStatus, Job, JobSummary } from './types'
 
-export function summarize(job: Job, statuses: ItemStatus[]): JobSummary {
+export function summarize(job: Job, statuses: ItemStatus[], onSite: string[] = []): JobSummary {
   return {
     ...job,
     item_count: statuses.length,
     done_count: statuses.filter((s) => s === 'done').length,
     in_progress_count: statuses.filter((s) => s === 'in_progress').length,
+    on_site: [...new Set(onSite)],
   }
 }
 

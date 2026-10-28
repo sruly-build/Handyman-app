@@ -4,16 +4,34 @@ A phone-first app for a small handyman business: jobs, punch lists, photos and m
 
 The full plan is in [docs/BUILD_PLAN.md](docs/BUILD_PLAN.md).
 
-## What's built so far: Stage 1
+## What the app does
 
-- **Log in.** Each person has their own email and password.
-- **Home.** A greeting, today's jobs, jobs coming up, a big green **New job** button, and quick links to Orders and the Bring list.
-- **Jobs list.** Each job is a card with the customer, address, date and a progress bar.
-- **Job detail.** Customer info with big **Call** and **Directions** buttons, notes, and the punch list. Tap the circle next to an item to move it from *to do* to *in progress* (orange) to *done* (green check).
-- **Punch list item.** Status, before photos (one big camera button), measurements (width, height, depth and a unit), and notes. **Everything saves by itself as you type.** There's no Save button to forget.
-- **Me.** Change your display name and log out.
+All five stages from the build plan are built:
 
-Orders and the Bring list show a "Coming in Stage 2" page for now.
+- **Jobs and punch lists.** Create a job with the customer's details. **Call** and **Directions** are one tap away. Add each thing that needs fixing as a punch list item.
+- **Each punch list item** has:
+  - status: to do, in progress (orange) or done (green check)
+  - a task timer
+  - before photos, after photos and finger sketches (you can also draw on top of a photo and add text like "30 in")
+  - measurements
+  - parts to order
+  - tools and materials
+  - expected time
+  - notes
+
+  **Everything saves by itself as you type.**
+- **Parts and orders.** Each part moves from needed to ordered to received. The **Orders** tab lists every part across all jobs, and each job shows what was paid.
+- **Bring list.** One checklist per job, built from the tools and materials on every item with no duplicates, plus parts ordered for the job. Tick things off while loading the van. **Remind me the night before** adds a calendar alert at 7pm. The Home screen also shows "Load the van for tomorrow" in the evening.
+- **Time.**
+  - **Arrived** and **Finished** buttons per person.
+  - A start/stop timer on every task. Starting a task timer clocks you in automatically if you forgot.
+  - Totals per task, per person and per job, plus expected vs actual hours.
+- **Billing.**
+  - Estimates come from the expected hours and parts, with the 20% markup.
+  - **Create invoice** uses the tracked time.
+  - Mark invoices as paid, and print or save them as a PDF, with before and after photos if you like.
+- **Before and after report** to show the client what was fixed.
+- **Settings** (on the Me tab): markup %, hourly rate, whether the markup applies to labour, how labour is charged (per task timer, or arrival to finish), and the business details printed on estimates and invoices.
 
 ---
 
@@ -32,7 +50,9 @@ You need three free accounts: **GitHub** (you already have it), **Supabase** (da
 1. Go to <https://supabase.com>, sign up, and click **New project**. Pick any name (for example "handyman"), choose a strong database password (save it somewhere), and pick the region closest to you.
 2. Wait a minute or two for the project to finish setting up.
 3. On the left, open **SQL Editor** and click **New query**.
-4. Open the file [`supabase/schema.sql`](supabase/schema.sql) in this repository, copy all of it, paste it into the editor, and click **Run**. You should see "Success". This creates the tables and the private photo storage.
+4. Open the file [`supabase/schema.sql`](supabase/schema.sql) in this repository, copy all of it, paste it into the editor, and click **Run**. You may get a warning about "destructive operations"; that's expected, so click **Run this query**. You should see "Success". This creates the tables and the private photo storage.
+
+> **After an app update** that changes `supabase/schema.sql`, run it again the same way. It's safe to run any number of times and never deletes your data.
 
 ### Step 2: Create the two logins
 
@@ -70,20 +90,28 @@ Do the same on your worker's phone.
 
 ---
 
-## Stage 1 test checklist (do this on a phone)
+## Test checklist (do this on a phone)
 
+**Jobs and items**
 - [ ] Log in with your email and password
-- [ ] Tap **New job**, fill in a customer with a real phone number and address, and tap **Create job**
-- [ ] Tap **Call**. The phone should offer to call the number.
-- [ ] Tap **Directions**. Maps should open with directions to the address.
-- [ ] Add 2–3 punch list items, for example "Fix leaky faucet" in "Upstairs bathroom"
-- [ ] On an item, tap **Take before photo**. The camera should open and the photo should appear.
-- [ ] Add a measurement and some notes, wait for "Saved" at the top right, then go back and reopen the item. Everything should still be there.
-- [ ] Change the status, and tap the circles on the job screen. The progress bar should move.
-- [ ] Log in on the second phone with the worker's login. The same job and photos should be there.
-- [ ] Edit the job, then try deleting a test job
+- [ ] Open **Me → Markup, hourly rate, invoice details** and fill in your business name, hourly rate and markup
+- [ ] Create a job with a real phone number and address. Check that **Call** and **Directions** work.
+- [ ] Add an item, take a **before photo**, add a measurement, tools and notes, and add the expected hours. Go back and reopen it: everything should still be there.
+- [ ] Tap a photo, then **Draw on it**. Draw a line, add text, and save.
 
-When all of this works, Stage 1 is done and we move to Stage 2 (parts, orders and the bring list).
+**Parts and bring list**
+- [ ] On the item, tap **Add part** and enter a cost. It should show the price with markup.
+- [ ] On the **Orders** tab, tap the coloured label to move the part from needed to ordered to received
+- [ ] Open the job's **Bring list**, tick things off, and tap **Remind me the night before**. Calendar should offer to add the event.
+
+**Time**
+- [ ] Tap **Arrived**, start and stop a task timer, then tap **Finished**
+- [ ] Log in on the second phone as the worker, tap **Arrived** on the same job, and check that your phone shows they're on site
+- [ ] Open the job's **Time** screen and check the totals per person
+
+**Billing**
+- [ ] Open **Estimate**, then **Invoice → Create invoice**. Try **Print or save as PDF**.
+- [ ] Take an **after photo** and open the **Before and after report**
 
 ---
 
@@ -99,8 +127,10 @@ npm run build                # type-check and production build
 
 Stack: React + TypeScript + Vite, Tailwind CSS, Supabase (auth, Postgres, storage), TanStack Query, `vite-plugin-pwa`.
 
-- `src/data/types.ts`: the data shapes and the `Backend` interface
+- `src/data/types.ts`: the data shapes
+- `src/data/api.ts`: everything the app does (jobs, items, parts, time, invoices), built on the small storage interface in `db.ts`
 - `src/data/supabaseBackend.ts` / `demoBackend.ts`: the two storage versions. `backend.ts` picks one based on the env vars.
+- `src/data/billing.ts`, `bring.ts`, `time.ts`: pricing, bring-list and time maths (with unit tests)
 - `src/screens/`: one file per screen
 - `src/components/`: shared pieces (tab bar, cards, photo section, measurements)
 - `supabase/schema.sql`: database tables, security rules and the storage bucket

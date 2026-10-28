@@ -1,10 +1,45 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
-import { ChevronIcon, DirectionsIcon, PhoneIcon, PlusIcon } from '../components/Icons'
+import {
+  ChecklistIcon,
+  ChevronIcon,
+  ClockIcon,
+  DirectionsIcon,
+  InvoiceIcon,
+  PhoneIcon,
+  PhotosIcon,
+  PlusIcon,
+  TagIcon,
+} from '../components/Icons'
 import { Screen } from '../components/Screen'
-import { Card, Divider, EmptyState, ErrorNote, Loading, ProgressBar, SectionTitle, StatusDot } from '../components/ui'
+import { ClockCard } from '../components/TimeWidgets'
+import {
+  Card,
+  Divider,
+  EmptyState,
+  ErrorNote,
+  Loading,
+  ProgressBar,
+  RowLink,
+  SectionTitle,
+  StatusDot,
+} from '../components/ui'
 import { backend } from '../data/backend'
-import { keys, useItems, useJob } from '../data/queries'
+import { buildBill, formatMoney } from '../data/billing'
+import { buildBringList } from '../data/bring'
+import {
+  keys,
+  refreshAll,
+  useBringChecks,
+  useInvoice,
+  useItems,
+  useJob,
+  useParts,
+  usePeopleNames,
+  useSettings,
+  useTime,
+} from '../data/queries'
+import { formatDuration, totalMs } from '../data/time'
 import type { ItemStatus, PunchItem } from '../data/types'
 import { friendlyDate } from '../lib/dates'
 import { directionsLink, phoneLink } from '../lib/links'
@@ -15,6 +50,12 @@ export function JobDetailScreen() {
   const { jobId = '' } = useParams()
   const { data: job, isLoading, error } = useJob(jobId)
   const { data: items } = useItems(jobId)
+  const { data: parts = [] } = useParts(jobId)
+  const { data: checks = [] } = useBringChecks(jobId)
+  const { data: entries = [] } = useTime(jobId)
+  const { data: settings } = useSettings()
+  const { data: invoice } = useInvoice(jobId)
+  const nameOf = usePeopleNames()
   const qc = useQueryClient()
 
   // Tapping the circle moves an item along: to do → in progress → done
@@ -26,11 +67,7 @@ export function JobDetailScreen() {
         old?.map((i) => (i.id === item.id ? { ...i, status: nextStatus[item.status] } : i)),
       )
     },
-    onSettled: (_d, _e, item) => {
-      qc.invalidateQueries({ queryKey: keys.items(jobId) })
-      qc.invalidateQueries({ queryKey: keys.item(item.id) })
-      qc.invalidateQueries({ queryKey: keys.jobs })
-    },
+    onSettled: () => refreshAll(qc),
   })
 
   const back = { to: '/jobs', label: 'Jobs' }
@@ -44,6 +81,14 @@ export function JobDetailScreen() {
 
   const done = items?.filter((i) => i.status === 'done').length ?? 0
   const total = items?.length ?? 0
+
+  const bring = buildBringList(items ?? [], parts, job.bring_extras ?? [])
+  const packed = bring.filter((b) => checks.some((c) => c.key === b.key)).length
+  const paid = parts.filter((p) => p.status !== 'needed').reduce((sum, p) => sum + (p.cost ?? 0), 0)
+  const onSite = totalMs(entries.filter((e) => e.kind === 'visit'), Date.now())
+  const estimate = settings
+    ? buildBill({ items: items ?? [], parts, entries, settings, now: Date.now() }, 'estimate').total
+    : 0
 
   return (
     <Screen
@@ -77,6 +122,15 @@ export function JobDetailScreen() {
           {job.notes && <InfoRow label="Notes" value={job.notes} />}
         </Card>
       )}
+
+      {(job.assigned ?? []).length > 0 && (
+        <p className="mt-3 px-1 text-[15px] text-muted">
+          Working this job: <span className="text-ink">{job.assigned.map(nameOf).join(', ')}</span>
+        </p>
+      )}
+
+      <SectionTitle>Time</SectionTitle>
+      <ClockCard jobId={job.id} />
 
       <SectionTitle
         action={total > 0 && <span className="pb-0.5 text-[15px] font-semibold text-muted">{done} of {total} done</span>}
@@ -134,6 +188,34 @@ export function JobDetailScreen() {
         <PlusIcon size={22} strokeWidth={2.6} />
         Add punch list item
       </Link>
+
+      <SectionTitle>This job</SectionTitle>
+      <Card>
+        <RowLink
+          to={`/jobs/${job.id}/bring`}
+          Icon={ChecklistIcon}
+          title="Bring list"
+          value={bring.length ? `${packed} of ${bring.length} packed` : 'Empty'}
+        />
+        <Divider />
+        <RowLink
+          to={`/jobs/${job.id}/parts`}
+          Icon={TagIcon}
+          title="Parts and orders"
+          value={parts.length ? `${parts.length} · ${formatMoney(paid)} paid` : 'None'}
+        />
+        <Divider />
+        <RowLink to={`/jobs/${job.id}/time`} Icon={ClockIcon} title="Time" value={formatDuration(onSite)} />
+        <Divider />
+        <RowLink
+          to={`/jobs/${job.id}/bill`}
+          Icon={InvoiceIcon}
+          title={invoice ? `Invoice #${invoice.number}` : 'Estimate'}
+          value={formatMoney(invoice ? invoice.total : estimate)}
+        />
+        <Divider />
+        <RowLink to={`/jobs/${job.id}/report`} Icon={PhotosIcon} title="Before and after report" />
+      </Card>
     </Screen>
   )
 }

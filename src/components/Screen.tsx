@@ -6,7 +6,7 @@ interface ScreenProps {
   title: string
   /** Small grey line above the big title (e.g. today's date) */
   eyebrow?: string
-  /** Where the back button goes. Leave out for top-level tab screens. */
+  /** Where the back button goes if there's no previous screen. Leave out for top-level tab screens. */
   back?: { to: string; label: string }
   /** Button shown at the top right, e.g. "Edit" */
   action?: ReactNode
@@ -17,11 +17,11 @@ interface ScreenProps {
 export function Screen({ title, eyebrow, back, action, children }: ScreenProps) {
   const navigate = useNavigate()
   return (
-    <div className="animate-screen-in mx-auto min-h-dvh max-w-2xl px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(0.5rem+env(safe-area-inset-top))]">
-      <div className="flex min-h-11 items-center justify-between">
+    <div className="animate-screen-in mx-auto min-h-dvh max-w-2xl px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] print:max-w-none print:p-0 pt-[calc(0.5rem+env(safe-area-inset-top))]">
+      <div className="flex min-h-11 items-center justify-between print:hidden">
         {back ? (
           <button
-            onClick={() => navigate(back.to)}
+            onClick={() => (canGoBack() ? navigate(-1) : navigate(back.to, { replace: true }))}
             className="-ml-2 flex min-h-11 items-center gap-0.5 rounded-lg pr-3 text-[17px] text-brand active:opacity-50"
           >
             <BackIcon size={26} strokeWidth={2.4} />
@@ -37,4 +37,9 @@ export function Screen({ title, eyebrow, back, action, children }: ScreenProps) 
       {children}
     </div>
   )
+}
+
+/** True when the back button can return to the screen the user came from */
+function canGoBack(): boolean {
+  return ((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0
 }

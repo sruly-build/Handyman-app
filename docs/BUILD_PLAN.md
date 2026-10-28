@@ -6,12 +6,21 @@ A phone-first app for a small handyman business. The app name is still to be dec
 
 | Stage | What | Status |
 | --- | --- | --- |
-| 1 | Login, jobs list, job detail, punch list items with photos, measurements, notes and status | ✅ Built, needs testing on a phone |
-| 2 | Parts and the order tracker, plus the bring list | Next |
-| 3 | Clock in and out, task timers, and the second user | |
-| 4 | Sketch pad and before and after photos | |
-| 5 | Estimates, invoices and the 20% markup | |
+| 1 | Login, jobs list, job detail, punch list items with photos, measurements, notes and status | ✅ Built |
+| 2 | Parts and the order tracker, plus the bring list | ✅ Built |
+| 3 | Clock in and out, task timers, and the second user | ✅ Built |
+| 4 | Sketch pad and before and after photos | ✅ Built |
+| 5 | Estimates, invoices and the 20% markup | ✅ Built |
 | Later | Booking, scheduling, and sending reports to clients | |
+
+Every stage has been tested in a phone-sized browser in Demo mode. All of it still needs testing on a real phone with Supabase connected (see the checklist in the README).
+
+### Decisions made while building (all changeable)
+
+- **Labour charging:** a setting lets you choose per task timer (the default) or arrival to finish. The markup applies to labour too by default, and there's a switch to turn that off.
+- **Night-before reminder:** a calendar event with a 7pm alert, added from the bring list. In the evening, the Home screen also shows "Load the van for tomorrow". True push notifications would need an extra server, so they're left for later.
+- **Sending to clients:** estimates, invoices and the before and after report can be printed or saved as a PDF, then texted or emailed from the phone. Sending directly from the app is still to be decided.
+- **Invoices** keep a fixed copy of the amounts when they're created. To redo one, delete it and create it again. Numbers start at 1001.
 
 ## Approach
 
@@ -97,5 +106,5 @@ When visiting a house to assess the work, the user creates a job and adds punch 
 ## Still to decide
 
 - App name (shown as "Handyman" for now; it's easy to change in `vite.config.ts` and `index.html`)
-- How labour time is charged
-- How reports and invoices are sent to clients
+- Final choice of how labour time is charged (both options are built; pick one in Settings)
+- Whether to send reports and invoices directly from the app (for now, save as a PDF and text or email it)

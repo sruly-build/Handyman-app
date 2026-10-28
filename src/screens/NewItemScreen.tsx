@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Screen } from '../components/Screen'
 import { Button, Card, Divider, ErrorNote, Field } from '../components/ui'
 import { backend } from '../data/backend'
-import { keys } from '../data/queries'
+import { keys, refreshAll } from '../data/queries'
 
 /** Quick first step: name the item, then everything else is added on the item screen. */
 export function NewItemScreen() {
@@ -17,8 +17,7 @@ export function NewItemScreen() {
   const create = useMutation({
     mutationFn: () => backend.createItem(jobId, title.trim(), location.trim()),
     onSuccess: (item) => {
-      qc.invalidateQueries({ queryKey: keys.items(jobId) })
-      qc.invalidateQueries({ queryKey: keys.jobs })
+      void refreshAll(qc)
       qc.setQueryData(keys.item(item.id), item)
       navigate(`/jobs/${jobId}/items/${item.id}`, { replace: true })
     },
@@ -54,7 +53,7 @@ export function NewItemScreen() {
           {create.isPending ? 'Adding…' : 'Add item'}
         </Button>
         <p className="px-2 text-center text-[14px] text-muted">
-          Next you can add photos, measurements and notes.
+          Next you can add photos, measurements, parts, tools and notes.
         </p>
       </form>
     </Screen>
