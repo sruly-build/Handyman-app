@@ -97,16 +97,6 @@ export function MeScreen() {
         </>
       )}
 
-      <SectionTitle>App</SectionTitle>
-      <Card>
-        <div className="px-4 py-3">
-          <p className="text-[13px] font-medium text-muted">Data is stored in</p>
-          <p className="text-[17px]">
-            {backend.mode === 'supabase' ? 'Supabase (shared with your team)' : 'This device only (Demo mode)'}
-          </p>
-        </div>
-      </Card>
-
       <div className="mt-8">
         <Button variant="danger" onClick={() => void backend.signOut()}>
           Log out
