@@ -69,7 +69,7 @@ export function BillScreen() {
     estimate.firstRate !== null
       ? `First hour ${formatMoney(estimate.firstRate)}, then ${formatMoney(estimate.rate)}/hour`
       : `Labour at ${formatMoney(estimate.rate)}/hour`
-  const rateNote = `${rates}${settings.labour_mode === 'visit' ? ', from arrival to finish' : ', per task'}.`
+  const rateNote = `${rates}${settings.labour_mode === 'visit' ? ', from arrival to finish' : ', per task'}, 1 hour minimum.`
   const materialsMarkupOn = (job.markup_parts ?? settings.markup_parts) === true
 
   return (
@@ -118,7 +118,7 @@ export function BillScreen() {
               total={estimate.total}
             />
             <p className="mt-4 text-[13px] text-muted">
-              {rates}. This is an estimate; the final bill is based on the actual time and parts.
+              {rates}, 1 hour minimum. This is an estimate; the final bill is based on the actual time and parts.
             </p>
           </Paper>
           <PrintButton />

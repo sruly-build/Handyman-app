@@ -94,7 +94,8 @@ export function SettingsScreen() {
           <p className="mt-1.5 px-4 text-[13px] text-muted">
             {first
               ? `The first hour of each job is ${labourPrice(first)}, then ${labourPrice(rate)} per hour. Example: 3 hours = ${labourPrice(first + 2 * rate)}.`
-              : `Every hour is ${labourPrice(rate)}. Fill in First hour to charge more for the first hour of a job.`}
+              : `Every hour is ${labourPrice(rate)}. Fill in First hour to charge more for the first hour of a job.`}{' '}
+            Every job is charged at least 1 hour of labour.
           </p>
         </section>
 

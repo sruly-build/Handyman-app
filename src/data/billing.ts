@@ -132,6 +132,23 @@ export function buildBill(input: BillInput, basis: 'estimate' | 'actual'): Bill 
   const otherParts = parts.filter((p) => !p.item_id || !itemIds.has(p.item_id)).map(toBillPart)
   if (otherParts.length) sections.push({ itemId: null, title: 'Other parts', detail: '', labour: null, parts: otherParts })
 
+  // Labour is charged for at least one hour per job
+  const worked = sections.reduce((sum, x) => sum + (x.labour?.hours ?? 0), 0)
+  if (worked > 0 && worked < 1) {
+    const topUp = 1 - worked
+    // Still within the first hour, so it's charged at the first-hour rate when there is one
+    const amount = roundMoney(topUp * (firstRate ?? rate))
+    // Goes after the work it tops up, before any "Other parts"
+    const at = sections.findIndex((x) => x.title === 'Other parts')
+    sections.splice(at === -1 ? sections.length : at, 0, {
+      itemId: null,
+      title: 'Minimum charge',
+      detail: '1 hour minimum',
+      labour: { hours: topUp, firstHours: 0, amount },
+      parts: [],
+    })
+  }
+
   const allParts = sections.flatMap((s) => s.parts)
   const partsCost = roundMoney(allParts.reduce((s, p) => s + p.cost, 0))
   const partsTotal = roundMoney(allParts.reduce((s, p) => s + p.price, 0))

@@ -32,7 +32,7 @@ All five stages from the build plan are built:
   - **Create invoice** uses the tracked time.
   - Mark invoices as paid, and print or save them as a PDF, with before and after photos if you like.
 - **Before and after report** to show the client what was fixed.
-- **Settings** (on the Me tab): a first-hour price (for example $150 for the first hour of a job, then $90 an hour), the markup %, switches for adding the markup to materials and to labour, how labour is charged (per task timer, or arrival to finish), and the business details printed on estimates and invoices. Each job's Billing screen also has its own switch for the markup on materials.
+- **Settings** (on the Me tab): a first-hour price (for example $150 for the first hour of a job, then $90 an hour; every job is charged at least 1 hour), the markup %, switches for adding the markup to materials and to labour, how labour is charged (per task timer, or arrival to finish), and the business details printed on estimates and invoices. Each job's Billing screen also has its own switch for the markup on materials.
 
 ---
 
