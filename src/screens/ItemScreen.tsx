@@ -10,7 +10,9 @@ import { Screen } from '../components/Screen'
 import { TaskTimer } from '../components/TimeWidgets'
 import { Button, Card, Divider, ErrorNote, Field, Loading, SectionTitle, StatusPicker, TextArea } from '../components/ui'
 import { backend } from '../data/backend'
-import { keys, refreshAll, useItem, useParts, usePhotos } from '../data/queries'
+import { isPartnerJob } from '../data/api'
+import { keys, refreshAll, useItem, useJob, useParts, usePhotos } from '../data/queries'
+import { useUser } from '../lib/auth'
 import type { ItemPatch, PunchItem } from '../data/types'
 
 /** Like the item, but hours are kept as typed text until saved */
@@ -33,6 +35,9 @@ const pickDraft = (i: PunchItem): Draft => ({
 export function ItemScreen() {
   const { jobId = '', itemId = '' } = useParams()
   const { data: item, isLoading, error } = useItem(itemId)
+  const { data: job } = useJob(jobId)
+  // Another company's shared job: punch list and photos only, no time, parts or pricing
+  const partner = job ? isPartnerJob(job, useUser()) : false
   const { data: parts = [] } = useParts(jobId)
   const { data: photos = [] } = usePhotos(itemId)
   const navigate = useNavigate()
@@ -73,13 +78,15 @@ export function ItemScreen() {
       action={<SaveIndicator state={saveState} />}
     >
       <StatusPicker value={draft.status} onChange={(status) => set({ status })} />
-      <div className="mt-3">
-        <TaskTimer
-          jobId={jobId}
-          itemId={itemId}
-          onStart={() => setDraft((d) => (d && d.status === 'todo' ? { ...d, status: 'in_progress' } : d))}
-        />
-      </div>
+      {!partner && (
+        <div className="mt-3">
+          <TaskTimer
+            jobId={jobId}
+            itemId={itemId}
+            onStart={() => setDraft((d) => (d && d.status === 'todo' ? { ...d, status: 'in_progress' } : d))}
+          />
+        </div>
+      )}
 
       <SectionTitle>Before photos</SectionTitle>
       <PhotoSection jobId={jobId} itemId={itemId} kind="before" />
@@ -108,37 +115,45 @@ export function ItemScreen() {
           onChange={(e) => set({ location: e.target.value })}
           placeholder="e.g. Upstairs bathroom"
         />
-        <Divider />
-        <Field
-          label="Expected time (hours), for the estimate"
-          inputMode="decimal"
-          value={draft.estimated_hours}
-          onChange={(e) => set({ estimated_hours: e.target.value.replace(/[^\d.]/g, '') })}
-          placeholder="e.g. 1.5"
-        />
+        {!partner && (
+          <>
+            <Divider />
+            <Field
+              label="Expected time (hours), for the estimate"
+              inputMode="decimal"
+              value={draft.estimated_hours}
+              onChange={(e) => set({ estimated_hours: e.target.value.replace(/[^\d.]/g, '') })}
+              placeholder="e.g. 1.5"
+            />
+          </>
+        )}
       </Card>
 
       <SectionTitle>Measurements</SectionTitle>
       <MeasurementsEditor value={draft.measurements} onChange={(measurements) => set({ measurements })} />
 
-      <SectionTitle>Parts to order</SectionTitle>
-      {itemParts.length > 0 && (
-        <Card className="mb-3">
-          {itemParts.map((p, i) => (
-            <div key={p.id}>
-              {i > 0 && <Divider />}
-              <PartRow part={p} />
-            </div>
-          ))}
-        </Card>
+      {!partner && (
+        <>
+          <SectionTitle>Parts to order</SectionTitle>
+          {itemParts.length > 0 && (
+            <Card className="mb-3">
+              {itemParts.map((p, i) => (
+                <div key={p.id}>
+                  {i > 0 && <Divider />}
+                  <PartRow part={p} />
+                </div>
+              ))}
+            </Card>
+          )}
+          <Link
+            to={`/jobs/${jobId}/parts/new?item=${itemId}`}
+            className="flex min-h-14 items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[#c7c7cc] text-[17px] font-semibold text-brand active:bg-white"
+          >
+            <PlusIcon size={22} />
+            Add part
+          </Link>
+        </>
       )}
-      <Link
-        to={`/jobs/${jobId}/parts/new?item=${itemId}`}
-        className="flex min-h-14 items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[#c7c7cc] text-[17px] font-semibold text-brand active:bg-white"
-      >
-        <PlusIcon size={22} />
-        Add part
-      </Link>
 
       <SectionTitle>Tools and materials</SectionTitle>
       <ListEditor

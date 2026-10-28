@@ -1,6 +1,6 @@
 import { formatMoney } from '../data/billing'
 import { formatDuration } from '../data/time'
-import type { InvoiceLine, Job, Photo, PunchItem, Settings } from '../data/types'
+import type { Company, InvoiceLine, Job, Photo, PunchItem } from '../data/types'
 import { PrintIcon } from './Icons'
 import { Card, StatusBadge } from './ui'
 
@@ -9,19 +9,20 @@ export function DocHeader({
   title,
   subtitle,
   job,
-  settings,
+  company,
 }: {
   title: string
   subtitle: string
   job: Job
-  settings: Settings
+  /** The business whose estimate, invoice or report this is */
+  company: Company
 }) {
   return (
     <div className="flex flex-wrap justify-between gap-4 border-b border-hairline pb-4">
       <div>
-        <p className="text-[22px] font-bold text-brand">{settings.business_name || 'Your business name'}</p>
+        <p className="text-[22px] font-bold text-brand">{company.name || 'Your business name'}</p>
         <p className="whitespace-pre-line text-[14px] text-muted">
-          {[settings.business_address, settings.business_phone, settings.business_email].filter(Boolean).join('\n')}
+          {[company.address, company.phone, company.email].filter(Boolean).join('\n')}
         </p>
       </div>
       <div className="text-right">

@@ -27,7 +27,7 @@ export function PartFormScreen() {
   const jobId = jobFromUrl ?? part?.job_id ?? ''
   const { data: items = [] } = useItems(jobId)
   const { data: job } = useJob(jobId, Boolean(jobId))
-  const { data: settings } = useSettings(job?.created_by, Boolean(job))
+  const { data: settings } = useSettings()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [form, setForm] = useState<Form | null>(

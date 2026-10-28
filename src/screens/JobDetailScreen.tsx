@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ChecklistIcon,
   ChevronIcon,
@@ -36,13 +36,14 @@ import {
   useItems,
   useJob,
   useParts,
-  usePeopleNames,
+  useCompany,
   useSettings,
+  useShares,
   useTime,
 } from '../data/queries'
 import { formatDuration, totalMs } from '../data/time'
 import type { ItemStatus, PunchItem } from '../data/types'
-import { sharing } from '../data/summary'
+import { isPartnerJob } from '../data/api'
 import { useUser } from '../lib/auth'
 import { friendlyDate } from '../lib/dates'
 import { directionsLink, phoneLink } from '../lib/links'
@@ -56,11 +57,23 @@ export function JobDetailScreen() {
   const { data: parts = [] } = useParts(jobId)
   const { data: checks = [] } = useBringChecks(jobId)
   const { data: entries = [] } = useTime(jobId)
-  const { data: settings } = useSettings(job?.created_by, Boolean(job))
+  const { data: settings } = useSettings()
   const { data: invoice } = useInvoice(jobId)
-  const nameOf = usePeopleNames()
   const user = useUser()
+  const navigate = useNavigate()
   const qc = useQueryClient()
+  // Another company's job shared with us: we only get the punch list and photos
+  const partner = job ? isPartnerJob(job, user) : false
+  const { data: ownerCompany } = useCompany(job?.company_id, partner)
+  const { data: shares = [] } = useShares(jobId, Boolean(job) && !partner)
+
+  const leave = useMutation({
+    mutationFn: () => backend.unshareJob(jobId, user.companyId),
+    onSuccess: () => {
+      void refreshAll(qc)
+      navigate('/jobs', { replace: true })
+    },
+  })
 
   // Tapping the circle moves an item along: to do → in progress → done
   const cycle = useMutation({
@@ -83,7 +96,6 @@ export function JobDetailScreen() {
     )
   }
 
-  const share = sharing(job, user.id)
   const done = items?.filter((i) => i.status === 'done').length ?? 0
   const total = items?.length ?? 0
 
@@ -101,9 +113,11 @@ export function JobDetailScreen() {
       eyebrow={friendlyDate(job.job_date)}
       back={back}
       action={
-        <Link to={`/jobs/${job.id}/edit`} className="min-h-11 px-1 py-2 text-[17px] text-brand active:opacity-50">
-          Edit
-        </Link>
+        !partner && (
+          <Link to={`/jobs/${job.id}/edit`} className="min-h-11 px-1 py-2 text-[17px] text-brand active:opacity-50">
+            Edit
+          </Link>
+        )
       }
     >
       {job.address && <p className="-mt-3 mb-4 text-[17px] text-muted">{job.address}</p>}
@@ -128,10 +142,40 @@ export function JobDetailScreen() {
         </Card>
       )}
 
-      <ShareLine mine={share.mine} owner={nameOf(job.created_by ?? '')} sharedWith={share.sharedWith.map(nameOf)} />
+      {partner ? (
+        <div className="mt-4 rounded-2xl bg-brand-soft px-4 py-3 text-[15px] text-brand-dark">
+          <p className="flex items-center gap-2">
+            <PeopleIcon size={18} className="shrink-0" />
+            <span>
+              <strong>{ownerCompany?.name || 'Another company'}</strong> shared this job with you.
+            </span>
+          </p>
+          <p className="mt-1 text-[14px]">You can work on the punch list and photos. Their prices, parts, time and bills stay private.</p>
+          <button
+            onClick={() => confirm('Remove this job from your list? They can share it again later.') && leave.mutate()}
+            className="mt-2 min-h-11 text-[15px] font-semibold text-problem active:opacity-50"
+          >
+            Remove from my list
+          </button>
+          {leave.error && <ErrorNote error={leave.error} />}
+        </div>
+      ) : (
+        <Card className="mt-4">
+          <RowLink
+            to={`/jobs/${job.id}/share`}
+            Icon={PeopleIcon}
+            title="Share with another company"
+            value={shares.length ? shares.map((s) => s.company_name).join(', ') : 'Not shared'}
+          />
+        </Card>
+      )}
 
-      <SectionTitle>Time</SectionTitle>
-      <ClockCard jobId={job.id} />
+      {!partner && (
+        <>
+          <SectionTitle>Time</SectionTitle>
+          <ClockCard jobId={job.id} />
+        </>
+      )}
 
       <SectionTitle
         action={total > 0 && <span className="pb-0.5 text-[15px] font-semibold text-muted">{done} of {total} done</span>}
@@ -191,32 +235,38 @@ export function JobDetailScreen() {
       </Link>
 
       <SectionTitle>This job</SectionTitle>
-      <Card>
-        <RowLink
-          to={`/jobs/${job.id}/bring`}
-          Icon={ChecklistIcon}
-          title="Bring list"
-          value={bring.length ? `${packed} of ${bring.length} packed` : 'Empty'}
-        />
-        <Divider />
-        <RowLink
-          to={`/jobs/${job.id}/parts`}
-          Icon={TagIcon}
-          title="Parts and orders"
-          value={parts.length ? `${parts.length} · ${formatMoney(paid)} paid` : 'None'}
-        />
-        <Divider />
-        <RowLink to={`/jobs/${job.id}/time`} Icon={ClockIcon} title="Time" value={formatDuration(onSite)} />
-        <Divider />
-        <RowLink
-          to={`/jobs/${job.id}/bill`}
-          Icon={InvoiceIcon}
-          title={invoice ? `Invoice #${invoice.number}` : 'Estimate'}
-          value={formatMoney(invoice ? invoice.total : estimate)}
-        />
-        <Divider />
-        <RowLink to={`/jobs/${job.id}/report`} Icon={PhotosIcon} title="Before and after report" />
-      </Card>
+      {partner ? (
+        <Card>
+          <RowLink to={`/jobs/${job.id}/report`} Icon={PhotosIcon} title="Before and after report" />
+        </Card>
+      ) : (
+        <Card>
+          <RowLink
+            to={`/jobs/${job.id}/bring`}
+            Icon={ChecklistIcon}
+            title="Bring list"
+            value={bring.length ? `${packed} of ${bring.length} packed` : 'Empty'}
+          />
+          <Divider />
+          <RowLink
+            to={`/jobs/${job.id}/parts`}
+            Icon={TagIcon}
+            title="Parts and orders"
+            value={parts.length ? `${parts.length} · ${formatMoney(paid)} paid` : 'None'}
+          />
+          <Divider />
+          <RowLink to={`/jobs/${job.id}/time`} Icon={ClockIcon} title="Time" value={formatDuration(onSite)} />
+          <Divider />
+          <RowLink
+            to={`/jobs/${job.id}/bill`}
+            Icon={InvoiceIcon}
+            title={invoice ? `Invoice #${invoice.number}` : 'Estimate'}
+            value={formatMoney(invoice ? invoice.total : estimate)}
+          />
+          <Divider />
+          <RowLink to={`/jobs/${job.id}/report`} Icon={PhotosIcon} title="Before and after report" />
+        </Card>
+      )}
     </Screen>
   )
 }
@@ -260,19 +310,5 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <p className="text-[13px] font-medium text-muted">{label}</p>
       <p className="whitespace-pre-wrap text-[17px]">{value}</p>
     </div>
-  )
-}
-
-function ShareLine({ mine, owner, sharedWith }: { mine: boolean; owner: string; sharedWith: string[] }) {
-  const text = !mine
-    ? <><strong className="text-ink">{owner}</strong> shared this job with you</>
-    : sharedWith.length > 0
-      ? <>Shared with <strong className="text-ink">{sharedWith.join(', ')}</strong></>
-      : <>Only you can see this job. Tap Edit to share it.</>
-  return (
-    <p className="mt-3 flex items-center gap-2 px-1 text-[15px] text-muted">
-      <PeopleIcon size={18} className="shrink-0" />
-      <span>{text}</span>
-    </p>
   )
 }

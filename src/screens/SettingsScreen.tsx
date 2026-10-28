@@ -6,11 +6,13 @@ import { Button, Card, Divider, ErrorNote, Field, GroupLabel, Loading, Segmented
 import { backend } from '../data/backend'
 import { formatMoney, withMarkup } from '../data/billing'
 import { refreshAll, useSettings } from '../data/queries'
+import { useUser } from '../lib/auth'
 import type { Settings } from '../data/types'
 
-/** Markup, hourly rate and the details printed on estimates and invoices */
+/** Markup, service call and hourly rates, and how labour is charged (owners edit, members view) */
 export function SettingsScreen() {
   const { data, isLoading, error } = useSettings()
+  const canEdit = useUser().role === 'owner'
   // Number boxes are kept as typed text until saved
   const [form, setForm] = useState<
     | (Omit<Settings, 'markup_percent' | 'hourly_rate' | 'first_hour_rate'> & {
@@ -51,7 +53,7 @@ export function SettingsScreen() {
   const back = { to: '/more', label: 'Me' }
   if (isLoading || error || !form) {
     return (
-      <Screen title="Settings" back={back}>
+      <Screen title="Prices" back={back}>
         {error ? <ErrorNote error={error} /> : <Loading />}
       </Screen>
     )
@@ -69,8 +71,9 @@ export function SettingsScreen() {
   }
 
   return (
-    <Screen title="Settings" back={back}>
+    <Screen title="Prices" back={back}>
       <form onSubmit={submit} className="space-y-6">
+        <fieldset disabled={!canEdit} className="space-y-6">
         <section>
           <GroupLabel>Labour</GroupLabel>
           <Card>
@@ -151,33 +154,23 @@ export function SettingsScreen() {
           </p>
         </section>
 
-        <section>
-          <GroupLabel>Shown on estimates and invoices</GroupLabel>
-          <Card>
-            <Field label="Business name" value={form.business_name} onChange={(e) => set({ business_name: e.target.value })} />
-            <Divider />
-            <Field label="Phone" type="tel" value={form.business_phone} onChange={(e) => set({ business_phone: e.target.value })} />
-            <Divider />
-            <Field
-              label="Email"
-              type="email"
-              autoCapitalize="none"
-              value={form.business_email}
-              onChange={(e) => set({ business_email: e.target.value })}
-            />
-            <Divider />
-            <Field label="Address" value={form.business_address} onChange={(e) => set({ business_address: e.target.value })} />
-          </Card>
-        </section>
+        </fieldset>
 
+        {!canEdit && (
+          <p className="rounded-2xl bg-progress-soft px-4 py-3 text-[14px] text-[#9a5300]">
+            Only the company owner can change prices.
+          </p>
+        )}
         <p className="px-4 text-[13px] text-muted">
-          These are your own settings, used on your jobs. Jobs shared with you use their owner's settings.
+          These prices are only seen by your company. Companies you share a job with never see them.
         </p>
 
         {save.error && <ErrorNote error={save.error} />}
-        <Button type="submit" disabled={save.isPending}>
-          {save.isPending ? 'Saving…' : 'Save settings'}
-        </Button>
+        {canEdit && (
+          <Button type="submit" disabled={save.isPending}>
+            {save.isPending ? 'Saving…' : 'Save prices'}
+          </Button>
+        )}
       </form>
     </Screen>
   )

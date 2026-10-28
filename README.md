@@ -9,7 +9,10 @@ The full plan is in [docs/BUILD_PLAN.md](docs/BUILD_PLAN.md).
 All five stages from the build plan are built:
 
 - **Jobs and punch lists.** Create a job with the customer's details (the address box suggests real addresses as you type). **Call** and **Directions** are one tap away. Add each thing that needs fixing as a punch list item.
-- **Everyone has their own jobs.** A job is private to the person who created it. To work on one together, the owner taps **Edit → Share this job** and ticks the other person. Then both of you see everything on that job: items, photos, parts, time and the bill. Only the owner can unshare or delete it. The database itself enforces this, so nobody can see a job that isn't theirs or shared with them.
+- **Companies.** Anyone can **Sign up** on the login screen, which creates their own company with its business profile (name, email, phone, address). A company sees only its own jobs, prices, parts, time, estimates and invoices. The database itself enforces this.
+- **Your team.** The company owner invites workers from **Me → Team** by email. When a worker signs up with that email, they join the owner's company and see all its jobs, clock in, run timers and so on. Only the owner changes the business profile and prices.
+- **Sharing a job with another company.** On a job, tap **Share with another company** and enter an email someone at that company logs in with. They then see that job's **punch list and photos only**, and can update them. They never see your prices, parts, time, estimates or invoices.
+- **Forgot password.** The login screen sends a reset link by email, which opens the app to choose a new password.
 - **Each punch list item** has:
   - status: to do, in progress (orange) or done (green check)
   - a task timer
@@ -55,17 +58,25 @@ You need three free accounts: **GitHub** (you already have it), **Supabase** (da
 
 > **After an app update** that changes `supabase/schema.sql`, run it again the same way. It's safe to run any number of times and never deletes your data.
 
-### Step 2: Create the logins
+### Step 2: Turn on sign-up and password emails
 
-1. In Supabase, open **Authentication → Users** and click **Add user → Create new user**.
-2. Enter your email and a password, and tick **Auto Confirm User**. Do the same for each person who will use the app.
-3. Turn off public sign-ups so nobody else can make an account: go to **Authentication → Sign In / Providers** and switch off **Allow new users to sign up**.
+People now create their own accounts from the app's **Sign up** button, so:
 
-**Adding someone later:** follow steps 1–2 above for them, then send them the app link with their email and password. They start with no jobs. Share a job with them from **Edit → Share this job**.
+1. In Supabase, go to **Authentication → Sign In / Providers** and make sure **Allow new users to sign up** is **on**.
+2. On the same page, leave **Confirm email** **on**. New people get an email with a link to confirm their address before they can log in.
+3. Once your app is on the web (Step 4), go to **Authentication → URL Configuration**:
+   - Set **Site URL** to your app's link, e.g. `https://handyman-app.vercel.app`
+   - Under **Redirect URLs**, add the same link followed by `/**`, e.g. `https://handyman-app.vercel.app/**`
+
+   This is where the confirm-email and reset-password links send people back to.
+
+> ⚠️ **Email limit:** Supabase's built-in email service only sends a few emails per hour, and is meant for testing. Before you open sign-ups to other companies, connect a real email service under **Project Settings → Authentication → SMTP Settings** (for example Resend, which has a free plan).
+
+**Existing logins** (made before this version) keep working. Each one became its own company, with its business details and prices kept.
 
 ### Step 3: Connect the app to Supabase ✅ done
 
-Your project's URL and publishable key are already built into the app (in `.env.production`). Both are safe to include, because the database only lets logged-in users see anything. **Never** put the `service_role` or secret key anywhere.
+Your project's URL and publishable key are already built into the app (in `.env.production`). Both are safe to include, because the database only lets each company see its own data. **Never** put the `service_role` or secret key anywhere.
 
 ### Step 4: Put the app on the web with Vercel
 
@@ -82,7 +93,7 @@ From now on, every change pushed to GitHub updates the app automatically.
 2. Tap the **Share** button (the square with an arrow), then **Add to Home Screen**, then **Add**.
 3. Open it from the green house icon. It opens full screen like a normal app.
 
-Do the same on your worker's phone.
+On your worker's phone: invite their email from **Me → Team** first, then have them open the link and tap **Sign up** with that email.
 
 ---
 
@@ -90,7 +101,8 @@ Do the same on your worker's phone.
 
 **Jobs and items**
 - [ ] Log in with your email and password
-- [ ] Open **Me → Markup, hourly rate, invoice details** and fill in your business name, hourly rate and markup
+- [ ] Open **Me → Business profile** and check your business name, email, phone and address
+- [ ] Open **Me → Prices** and set your service call, hourly rate and markup
 - [ ] Create a job with a real phone number and address. Check that **Call** and **Directions** work.
 - [ ] Add an item, take a **before photo**, add a measurement, tools and notes, and add the expected hours. Go back and reopen it: everything should still be there.
 - [ ] Tap a photo, then **Draw on it**. Draw a line, add text, and save.
@@ -102,12 +114,16 @@ Do the same on your worker's phone.
 
 **Time**
 - [ ] Tap **Arrived**, start and stop a task timer, then tap **Finished**
-- [ ] Log in on the second phone as the worker, tap **Arrived** on the same job, and check that your phone shows they're on site
+- [ ] Invite your worker from **Me → Team**, have them **Sign up** with that email on their phone, then tap **Arrived** on the same job. Your phone should show they're on site.
 - [ ] Open the job's **Time** screen and check the totals per person
 
 **Billing**
 - [ ] Open **Estimate**, then **Invoice → Create invoice**. Try **Print or save as PDF**.
 - [ ] Take an **after photo** and open the **Before and after report**
+
+**Accounts and sharing**
+- [ ] Log out, tap **Forgot password?**, and check the reset email brings you back to choose a new password
+- [ ] Have another company sign up (or use a second email), then **Share with another company** on a job. Log in as them: they should see that job's punch list and photos, but no prices, parts, time or bill.
 
 ---
 

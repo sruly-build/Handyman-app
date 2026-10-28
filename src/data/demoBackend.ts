@@ -89,6 +89,10 @@ export function createDemo(): { db: Db; auth: Auth } {
       save(data)
     },
 
+    async rpc() {
+      throw new Error('Sharing and team invites need the real app with Supabase. They don\'t work in Demo mode.')
+    },
+
     async upload(path, file) {
       await fileStore('readwrite', (s) => s.put(file, path))
     },
@@ -110,16 +114,43 @@ export function createDemo(): { db: Db; auth: Auth } {
   }
 
   const listeners = new Set<(user: AppUser | null) => void>()
+  const DEMO_USER = 'demo-user'
+  const DEMO_COMPANY = 'demo-company'
 
   async function currentUser(): Promise<AppUser | null> {
     const email = localStorage.getItem(USER_KEY)
     if (!email) return null
-    const [profile] = await db.select<{ full_name: string }>('profiles', { id: 'demo-user' })
+    const [profile] = await db.select<{ full_name: string }>('profiles', { id: DEMO_USER })
     const fallback = email.split('@')[0] || 'there'
     return {
-      id: 'demo-user',
+      id: DEMO_USER,
       email,
       name: profile?.full_name || fallback.charAt(0).toUpperCase() + fallback.slice(1),
+      companyId: DEMO_COMPANY,
+      role: 'owner',
+    }
+  }
+
+  /** Demo mode has one person in one company; make sure both exist */
+  async function ensureCompany(email: string, fullName?: string, companyName?: string) {
+    const [company] = await db.select('companies', { id: DEMO_COMPANY })
+    if (!company || companyName) {
+      await db.upsert('companies', {
+        id: DEMO_COMPANY,
+        name: companyName || (company as { name?: string } | undefined)?.name || 'My company',
+        email,
+        phone: '',
+        address: '',
+      })
+    }
+    const [profile] = await db.select('profiles', { id: DEMO_USER })
+    if (!profile || fullName) {
+      await db.upsert('profiles', {
+        id: DEMO_USER,
+        full_name: fullName || (profile as { full_name?: string } | undefined)?.full_name || '',
+        company_id: DEMO_COMPANY,
+        role: 'owner',
+      })
     }
   }
 
@@ -129,14 +160,29 @@ export function createDemo(): { db: Db; auth: Auth } {
       listeners.add(callback)
       return () => listeners.delete(callback)
     },
+    onPasswordRecovery() {
+      // Demo mode has no emails, so there are no reset links
+      return () => {}
+    },
     async refresh() {
       const user = await currentUser()
       listeners.forEach((l) => l(user))
     },
     async signIn(email) {
+      await ensureCompany(email)
       localStorage.setItem(USER_KEY, email)
       await auth.refresh()
     },
+    async signUp({ email, fullName, companyName }) {
+      await ensureCompany(email, fullName, companyName)
+      localStorage.setItem(USER_KEY, email)
+      await auth.refresh()
+      return { needsConfirmation: false }
+    },
+    async sendPasswordReset() {
+      throw new Error('Demo mode has no passwords: type any email and tap Log in.')
+    },
+    async updatePassword() {},
     async signOut() {
       localStorage.removeItem(USER_KEY)
       await auth.refresh()

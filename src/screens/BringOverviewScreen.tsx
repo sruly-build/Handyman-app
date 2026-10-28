@@ -14,7 +14,7 @@ export function BringOverviewScreen() {
   const { data: parts = [] } = useParts()
   const { data: checks = [] } = useAllBringChecks()
   const today = todayISO()
-  const upcoming = sortJobs((jobs ?? []).filter((j) => j.job_date !== null && j.job_date >= today), today)
+  const upcoming = sortJobs((jobs ?? []).filter((j) => j.from_company === null && j.job_date !== null && j.job_date >= today), today)
 
   return (
     <Screen title="Bring lists">

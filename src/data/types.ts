@@ -3,15 +3,45 @@ export type PhotoKind = 'before' | 'after' | 'sketch'
 export type PartStatus = 'needed' | 'ordered' | 'received'
 export type LabourMode = 'task' | 'visit'
 
+export type Role = 'owner' | 'member'
+
 export interface AppUser {
   id: string
   email: string
   name: string
+  companyId: string
+  /** owner runs the company (profile, prices, team); member works jobs */
+  role: Role
 }
 
 export interface Profile {
   id: string
   full_name: string
+  company_id: string | null
+  role: Role
+}
+
+/** A company's business profile, printed on its estimates and invoices */
+export interface Company {
+  id: string
+  name: string
+  email: string
+  phone: string
+  address: string
+}
+
+/** A job one company shared with another (punch list and photos only) */
+export interface JobShare {
+  job_id: string
+  company_id: string
+  /** Filled in by the app for display */
+  company_name?: string
+}
+
+export interface Invite {
+  email: string
+  company_id: string
+  created_at: string
 }
 
 export interface Job {
@@ -23,10 +53,10 @@ export interface Job {
   /** Calendar date as YYYY-MM-DD, or null if not booked yet */
   job_date: string | null
   notes: string
-  /** The person who created the job and owns it (null only in Demo mode's old data) */
+  /** The company the job belongs to (null only in Demo mode's old data) */
+  company_id: string | null
+  /** The person who created the job */
   created_by: string | null
-  /** Ids of the people the owner shared this job with */
-  assigned: string[]
   /** Things to bring that aren't tied to a punch list item */
   bring_extras: string[]
   /** This job's own "markup on materials" switch (null = use the setting) */
@@ -41,6 +71,10 @@ export interface JobSummary extends Job {
   in_progress_count: number
   /** People clocked in at this job right now */
   on_site: string[]
+  /** Another company's job shared with us: that company's name. Null for our own jobs. */
+  from_company: string | null
+  /** Our own job: names of the companies we shared it with */
+  shared_with: string[]
 }
 
 export interface Measurement {
@@ -115,13 +149,10 @@ export interface TimeEntry {
   ended_at: string | null
 }
 
+/** A company's prices */
 export interface Settings {
-  /** The login id of the person these settings belong to */
+  /** The company these prices belong to */
   id: string
-  business_name: string
-  business_phone: string
-  business_email: string
-  business_address: string
   markup_percent: number
   /** Price of the first hour of a job (null = same as hourly_rate) */
   first_hour_rate: number | null
@@ -156,7 +187,7 @@ export interface Invoice {
   markup_percent: number
 }
 
-export type JobInput = Omit<Job, 'id' | 'created_at' | 'created_by'>
+export type JobInput = Omit<Job, 'id' | 'created_at' | 'created_by' | 'company_id'>
 export type ItemPatch = Partial<
   Pick<PunchItem, 'title' | 'location' | 'notes' | 'status' | 'measurements' | 'tools' | 'estimated_hours'>
 >

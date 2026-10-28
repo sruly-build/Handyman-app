@@ -2,7 +2,7 @@ import { useParams } from 'react-router-dom'
 import { BeforeAfterList, DocHeader, Paper, PrintButton } from '../components/Documents'
 import { Screen } from '../components/Screen'
 import { ErrorNote, Loading } from '../components/ui'
-import { useItems, useJob, useJobPhotos, useSettings } from '../data/queries'
+import { useCompany, useItems, useJob, useJobPhotos } from '../data/queries'
 import { friendlyDate } from '../lib/dates'
 
 /** Before and after photos side by side, to show the client what was fixed */
@@ -11,10 +11,11 @@ export function ReportScreen() {
   const { data: job, error } = useJob(jobId)
   const { data: items } = useItems(jobId)
   const { data: photos } = useJobPhotos(jobId)
-  const { data: settings } = useSettings(job?.created_by, Boolean(job))
+  // A shared job's report shows the business of the company that owns the job
+  const { data: company } = useCompany(job?.company_id, Boolean(job))
 
   const back = { to: `/jobs/${jobId}`, label: 'Job' }
-  if (error || !job || !items || !photos || !settings) {
+  if (error || !job || !items || !photos || !company) {
     return (
       <Screen title="Report" back={back}>
         {error ? <ErrorNote error={error} /> : <Loading />}
@@ -27,7 +28,7 @@ export function ReportScreen() {
     <Screen title="Before and after" eyebrow={job.customer_name} back={back}>
       <div className="space-y-4">
         <Paper>
-          <DocHeader title="Job report" subtitle={friendlyDate(job.job_date)} job={job} settings={settings} />
+          <DocHeader title="Job report" subtitle={friendlyDate(job.job_date)} job={job} company={company} />
           <p className="my-4 text-[15px]">
             {done} of {items.length} {items.length === 1 ? 'item' : 'items'} completed.
           </p>

@@ -1,6 +1,8 @@
 import type { ItemStatus, Job, JobSummary } from './types'
 
-export function summarize(job: Job, statuses: ItemStatus[], onSite: string[] = []): JobSummary {
+type Counts = Omit<JobSummary, 'from_company' | 'shared_with'>
+
+export function summarize(job: Job, statuses: ItemStatus[], onSite: string[] = []): Counts {
   return {
     ...job,
     item_count: statuses.length,
@@ -21,10 +23,4 @@ export function sortJobs<T extends Job>(jobs: T[], today: string): T[] {
     }
     return b.created_at.localeCompare(a.created_at)
   })
-}
-
-/** How a job is shared, from the point of view of the person using the phone */
-export function sharing(job: Job, me: string): { mine: boolean; sharedWith: string[] } {
-  const mine = !job.created_by || job.created_by === me
-  return { mine, sharedWith: (job.assigned ?? []).filter((id) => id !== job.created_by) }
 }

@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react'
-import { GearIcon } from '../components/Icons'
+import { GearIcon, InvoiceIcon, PeopleIcon } from '../components/Icons'
 import { Screen } from '../components/Screen'
 import { Button, Card, Divider, ErrorNote, Field, RowLink, SectionTitle } from '../components/ui'
 import { backend } from '../data/backend'
-import { useMyTime, useNow } from '../data/queries'
+import { useCompany, useMyTime, useNow } from '../data/queries'
 import { formatDuration, totalMs } from '../data/time'
 import { useUser } from '../lib/auth'
 
@@ -20,6 +20,7 @@ export function MeScreen() {
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [error, setError] = useState<unknown>(null)
   const { data: myTime = [] } = useMyTime()
+  const { data: company } = useCompany()
   const now = useNow(60_000)
 
   const weekStart = startOfWeek(new Date(now))
@@ -75,9 +76,13 @@ export function MeScreen() {
         </Button>
       </form>
 
-      <SectionTitle>Business</SectionTitle>
+      <SectionTitle>{company?.name || 'Business'}</SectionTitle>
       <Card>
-        <RowLink to="/settings" Icon={GearIcon} title="Markup, hourly rate, invoice details" />
+        <RowLink to="/business" Icon={InvoiceIcon} title="Business profile" value={user.role === 'owner' ? undefined : 'View'} />
+        <Divider />
+        <RowLink to="/settings" Icon={GearIcon} title="Prices" value={user.role === 'owner' ? undefined : 'View'} />
+        <Divider />
+        <RowLink to="/team" Icon={PeopleIcon} title="Team" value={user.role === 'owner' ? 'Invite' : undefined} />
       </Card>
 
       <SectionTitle>App</SectionTitle>

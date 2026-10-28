@@ -5,21 +5,16 @@ import { PlusIcon } from '../components/Icons'
 import { Screen } from '../components/Screen'
 import { EmptyState, ErrorNote, Loading, Segmented } from '../components/ui'
 import { useJobs } from '../data/queries'
-import { sharing, sortJobs } from '../data/summary'
-import { useUser } from '../lib/auth'
+import { sortJobs } from '../data/summary'
 import { todayISO } from '../lib/dates'
 
 export function JobsScreen() {
   const { data: jobs, isLoading, error } = useJobs()
-  const me = useUser().id
-  const [filter, setFilter] = useState<'all' | 'mine' | 'shared'>('all')
-  const isShared = (j: NonNullable<typeof jobs>[number]) => {
-    const s = sharing(j, me)
-    return !s.mine || s.sharedWith.length > 0
-  }
-  const anyShared = (jobs ?? []).some(isShared)
+  const [filter, setFilter] = useState<'all' | 'ours' | 'others'>('all')
+  // Jobs other companies shared with us (punch list and photos only)
+  const anyFromOthers = (jobs ?? []).some((j) => j.from_company !== null)
   const shown = (jobs ?? []).filter((j) =>
-    filter === 'all' ? true : filter === 'shared' ? isShared(j) : sharing(j, me).mine && !isShared(j),
+    filter === 'all' ? true : filter === 'others' ? j.from_company !== null : j.from_company === null,
   )
   const sorted = sortJobs(shown, todayISO())
 
@@ -36,7 +31,7 @@ export function JobsScreen() {
         </Link>
       }
     >
-      {anyShared && (
+      {anyFromOthers && (
         <div className="mb-4">
           <Segmented
             label="Show"
@@ -44,8 +39,8 @@ export function JobsScreen() {
             onChange={setFilter}
             options={[
               { value: 'all', label: 'All' },
-              { value: 'mine', label: 'Just mine' },
-              { value: 'shared', label: 'Shared' },
+              { value: 'ours', label: 'Ours' },
+              { value: 'others', label: 'Shared with us' },
             ]}
           />
         </div>

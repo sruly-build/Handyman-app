@@ -19,7 +19,9 @@ export function HomeScreen() {
   ).slice(0, 3)
 
   const tomorrow = sortJobs(
-    (jobs ?? []).filter((j) => j.job_date !== null && friendlyDate(j.job_date, today) === 'Tomorrow'),
+    (jobs ?? []).filter(
+      (j) => j.from_company === null && j.job_date !== null && friendlyDate(j.job_date, today) === 'Tomorrow',
+    ),
     today,
   )
   const evening = new Date().getHours() >= 15

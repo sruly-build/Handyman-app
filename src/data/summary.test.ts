@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { sharing, sortJobs, summarize } from './summary'
+import { isPartnerJob } from './api'
+import { sortJobs, summarize } from './summary'
 import type { Job } from './types'
 
 const job = (id: string, job_date: string | null, created_at = '2026-01-01T00:00:00Z'): Job => ({
@@ -11,8 +12,8 @@ const job = (id: string, job_date: string | null, created_at = '2026-01-01T00:00
   customer_email: '',
   address: '',
   notes: '',
+  company_id: 'c1',
   created_by: 'u1',
-  assigned: [],
   bring_extras: [],
 })
 
@@ -36,11 +37,13 @@ describe('sortJobs', () => {
   })
 })
 
-describe('sharing', () => {
-  it('knows whose job it is and who else can see it', () => {
-    const j = { ...job('a', null), created_by: 'owner', assigned: ['owner', 'worker'] }
-    expect(sharing(j, 'owner')).toEqual({ mine: true, sharedWith: ['worker'] })
-    expect(sharing(j, 'worker')).toEqual({ mine: false, sharedWith: ['worker'] })
-    expect(sharing({ ...j, assigned: [] }, 'owner')).toEqual({ mine: true, sharedWith: [] })
+
+describe('isPartnerJob', () => {
+  it('is another company’s job only when it has a different company', () => {
+    const me = { companyId: 'c1' }
+    expect(isPartnerJob({ company_id: 'c1' }, me)).toBe(false)
+    expect(isPartnerJob({ company_id: 'c2' }, me)).toBe(true)
+    // Old Demo jobs have no company and count as ours
+    expect(isPartnerJob({ company_id: null }, me)).toBe(false)
   })
 })

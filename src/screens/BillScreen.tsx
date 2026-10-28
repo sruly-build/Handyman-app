@@ -6,7 +6,7 @@ import { Screen } from '../components/Screen'
 import { Button, Card, ErrorNote, Loading, Segmented, Toggle } from '../components/ui'
 import { backend } from '../data/backend'
 import { buildBill, formatMoney, invoiceLines } from '../data/billing'
-import { refreshAll, useInvoice, useItems, useJob, useJobPhotos, useParts, useSettings, useTime } from '../data/queries'
+import { refreshAll, useCompany, useInvoice, useItems, useJob, useJobPhotos, useParts, useSettings, useTime } from '../data/queries'
 
 const longDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
 
@@ -17,7 +17,8 @@ export function BillScreen() {
   const { data: items } = useItems(jobId)
   const { data: parts } = useParts(jobId)
   const { data: entries } = useTime(jobId)
-  const { data: settings } = useSettings(job?.created_by, Boolean(job))
+  const { data: settings } = useSettings()
+  const { data: company } = useCompany()
   const { data: invoice, isLoading: invoiceLoading } = useInvoice(jobId)
   const { data: photos = [] } = useJobPhotos(jobId)
   const [tab, setTab] = useState<'estimate' | 'invoice' | null>(null)
@@ -51,7 +52,7 @@ export function BillScreen() {
   })
 
   const back = { to: `/jobs/${jobId}`, label: 'Job' }
-  if (error || !job || !items || !parts || !entries || !settings || invoiceLoading) {
+  if (error || !job || !items || !parts || !entries || !settings || !company || invoiceLoading) {
     return (
       <Screen title="Billing" back={back}>
         {error ? <ErrorNote error={error} /> : <Loading />}
@@ -110,7 +111,7 @@ export function BillScreen() {
             </p>
           )}
           <Paper>
-            <DocHeader title="Estimate" subtitle={longDate(new Date().toISOString())} job={job} settings={settings} />
+            <DocHeader title="Estimate" subtitle={longDate(new Date().toISOString())} job={job} company={company} />
             <LinesTable
               lines={invoiceLines(estimate)}
               partsTotal={estimate.partsTotal}
@@ -173,7 +174,7 @@ export function BillScreen() {
               title={`Invoice #${invoice.number}`}
               subtitle={`${longDate(invoice.created_at)}${invoice.status === 'paid' ? ' · PAID' : ''}`}
               job={job}
-              settings={settings}
+              company={company}
             />
             <LinesTable
               lines={invoice.lines}

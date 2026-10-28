@@ -5,12 +5,16 @@ import type { AppUser } from '../data/types'
 interface AuthState {
   user: AppUser | null
   loading: boolean
+  /** True after opening a "reset password" link, until a new password is saved */
+  recovering: boolean
+  finishRecovery: () => void
 }
 
-const AuthContext = createContext<AuthState>({ user: null, loading: true })
+const AuthContext = createContext<AuthState>({ user: null, loading: true, recovering: false, finishRecovery: () => {} })
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AuthState>({ user: null, loading: true })
+  const [state, setState] = useState<{ user: AppUser | null; loading: boolean }>({ user: null, loading: true })
+  const [recovering, setRecovering] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -19,13 +23,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then((user) => active && setState({ user, loading: false }))
       .catch(() => active && setState({ user: null, loading: false }))
     const unsubscribe = backend.onAuthChange((user) => active && setState({ user, loading: false }))
+    const stopRecovery = backend.onPasswordRecovery(() => active && setRecovering(true))
     return () => {
       active = false
       unsubscribe()
+      stopRecovery()
     }
   }, [])
 
-  return <AuthContext.Provider value={state}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={{ ...state, recovering, finishRecovery: () => setRecovering(false) }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {

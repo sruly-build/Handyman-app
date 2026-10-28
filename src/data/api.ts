@@ -1,12 +1,16 @@
-import type { Auth, Db } from './db'
+import type { Auth, Db, SignUpInput } from './db'
 import { summarize } from './summary'
 import type {
+  AppUser,
   BringCheck,
+  Company,
+  Invite,
   Invoice,
   InvoiceLine,
   ItemPatch,
   Job,
   JobInput,
+  JobShare,
   Part,
   PartInput,
   PartStatus,
@@ -21,10 +25,6 @@ import type {
 
 export const defaultSettings: Settings = {
   id: '',
-  business_name: '',
-  business_phone: '',
-  business_email: '',
-  business_address: '',
   markup_percent: 20,
   first_hour_rate: null,
   hourly_rate: 75,
@@ -49,12 +49,22 @@ const fixInvoice = (i: Invoice): Invoice => ({
 const newId = () => crypto.randomUUID()
 const byPosition = (a: PunchItem, b: PunchItem) => a.position - b.position || a.created_at.localeCompare(b.created_at)
 
+/** Is this job another company's, shared with us? (Old Demo jobs have no company: they're ours.) */
+export const isPartnerJob = (job: Pick<Job, 'company_id'>, user: Pick<AppUser, 'companyId'>) =>
+  job.company_id != null && job.company_id !== user.companyId
+
 /** Everything the screens can do, built on the basic storage operations in db.ts */
 export function createApi(db: Db, auth: Auth) {
-  async function me(): Promise<string> {
+  async function me(): Promise<AppUser> {
     const user = await auth.getUser()
     if (!user) throw new Error('Please log in again.')
-    return user.id
+    return user
+  }
+
+  async function companyNames(ids: string[]): Promise<Map<string, string>> {
+    const unique = [...new Set(ids)]
+    const rows = await Promise.all(unique.map((id) => db.select<Company>('companies', { id })))
+    return new Map(rows.flat().map((c) => [c.id, c.name]))
   }
 
   async function withUrls(rows: PhotoRow[]): Promise<Photo[]> {
@@ -83,24 +93,46 @@ export function createApi(db: Db, auth: Auth) {
     // ---- Login and people ----
     getUser: auth.getUser,
     onAuthChange: auth.onAuthChange,
+    onPasswordRecovery: auth.onPasswordRecovery,
     signIn: auth.signIn,
+    signUp: (input: SignUpInput) => auth.signUp(input),
+    sendPasswordReset: auth.sendPasswordReset,
+    updatePassword: auth.updatePassword,
     signOut: auth.signOut,
     async updateMyName(name: string) {
-      await db.upsert<Profile>('profiles', { id: await me(), full_name: name })
+      await db.update<Profile>('profiles', (await me()).id, { full_name: name })
       await auth.refresh()
     },
+    /** The people in my company */
     async listPeople(): Promise<Profile[]> {
-      const people = await db.select<Profile>('profiles')
-      const user = await auth.getUser()
-      // Demo mode has no profile row until the name is changed
-      if (user && !people.some((p) => p.id === user.id)) people.push({ id: user.id, full_name: user.name })
+      const user = await me()
+      const people = await db.select<Profile>('profiles', { company_id: user.companyId })
       return people.sort((a, b) => a.full_name.localeCompare(b.full_name))
     },
 
-    // ---- Settings ----
-    /** Someone's business settings (yours if no id is given). A shared job's bill uses its owner's. */
-    async getSettings(ownerId?: string | null): Promise<Settings> {
-      const id = ownerId || (await me())
+    // ---- Company (business profile) and team ----
+    /** A company's business profile: mine if no id is given */
+    async getCompany(id?: string | null): Promise<Company> {
+      const companyId = id || (await me()).companyId
+      const [company] = await db.select<Company>('companies', { id: companyId })
+      return company ?? { id: companyId, name: '', email: '', phone: '', address: '' }
+    },
+    async saveCompany(patch: Omit<Company, 'id'>) {
+      return db.update<Company>('companies', (await me()).companyId, patch)
+    },
+    async listInvites(): Promise<Invite[]> {
+      return db.select<Invite>('company_invites', { company_id: (await me()).companyId })
+    },
+    async inviteMember(email: string) {
+      await db.rpc('invite_member', { invite_email: email.trim() })
+    },
+    async cancelInvite(email: string) {
+      await db.remove('company_invites', { email })
+    },
+
+    // ---- Prices ----
+    async getSettings(): Promise<Settings> {
+      const id = (await me()).companyId
       const [row] = await db.select<Settings>('settings', { id })
       const s = { ...defaultSettings, ...row, id }
       return {
@@ -112,31 +144,49 @@ export function createApi(db: Db, auth: Auth) {
       }
     },
     async saveSettings(settings: Settings) {
-      return db.upsert<Settings>('settings', { ...settings, id: await me() })
+      return db.upsert<Settings>('settings', { ...settings, id: (await me()).companyId })
     },
 
     // ---- Jobs ----
     async listJobs() {
-      const [jobs, items, visits] = await Promise.all([
+      const user = await me()
+      const [jobs, items, visits, shares] = await Promise.all([
         db.select<Job>('jobs'),
         db.select<PunchItem>('punch_items'),
         db.select<TimeEntry>('time_entries', { kind: 'visit' }, { isNull: 'ended_at' }),
+        db.select<JobShare>('job_shares'),
       ])
-      return jobs.map((job) =>
-        summarize(
+      const partnerIds = [
+        ...jobs.filter((j) => isPartnerJob(j, user)).map((j) => j.company_id!),
+        ...shares.map((s) => s.company_id),
+      ]
+      const names = await companyNames(partnerIds)
+      return jobs.map((job) => ({
+        ...summarize(
           job,
           items.filter((i) => i.job_id === job.id).map((i) => i.status),
           visits.filter((v) => v.job_id === job.id).map((v) => v.user_id),
         ),
-      )
+        from_company: isPartnerJob(job, user) ? (names.get(job.company_id!) ?? 'Another company') : null,
+        shared_with: isPartnerJob(job, user)
+          ? []
+          : shares.filter((s) => s.job_id === job.id).map((s) => names.get(s.company_id) ?? 'Another company'),
+      }))
     },
     async getJob(id: string) {
       const [job] = await db.select<Job>('jobs', { id })
-      if (!job) throw new Error('This job was not found. It may have been deleted.')
+      if (!job) throw new Error('This job was not found. It may have been deleted, or it is no longer shared with you.')
       return job
     },
     async createJob(input: JobInput) {
-      return db.insert<Job>('jobs', { ...input, id: newId(), created_by: await me(), created_at: now() })
+      const user = await me()
+      return db.insert<Job>('jobs', {
+        ...input,
+        id: newId(),
+        company_id: user.companyId,
+        created_by: user.id,
+        created_at: now(),
+      })
     },
     async updateJob(id: string, patch: Partial<JobInput>) {
       return db.update<Job>('jobs', id, patch)
@@ -144,10 +194,25 @@ export function createApi(db: Db, auth: Auth) {
     async deleteJob(id: string) {
       const items = await db.select<PunchItem>('punch_items', { job_id: id })
       await removeItemsData(items.map((i) => i.id))
-      for (const table of ['parts', 'bring_checks', 'time_entries', 'invoices', 'punch_items'] as const) {
+      for (const table of ['parts', 'bring_checks', 'time_entries', 'invoices', 'job_shares', 'punch_items'] as const) {
         await db.remove(table, { job_id: id })
       }
       await db.remove('jobs', { id })
+    },
+
+    // ---- Sharing a job with another company (punch list and photos only) ----
+    async listShares(jobId: string): Promise<JobShare[]> {
+      const shares = await db.select<JobShare>('job_shares', { job_id: jobId })
+      const names = await companyNames(shares.map((s) => s.company_id))
+      return shares.map((s) => ({ ...s, company_name: names.get(s.company_id) ?? 'Another company' }))
+    },
+    /** Returns the other company's name */
+    async shareJob(jobId: string, email: string): Promise<string> {
+      return db.rpc<string>('share_job', { job: jobId, with_email: email.trim() })
+    },
+    /** Stop sharing (the job's company), or remove a shared job from my list (the other company) */
+    async unshareJob(jobId: string, companyId: string) {
+      await db.remove('job_shares', { job_id: jobId, company_id: companyId })
     },
 
     // ---- Punch list items ----
@@ -269,15 +334,15 @@ export function createApi(db: Db, auth: Auth) {
       return entries.sort((a, b) => a.started_at.localeCompare(b.started_at))
     },
     async listMyTime() {
-      return db.select<TimeEntry>('time_entries', { user_id: await me() })
+      return db.select<TimeEntry>('time_entries', { user_id: (await me()).id })
     },
     /** My timers that are still running (any job) */
     async myRunning() {
-      return db.select<TimeEntry>('time_entries', { user_id: await me() }, { isNull: 'ended_at' })
+      return db.select<TimeEntry>('time_entries', { user_id: (await me()).id }, { isNull: 'ended_at' })
     },
     /** "Arrived" */
     async clockIn(jobId: string) {
-      const user_id = await me()
+      const user_id = (await me()).id
       const running = await db.select<TimeEntry>('time_entries', { user_id, kind: 'visit' }, { isNull: 'ended_at' })
       // You can only be at one job at a time
       await endEntries(running)
@@ -293,11 +358,11 @@ export function createApi(db: Db, auth: Auth) {
     },
     /** "Finished": also stops any task timer still running */
     async clockOut(jobId: string) {
-      const running = await db.select<TimeEntry>('time_entries', { user_id: await me(), job_id: jobId }, { isNull: 'ended_at' })
+      const running = await db.select<TimeEntry>('time_entries', { user_id: (await me()).id, job_id: jobId }, { isNull: 'ended_at' })
       await endEntries(running)
     },
     async startTask(jobId: string, itemId: string) {
-      const user_id = await me()
+      const user_id = (await me()).id
       const running = await db.select<TimeEntry>('time_entries', { user_id }, { isNull: 'ended_at' })
       // One task at a time: starting this one stops any other
       await endEntries(running.filter((e) => e.kind === 'task'))
@@ -314,7 +379,7 @@ export function createApi(db: Db, auth: Auth) {
       })
     },
     async stopTask(itemId: string) {
-      const running = await db.select<TimeEntry>('time_entries', { user_id: await me(), item_id: itemId }, { isNull: 'ended_at' })
+      const running = await db.select<TimeEntry>('time_entries', { user_id: (await me()).id, item_id: itemId }, { isNull: 'ended_at' })
       await endEntries(running)
     },
     async deleteTimeEntry(id: string) {

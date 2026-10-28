@@ -3,6 +3,10 @@ import { TabBar } from './components/TabBar'
 import { Loading } from './components/ui'
 import { useAuth } from './lib/auth'
 import { BillScreen } from './screens/BillScreen'
+import { BusinessProfileScreen } from './screens/BusinessProfileScreen'
+import { SetPasswordScreen } from './screens/SetPasswordScreen'
+import { ShareJobScreen } from './screens/ShareJobScreen'
+import { TeamScreen } from './screens/TeamScreen'
 import { BringListScreen } from './screens/BringListScreen'
 import { BringOverviewScreen } from './screens/BringOverviewScreen'
 import { HomeScreen } from './screens/HomeScreen'
@@ -22,9 +26,10 @@ import { SketchScreen } from './screens/SketchScreen'
 import { TimeScreen } from './screens/TimeScreen'
 
 export function App() {
-  const { user, loading } = useAuth()
+  const { user, loading, recovering, finishRecovery } = useAuth()
 
   if (loading) return <Loading />
+  if (recovering) return <SetPasswordScreen onDone={finishRecovery} />
   if (!user) return <LoginScreen />
 
   return (
@@ -49,6 +54,9 @@ export function App() {
         <Route path="/bring" element={<BringOverviewScreen />} />
         <Route path="/more" element={<MeScreen />} />
         <Route path="/settings" element={<SettingsScreen />} />
+        <Route path="/business" element={<BusinessProfileScreen />} />
+        <Route path="/team" element={<TeamScreen />} />
+        <Route path="/jobs/:jobId/share" element={<ShareJobScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <TabBar />

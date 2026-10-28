@@ -12,7 +12,7 @@ export function JobPartsScreen() {
   const { data: job } = useJob(jobId)
   const { data: parts, isLoading } = useParts(jobId)
   const { data: items = [] } = useItems(jobId)
-  const { data: settings } = useSettings(job?.created_by, Boolean(job))
+  const { data: settings } = useSettings()
   const titleOf = (id: string | null) => items.find((i) => i.id === id)?.title ?? 'Whole job'
 
   const bought = (parts ?? []).filter((p) => p.status !== 'needed')
