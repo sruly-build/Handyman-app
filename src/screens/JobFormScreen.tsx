@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { AddressField } from '../components/AddressField'
 import { Screen } from '../components/Screen'
 import { Button, Card, CheckCircle, Divider, ErrorNote, Field, GroupLabel, Loading, TextArea } from '../components/ui'
 import { backend } from '../data/backend'
@@ -111,13 +112,7 @@ export function JobFormScreen() {
               placeholder="Optional"
             />
             <Divider />
-            <Field
-              label="Address"
-              autoComplete="street-address"
-              value={form.address}
-              onChange={(e) => set({ address: e.target.value })}
-              placeholder="12 Oak Street, Springfield"
-            />
+            <AddressField value={form.address} onChange={(address) => set({ address })} />
           </Card>
         </section>
 
