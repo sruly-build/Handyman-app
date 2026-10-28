@@ -1,4 +1,4 @@
-import { formatMoney } from '../data/billing'
+import { formatMoney, lineTotals } from '../data/billing'
 import { formatDuration } from '../data/time'
 import type { Company, InvoiceLine, Job, Photo, PunchItem } from '../data/types'
 import { PrintIcon } from './Icons'
@@ -43,15 +43,15 @@ export function DocHeader({
 /** Table of lines and totals */
 export function LinesTable({
   lines,
-  partsTotal,
-  labourTotal,
   total,
+  paid,
 }: {
   lines: InvoiceLine[]
-  partsTotal: number
-  labourTotal: number
   total: number
+  /** Payments received so far (shows Paid and Balance due) */
+  paid?: number
 }) {
+  const totals = lineTotals(lines)
   const qty = (l: InvoiceLine) =>
     l.kind === 'labour' ? formatDuration(l.quantity * 3_600_000) : l.kind === 'part' ? (l.quantity !== 1 ? `× ${l.quantity}` : '') : ''
   return (
@@ -83,16 +83,34 @@ export function LinesTable({
       <div className="ml-auto mt-3 max-w-xs space-y-1 text-[15px]">
         <div className="flex justify-between">
           <span className="text-muted">Labour</span>
-          <span>{formatMoney(labourTotal)}</span>
+          <span>{formatMoney(totals.labour)}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-muted">Parts and materials</span>
-          <span>{formatMoney(partsTotal)}</span>
+          <span>{formatMoney(totals.parts)}</span>
         </div>
+        {totals.extras !== 0 && (
+          <div className="flex justify-between">
+            <span className="text-muted">Other charges</span>
+            <span>{formatMoney(totals.extras)}</span>
+          </div>
+        )}
         <div className="flex justify-between border-t border-ink pt-2 text-[19px] font-bold">
           <span>Total</span>
           <span>{formatMoney(total)}</span>
         </div>
+        {paid !== undefined && paid > 0 && (
+          <>
+            <div className="flex justify-between">
+              <span className="text-muted">Paid</span>
+              <span>−{formatMoney(paid)}</span>
+            </div>
+            <div className="flex justify-between text-[19px] font-bold">
+              <span>Balance due</span>
+              <span>{formatMoney(Math.max(0, total - paid))}</span>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

@@ -171,12 +171,47 @@ export interface Settings {
 }
 
 export interface InvoiceLine {
-  /** work = a task listed on the invoice without its own labour charge */
-  kind: 'labour' | 'part' | 'work'
+  /** work = a task listed without its own charge; extra = a line item typed in by hand */
+  kind: 'labour' | 'part' | 'work' | 'extra'
   description: string
   detail: string
   quantity: number
   amount: number
+  /** For extra lines: the job charge it came from, so it can be removed again */
+  charge_id?: string
+}
+
+/** A line item typed in by hand on a job (trip charge, disposal fee, add-on). No markup. */
+export interface JobCharge {
+  id: string
+  job_id: string
+  description: string
+  quantity: number
+  unit_price: number
+  created_at: string
+}
+
+/** A company's saved price for something it charges for often */
+export interface PriceItem {
+  id: string
+  company_id: string
+  name: string
+  price: number
+  created_at: string
+}
+
+export type PaymentMethod = 'cash' | 'check' | 'card' | 'transfer' | 'other'
+
+/** Money received for a job: a deposit or a partial or full payment */
+export interface Payment {
+  id: string
+  job_id: string
+  amount: number
+  /** YYYY-MM-DD */
+  paid_on: string
+  method: PaymentMethod
+  note: string
+  created_at: string
 }
 
 export interface Invoice {

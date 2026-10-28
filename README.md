@@ -30,11 +30,14 @@ All five stages from the build plan are built:
 - **Time.**
   - **Arrived** and **Finished** buttons per person.
   - A start/stop timer on every task. Starting a task timer clocks you in automatically if you forgot.
+  - **Add time by hand** on the job's Time screen (on site, or for one task), and tap any entry to fix or delete it. The owner can add time for anyone in the company; others only for themselves.
   - Totals per task, per person and per job, plus expected vs actual hours.
 - **Billing.**
   - Estimates come from the expected hours and parts, with the 20% markup.
   - **Create invoice** uses the tracked time.
-  - Mark invoices as paid, and print or save them as a PDF, with before and after photos if you like.
+  - **Extra charges:** add your own line items (add-ons, flat-price work, trip fees, discounts) to any job's bill, typed in or picked from your **price list** (Me → Prices → Your set prices; only the owner edits it). Adding or removing one also updates an invoice that's already made. The markup isn't added to these.
+  - **Payments:** record deposits and partial payments (amount, date, cash/check/card/transfer, note). The bill shows Paid and Balance due, and the invoice marks itself paid once the balance reaches $0.
+  - Print or save invoices as a PDF, with before and after photos if you like.
 - **Before and after report** to show the client what was fixed.
 - **Settings** (on the Me tab): a first-hour price (for example a $150 service call for the first hour, then $90 an hour; every job is charged at least the service call), the markup %, switches for adding the markup to materials and to labour, how labour is charged (per task timer, or arrival to finish), and the business details printed on estimates and invoices. Each job's Billing screen also has its own switch for the markup on materials.
 
@@ -119,9 +122,13 @@ On your worker's phone: approve their email in **Me → Approve sign-ups** (choo
 - [ ] Tap **Arrived**, start and stop a task timer, then tap **Finished**
 - [ ] Approve your worker's email in **Me → Approve sign-ups** for your company, have them **Sign up** with that email on their phone, then tap **Arrived** on the same job. Your phone should show they're on site.
 - [ ] Open the job's **Time** screen and check the totals per person
+- [ ] Tap **Add time by hand**, add an hour for a task, then tap the entry and change the end time
 
 **Billing**
+- [ ] In **Me → Prices → Your set prices**, add something like "Trip fee $25"
+- [ ] On a job's **Billing**, add the trip fee from the price list and a typed-in charge, and record a deposit
 - [ ] Open **Estimate**, then **Invoice → Create invoice**. Try **Print or save as PDF**.
+- [ ] Record the rest with **Full balance**: the invoice should show PAID
 - [ ] Take an **after photo** and open the **Before and after report**
 
 **Accounts and sharing**

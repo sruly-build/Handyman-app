@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { defaultSettings } from './api'
-import { buildBill, compareTime, invoiceLines, partsMarkup, withMarkup } from './billing'
+import { buildBill, compareTime, invoiceLines, lineTotals, partsMarkup, paymentSummary, withMarkup } from './billing'
 import type { Part, PunchItem, Settings, TimeEntry } from './types'
 
 const item = (id: string, estimated_hours: number | null): PunchItem => ({
@@ -162,5 +162,39 @@ describe('markup on materials switch', () => {
     const off = { ...settings, markup_parts: false }
     expect(buildBill({ items: [], parts, entries: [], settings: off, job: { markup_parts: true }, now: 0 }, 'estimate').partsTotal).toBe(60)
     expect(partsMarkup(off, { markup_parts: null })).toBe(0)
+  })
+})
+
+describe('extra charges and payments', () => {
+  const charge = (id: string, quantity: number, unit_price: number) => ({
+    id,
+    job_id: 'j',
+    description: `Charge ${id}`,
+    quantity,
+    unit_price,
+    created_at: '2026-01-01T00:00:00Z',
+  })
+
+  it('adds line items at the price entered, with no markup', () => {
+    const bill = buildBill(
+      { items: [item('a', 1)], parts: [part('p1', 'a', 50)], entries: [], settings, charges: [charge('c1', 1, 25), charge('c2', 3, 10)], now: 0 },
+      'estimate',
+    )
+    // labour 1 h × $50 × 1.2 = $60, parts $60, extras $25 + $30
+    expect(bill.extrasTotal).toBe(55)
+    expect(bill.total).toBe(175)
+    const extras = invoiceLines(bill).filter((l) => l.kind === 'extra')
+    expect(extras).toEqual([
+      { kind: 'extra', description: 'Charge c1', detail: '', quantity: 1, amount: 25, charge_id: 'c1' },
+      { kind: 'extra', description: 'Charge c2', detail: '3 × $10.00', quantity: 3, amount: 30, charge_id: 'c2' },
+    ])
+    expect(lineTotals(invoiceLines(bill))).toEqual({ labour: 60, parts: 60, extras: 55 })
+  })
+
+  it('works out what has been paid and the balance', () => {
+    const pay = (amount: number) => ({ id: String(amount), job_id: 'j', amount, paid_on: '2026-01-01', method: 'cash' as const, note: '', created_at: '' })
+    expect(paymentSummary(345, [])).toEqual({ paid: 0, balance: 345 })
+    expect(paymentSummary(345, [pay(100), pay(45.5)])).toEqual({ paid: 145.5, balance: 199.5 })
+    expect(paymentSummary(345, [pay(345)]).balance).toBe(0)
   })
 })

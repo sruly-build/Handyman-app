@@ -1,12 +1,25 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { ExtraCharges, Payments, syncInvoicePaid } from '../components/BillExtras'
 import { BeforeAfterList, DocHeader, LinesTable, Paper, PrintButton } from '../components/Documents'
 import { Screen } from '../components/Screen'
 import { Button, Card, ErrorNote, Loading, Segmented, Toggle } from '../components/ui'
 import { backend } from '../data/backend'
-import { buildBill, formatMoney, invoiceLines } from '../data/billing'
-import { refreshAll, useCompany, useInvoice, useItems, useJob, useJobPhotos, useParts, useSettings, useTime } from '../data/queries'
+import { buildBill, formatMoney, invoiceLines, paymentSummary } from '../data/billing'
+import {
+  refreshAll,
+  useCharges,
+  useCompany,
+  useInvoice,
+  useItems,
+  useJob,
+  useJobPhotos,
+  useParts,
+  usePayments,
+  useSettings,
+  useTime,
+} from '../data/queries'
 
 const longDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
 
@@ -21,25 +34,28 @@ export function BillScreen() {
   const { data: company } = useCompany()
   const { data: invoice, isLoading: invoiceLoading } = useInvoice(jobId)
   const { data: photos = [] } = useJobPhotos(jobId)
+  const { data: charges } = useCharges(jobId)
+  const { data: payments } = usePayments(jobId)
   const [tab, setTab] = useState<'estimate' | 'invoice' | null>(null)
   const [withPhotos, setWithPhotos] = useState(false)
   const qc = useQueryClient()
 
   const create = useMutation({
-    mutationFn: () => {
-      const bill = buildBill({ items: items!, parts: parts!, entries: entries!, settings: settings!, job, now: Date.now() }, 'actual')
-      return backend.createInvoice(jobId, {
+    mutationFn: async () => {
+      const bill = buildBill(
+        { items: items!, parts: parts!, entries: entries!, settings: settings!, job, charges, now: Date.now() },
+        'actual',
+      )
+      const created = await backend.createInvoice(jobId, {
         lines: invoiceLines(bill),
         parts_total: bill.partsTotal,
         labour_total: bill.labourTotal,
         total: bill.total,
         markup_percent: bill.partsMarkup,
       })
+      // A deposit may already cover it
+      await syncInvoicePaid(created, payments ?? [])
     },
-    onSettled: () => refreshAll(qc),
-  })
-  const setPaid = useMutation({
-    mutationFn: (paid: boolean) => backend.setInvoicePaid(invoice!.id, paid),
     onSettled: () => refreshAll(qc),
   })
   const setMaterialsMarkup = useMutation({
@@ -52,7 +68,7 @@ export function BillScreen() {
   })
 
   const back = { to: `/jobs/${jobId}`, label: 'Job' }
-  if (error || !job || !items || !parts || !entries || !settings || !company || invoiceLoading) {
+  if (error || !job || !items || !parts || !entries || !settings || !company || !charges || !payments || invoiceLoading) {
     return (
       <Screen title="Billing" back={back}>
         {error ? <ErrorNote error={error} /> : <Loading />}
@@ -61,7 +77,8 @@ export function BillScreen() {
   }
 
   const shown = tab ?? (invoice ? 'invoice' : 'estimate')
-  const input = { items, parts, entries, settings, job, now: Date.now() }
+  const input = { items, parts, entries, settings, job, charges, now: Date.now() }
+  const { paid } = paymentSummary(0, payments)
   const estimate = buildBill(input, 'estimate')
   const actual = buildBill(input, 'actual')
   const missingHours = items.filter((i) => !i.estimated_hours).length
@@ -112,12 +129,7 @@ export function BillScreen() {
           )}
           <Paper>
             <DocHeader title="Estimate" subtitle={longDate(new Date().toISOString())} job={job} company={company} />
-            <LinesTable
-              lines={invoiceLines(estimate)}
-              partsTotal={estimate.partsTotal}
-              labourTotal={estimate.labourTotal}
-              total={estimate.total}
-            />
+            <LinesTable lines={invoiceLines(estimate)} total={estimate.total} />
             <p className="mt-4 text-[13px] text-muted">
               {rates}, 1 hour minimum. This is an estimate; the final bill is based on the actual time and parts.
             </p>
@@ -136,12 +148,7 @@ export function BillScreen() {
             </p>
           </Card>
           <Paper>
-            <LinesTable
-              lines={invoiceLines(actual)}
-              partsTotal={actual.partsTotal}
-              labourTotal={actual.labourTotal}
-              total={actual.total}
-            />
+            <LinesTable lines={invoiceLines(actual)} total={actual.total} paid={paid} />
           </Paper>
           {notDone > 0 && (
             <p className="px-2 text-[14px] text-[#9a5300]">
@@ -158,9 +165,10 @@ export function BillScreen() {
             {create.isPending ? 'Creating…' : 'Create invoice'}
           </Button>
           <p className="px-2 text-center text-[13px] text-muted">
-            The invoice keeps these amounts even if times or parts change later. Change the markup and hourly rate in{' '}
+            The invoice keeps these amounts even if times or parts change later (extra charges below still update it).
+            Change the markup and hourly rate in{' '}
             <Link to="/settings" className="text-brand">
-              Settings
+              Prices
             </Link>
             .
           </p>
@@ -176,12 +184,7 @@ export function BillScreen() {
               job={job}
               company={company}
             />
-            <LinesTable
-              lines={invoice.lines}
-              partsTotal={Number(invoice.parts_total)}
-              labourTotal={Number(invoice.labour_total)}
-              total={Number(invoice.total)}
-            />
+            <LinesTable lines={invoice.lines} total={Number(invoice.total)} paid={paid} />
             {withPhotos && (
               <div className="mt-6 border-t border-hairline pt-4">
                 <p className="mb-3 text-[17px] font-bold">Before and after</p>
@@ -192,8 +195,6 @@ export function BillScreen() {
           </Paper>
 
           <Card className="print:hidden">
-            <Toggle label="Paid" hint={invoice.paid_at ? `Paid ${longDate(invoice.paid_at)}` : undefined} checked={invoice.status === 'paid'} onChange={(v) => setPaid.mutate(v)} />
-            <div className="ml-4 h-px bg-hairline" />
             <Toggle label="Include before and after photos" checked={withPhotos} onChange={setWithPhotos} />
           </Card>
           <PrintButton />
@@ -207,6 +208,11 @@ export function BillScreen() {
           </Button>
         </div>
       )}
+
+      <div className="mt-8 space-y-8">
+        <ExtraCharges jobId={jobId} invoice={invoice ?? null} />
+        {shown === 'invoice' && <Payments jobId={jobId} invoice={invoice ?? null} billTotal={actual.total} />}
+      </div>
     </Screen>
   )
 }

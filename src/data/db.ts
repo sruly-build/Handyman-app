@@ -13,6 +13,9 @@ export type Table =
   | 'bring_checks'
   | 'time_entries'
   | 'invoices'
+  | 'job_charges'
+  | 'price_list'
+  | 'payments'
 
 export type Where = Record<string, string | number | boolean>
 

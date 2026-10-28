@@ -2,7 +2,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Screen } from '../components/Screen'
-import { Button, Card, Divider, ErrorNote, Field, GroupLabel, Loading, Segmented, Toggle } from '../components/ui'
+import { Button, Card, Divider, ErrorNote, Field, GroupLabel, Loading, RowLink, Segmented, Toggle } from '../components/ui'
+import { InvoiceIcon } from '../components/Icons'
 import { backend } from '../data/backend'
 import { formatMoney, withMarkup } from '../data/billing'
 import { refreshAll, useSettings } from '../data/queries'
@@ -155,6 +156,16 @@ export function SettingsScreen() {
         </section>
 
         </fieldset>
+
+        <section>
+          <GroupLabel>Price list</GroupLabel>
+          <Card>
+            <RowLink to="/price-list" Icon={InvoiceIcon} title="Your set prices" value={canEdit ? undefined : 'View'} />
+          </Card>
+          <p className="mt-1.5 px-4 text-[13px] text-muted">
+            Things you charge a set price for (like "Install ceiling fan" or "Trip fee"), to add to a bill in one tap.
+          </p>
+        </section>
 
         {!canEdit && (
           <p className="rounded-2xl bg-progress-soft px-4 py-3 text-[14px] text-[#9a5300]">

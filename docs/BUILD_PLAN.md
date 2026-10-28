@@ -21,7 +21,9 @@ Every stage has been tested in a phone-sized browser in Demo mode. All of it sti
 - **Night-before reminder:** a calendar event with a 7pm alert, added from the bring list. In the evening, the Home screen also shows "Load the van for tomorrow". True push notifications would need an extra server, so they're left for later.
 - **Sending to clients:** estimates, invoices and the before and after report can be printed or saved as a PDF, then texted or emailed from the phone. Sending directly from the app is still to be decided.
 - **Companies:** sign-up is by approval only (only the app's admin can approve anyone, either to start a new company or to join an existing one); each new company gets its own business profile, prices, jobs, estimates and invoices. A job can be shared with another company for its punch list and photos only. The database enforces all of this.
-- **Invoices** keep a fixed copy of the amounts when they're created. To redo one, delete it and create it again. Numbers start at 1001.
+- **Invoices** keep a fixed copy of the amounts when they're created. Extra charges added or removed afterwards update the invoice; for anything else (time, parts), delete it and create it again. Numbers start at 1001.
+- **Extra charges, price list and payments:** hand-typed line items (including discounts) on any job, a company price list to pick them from, and deposits or partial payments with a running balance. The invoice marks itself paid when the balance reaches $0.
+- **Manual time:** time can be typed in or corrected by hand. Owners can add it for anyone in their company; workers only for themselves.
 
 ## Approach
 

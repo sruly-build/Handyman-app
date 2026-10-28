@@ -1,5 +1,5 @@
 import { msToHours, totalMs } from './time'
-import type { InvoiceLine, Part, PunchItem, Settings, TimeEntry } from './types'
+import type { InvoiceLine, JobCharge, Part, Payment, PunchItem, Settings, TimeEntry } from './types'
 
 /** Round to whole cents */
 export const roundMoney = (n: number) => Math.round(n * 100) / 100
@@ -40,6 +40,9 @@ export interface Bill {
   partsTotal: number
   labourHours: number
   labourTotal: number
+  /** Line items typed in by hand, at the price entered (no markup) */
+  extras: { id: string; description: string; quantity: number; unitPrice: number; amount: number }[]
+  extrasTotal: number
   total: number
 }
 
@@ -50,6 +53,8 @@ export interface BillInput {
   settings: Settings
   /** The job, for its own "markup on materials" switch */
   job?: { markup_parts?: boolean | null }
+  /** Line items typed in by hand */
+  charges?: JobCharge[]
   now: number
 }
 
@@ -81,7 +86,7 @@ export function partsMarkup(settings: Settings, job?: { markup_parts?: boolean |
  * hours (estimate), the task timers, or arrival to finish (setting).
  */
 export function buildBill(input: BillInput, basis: 'estimate' | 'actual'): Bill {
-  const { items, parts, entries, settings, job, now } = input
+  const { items, parts, entries, settings, job, charges = [], now } = input
   const rate = billedRate(settings)
   const firstRate = billedFirstRate(settings)
   const pct = partsMarkup(settings, job)
@@ -146,6 +151,14 @@ export function buildBill(input: BillInput, basis: 'estimate' | 'actual'): Bill 
   const partsTotal = roundMoney(allParts.reduce((sum, p) => sum + p.price, 0))
   const labourHours = sections.reduce((sum, x) => sum + (x.labour?.hours ?? 0), 0)
   const labourTotal = roundMoney(sections.reduce((sum, x) => sum + (x.labour?.amount ?? 0), 0))
+  const extras = charges.map((c) => ({
+    id: c.id,
+    description: c.description,
+    quantity: c.quantity,
+    unitPrice: c.unit_price,
+    amount: roundMoney(c.quantity * c.unit_price),
+  }))
+  const extrasTotal = roundMoney(extras.reduce((sum, e) => sum + e.amount, 0))
   return {
     sections,
     rate,
@@ -155,12 +168,30 @@ export function buildBill(input: BillInput, basis: 'estimate' | 'actual'): Bill 
     partsTotal,
     labourHours,
     labourTotal,
-    total: roundMoney(partsTotal + labourTotal),
+    extras,
+    extrasTotal,
+    total: roundMoney(partsTotal + labourTotal + extrasTotal),
+  }
+}
+
+/** One extra charge as an invoice line */
+export function extraLine(e: Bill['extras'][number]): InvoiceLine {
+  return {
+    kind: 'extra',
+    description: e.description,
+    detail: e.quantity !== 1 ? `${e.quantity} × ${formatMoney(e.unitPrice)}` : '',
+    quantity: e.quantity,
+    amount: e.amount,
+    charge_id: e.id,
   }
 }
 
 /** Flattens a bill into the fixed lines saved on an invoice */
 export function invoiceLines(bill: Bill): InvoiceLine[] {
+  return [...sectionLines(bill), ...bill.extras.map(extraLine)]
+}
+
+function sectionLines(bill: Bill): InvoiceLine[] {
   return bill.sections.flatMap((s) => {
     const lines: InvoiceLine[] = []
     if (s.labour) {
@@ -184,4 +215,16 @@ export function compareTime(items: PunchItem[], entries: TimeEntry[], now: numbe
     estimated: item.estimated_hours,
     actual: msToHours(totalMs(entries.filter((e) => e.kind === 'task' && e.item_id === item.id), now)),
   }))
+}
+
+/** Money received so far, and what's still owed against a total */
+export function paymentSummary(total: number, payments: Payment[]) {
+  const paid = roundMoney(payments.reduce((sum, p) => sum + Number(p.amount), 0))
+  return { paid, balance: roundMoney(total - paid) }
+}
+
+/** Totals of an invoice's lines by kind (for invoices saved before extra charges existed, too) */
+export function lineTotals(lines: InvoiceLine[]) {
+  const sum = (kind: InvoiceLine['kind']) => roundMoney(lines.filter((l) => l.kind === kind).reduce((s, l) => s + l.amount, 0))
+  return { labour: sum('labour'), parts: sum('part'), extras: sum('extra') }
 }

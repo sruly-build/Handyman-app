@@ -26,7 +26,7 @@ import {
   StatusDot,
 } from '../components/ui'
 import { backend } from '../data/backend'
-import { buildBill, formatMoney } from '../data/billing'
+import { buildBill, formatMoney, paymentSummary } from '../data/billing'
 import { buildBringList } from '../data/bring'
 import {
   keys,
@@ -37,6 +37,8 @@ import {
   useJob,
   useParts,
   useCompany,
+  usePayments,
+  useCharges,
   useSettings,
   useShares,
   useTime,
@@ -59,6 +61,8 @@ export function JobDetailScreen() {
   const { data: entries = [] } = useTime(jobId)
   const { data: settings } = useSettings()
   const { data: invoice } = useInvoice(jobId)
+  const { data: charges = [] } = useCharges(jobId)
+  const { data: payments = [] } = usePayments(jobId)
   const user = useUser()
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -104,8 +108,16 @@ export function JobDetailScreen() {
   const paid = parts.filter((p) => p.status !== 'needed').reduce((sum, p) => sum + (p.cost ?? 0), 0)
   const onSite = totalMs(entries.filter((e) => e.kind === 'visit'), Date.now())
   const estimate = settings
-    ? buildBill({ items: items ?? [], parts, entries, settings, job, now: Date.now() }, 'estimate').total
+    ? buildBill({ items: items ?? [], parts, entries, settings, job, charges, now: Date.now() }, 'estimate').total
     : 0
+  const { balance } = paymentSummary(invoice ? Number(invoice.total) : 0, payments)
+  const billValue = !invoice
+    ? formatMoney(estimate)
+    : invoice.status === 'paid'
+      ? `${formatMoney(invoice.total)} · Paid`
+      : balance < Number(invoice.total)
+        ? `${formatMoney(balance)} due`
+        : formatMoney(invoice.total)
 
   return (
     <Screen
@@ -261,7 +273,7 @@ export function JobDetailScreen() {
             to={`/jobs/${job.id}/bill`}
             Icon={InvoiceIcon}
             title={invoice ? `Invoice #${invoice.number}` : 'Estimate'}
-            value={formatMoney(invoice ? invoice.total : estimate)}
+            value={billValue}
           />
           <Divider />
           <RowLink to={`/jobs/${job.id}/report`} Icon={PhotosIcon} title="Before and after report" />

@@ -1,12 +1,10 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useParams } from 'react-router-dom'
-import { TrashIcon } from '../components/Icons'
+import { Link, useParams } from 'react-router-dom'
+import { ChevronIcon, PlusIcon } from '../components/Icons'
 import { Screen } from '../components/Screen'
 import { ClockCard } from '../components/TimeWidgets'
 import { Card, Divider, EmptyState, GroupLabel, Loading } from '../components/ui'
-import { backend } from '../data/backend'
 import { compareTime } from '../data/billing'
-import { refreshAll, useItems, useJob, useNow, usePeopleNames, useTime } from '../data/queries'
+import { useItems, useJob, useNow, usePeopleNames, useTime } from '../data/queries'
 import { entryMs, formatDuration, formatHours, totalMs, totalsByUser } from '../data/time'
 
 const when = (iso: string) =>
@@ -21,12 +19,6 @@ export function TimeScreen() {
   const { data: items = [] } = useItems(jobId)
   const nameOf = usePeopleNames()
   const now = useNow(15_000)
-  const qc = useQueryClient()
-
-  const remove = useMutation({
-    mutationFn: (id: string) => backend.deleteTimeEntry(id),
-    onSettled: () => refreshAll(qc),
-  })
 
   const all = entries ?? []
   const visits = all.filter((e) => e.kind === 'visit')
@@ -38,11 +30,19 @@ export function TimeScreen() {
   return (
     <Screen title="Time" eyebrow={job?.customer_name} back={{ to: `/jobs/${jobId}`, label: 'Job' }}>
       <ClockCard jobId={jobId} />
+      <Link
+        to={`/jobs/${jobId}/time/new`}
+        className="mt-3 flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-brand-soft text-[17px] font-semibold text-brand-dark active:opacity-70"
+      >
+        <PlusIcon size={20} /> Add time by hand
+      </Link>
 
       {isLoading && <Loading />}
       {entries && all.length === 0 && (
         <div className="mt-5">
-          <EmptyState title="No time yet">Tap Arrived at the job, and Start on each task you work on.</EmptyState>
+          <EmptyState title="No time yet">
+            Tap Arrived at the job, and Start on each task you work on. Or add time by hand if you forgot.
+          </EmptyState>
         </div>
       )}
 
@@ -112,7 +112,10 @@ export function TimeScreen() {
               {[...all].reverse().map((e, i) => (
                 <div key={e.id}>
                   {i > 0 && <Divider />}
-                  <div className="flex items-center gap-2 py-2.5 pl-4">
+                  <Link
+                    to={`/jobs/${jobId}/time/${e.id}`}
+                    className="flex min-h-14 items-center gap-2 px-4 py-2.5 active:bg-canvas"
+                  >
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[16px]">
                         <strong>{nameOf(e.user_id)}</strong> · {e.kind === 'visit' ? 'On site' : titleOf(e.item_id)}
@@ -121,18 +124,12 @@ export function TimeScreen() {
                         {when(e.started_at)} → {e.ended_at ? clockTime(e.ended_at) : 'now'} · {formatDuration(entryMs(e, now))}
                       </p>
                     </div>
-                    <button
-                      onClick={() => confirm('Delete this time entry?') && remove.mutate(e.id)}
-                      className="flex h-12 w-12 shrink-0 items-center justify-center text-muted active:opacity-50"
-                      aria-label="Delete time entry"
-                    >
-                      <TrashIcon size={18} />
-                    </button>
-                  </div>
+                    <ChevronIcon size={18} className="shrink-0 text-[#c7c7cc]" />
+                  </Link>
                 </div>
               ))}
             </Card>
-            <p className="mt-1.5 px-4 text-[13px] text-muted">Forgot to stop a timer? Delete the wrong entry here.</p>
+            <p className="mt-1.5 px-4 text-[13px] text-muted">Forgot to stop a timer, or got a time wrong? Tap an entry to fix or delete it.</p>
           </section>
         </>
       )}

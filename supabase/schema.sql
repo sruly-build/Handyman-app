@@ -341,6 +341,46 @@ create table if not exists public.invoices (
 );
 
 -- ---------------------------------------------------------------
+-- Extra charges on a job: line items typed in by hand (trip charge,
+-- disposal fee, add-ons). Billed at the price entered, no markup.
+-- ---------------------------------------------------------------
+create table if not exists public.job_charges (
+  id uuid primary key default gen_random_uuid(),
+  job_id uuid not null references public.jobs (id) on delete cascade,
+  description text not null,
+  quantity numeric not null default 1,
+  unit_price numeric(10, 2) not null default 0,
+  created_at timestamptz not null default now()
+);
+create index if not exists job_charges_job_id_idx on public.job_charges (job_id);
+
+-- ---------------------------------------------------------------
+-- Payments received for a job: deposits and partial payments
+-- ---------------------------------------------------------------
+create table if not exists public.payments (
+  id uuid primary key default gen_random_uuid(),
+  job_id uuid not null references public.jobs (id) on delete cascade,
+  amount numeric(10, 2) not null check (amount > 0),
+  paid_on date not null default current_date,
+  method text not null default 'cash' check (method in ('cash', 'check', 'card', 'transfer', 'other')),
+  note text not null default '',
+  created_at timestamptz not null default now()
+);
+create index if not exists payments_job_id_idx on public.payments (job_id);
+
+-- ---------------------------------------------------------------
+-- A company's saved price list, to add common charges quickly
+-- ---------------------------------------------------------------
+create table if not exists public.price_list (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references public.companies (id) on delete cascade,
+  name text not null,
+  price numeric(10, 2) not null default 0,
+  created_at timestamptz not null default now()
+);
+create index if not exists price_list_company_id_idx on public.price_list (company_id);
+
+-- ---------------------------------------------------------------
 -- Security helpers
 -- ---------------------------------------------------------------
 create or replace function public.my_company()
@@ -511,7 +551,8 @@ do $$
 declare t text;
 begin
   foreach t in array array['companies', 'profiles', 'settings', 'company_invites', 'jobs', 'job_shares',
-                           'punch_items', 'photos', 'parts', 'bring_checks', 'time_entries', 'invoices']
+                           'punch_items', 'photos', 'parts', 'bring_checks', 'time_entries', 'invoices',
+                           'job_charges', 'price_list', 'payments']
   loop
     execute format('alter table public.%I enable row level security', t);
   end loop;
@@ -618,11 +659,11 @@ drop policy if exists "photos of my and shared jobs" on public.photos;
 create policy "photos of my and shared jobs" on public.photos for all to authenticated
   using (public.can_access_item(item_id)) with check (public.can_access_item(item_id));
 
--- Parts, bring list and invoices: your company's jobs only
+-- Parts, bring list, extra charges, payments and invoices: your company's jobs only
 do $$
 declare t text;
 begin
-  foreach t in array array['parts', 'bring_checks', 'invoices']
+  foreach t in array array['parts', 'bring_checks', 'invoices', 'job_charges', 'payments']
   loop
     execute format('drop policy if exists "my company''s jobs only" on public.%I', t);
     execute format('create policy "my company''s jobs only" on public.%I for all to authenticated
@@ -630,16 +671,36 @@ begin
   end loop;
 end $$;
 
--- Time: your company's jobs only; you only log time as yourself
+-- Price list: everyone in the company uses it; only the owner changes it
+drop policy if exists "see my company's price list" on public.price_list;
+create policy "see my company's price list" on public.price_list for select to authenticated
+  using (company_id = public.my_company());
+drop policy if exists "owner manages price list" on public.price_list;
+create policy "owner manages price list" on public.price_list for all to authenticated
+  using (company_id = public.my_company() and public.i_am_owner())
+  with check (company_id = public.my_company() and public.i_am_owner());
+
+-- Time: your company's jobs only. You log your own time; the owner can also
+-- add or fix time for anyone in the company (time typed in by hand)
+create or replace function public.in_my_company(person uuid)
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select exists (select 1 from public.profiles where id = person and company_id = public.my_company())
+$$;
 drop policy if exists "see my company's time" on public.time_entries;
 create policy "see my company's time" on public.time_entries for select to authenticated
   using (public.is_my_job(job_id));
 drop policy if exists "log own time" on public.time_entries;
 create policy "log own time" on public.time_entries for insert to authenticated
-  with check (user_id = auth.uid() and public.is_my_job(job_id));
+  with check (
+    public.is_my_job(job_id)
+    and (user_id = auth.uid() or (public.i_am_owner() and public.in_my_company(user_id)))
+  );
 drop policy if exists "fix my company's time" on public.time_entries;
 create policy "fix my company's time" on public.time_entries for update to authenticated
-  using (public.is_my_job(job_id)) with check (public.is_my_job(job_id));
+  using (public.is_my_job(job_id))
+  with check (public.is_my_job(job_id) and public.in_my_company(user_id));
 drop policy if exists "delete my company's time" on public.time_entries;
 create policy "delete my company's time" on public.time_entries for delete to authenticated
   using (public.is_my_job(job_id));

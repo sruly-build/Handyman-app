@@ -25,6 +25,8 @@ import { ReportScreen } from './screens/ReportScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { SketchScreen } from './screens/SketchScreen'
 import { TimeScreen } from './screens/TimeScreen'
+import { TimeEntryFormScreen } from './screens/TimeEntryFormScreen'
+import { PriceListScreen } from './screens/PriceListScreen'
 
 export function App() {
   const { user, loading, recovering, finishRecovery } = useAuth()
@@ -49,12 +51,15 @@ export function App() {
         <Route path="/parts/:partId" element={<Keyed param="partId" Component={PartFormScreen} />} />
         <Route path="/jobs/:jobId/bring" element={<BringListScreen />} />
         <Route path="/jobs/:jobId/time" element={<TimeScreen />} />
+        <Route path="/jobs/:jobId/time/new" element={<TimeEntryFormScreen key="new" />} />
+        <Route path="/jobs/:jobId/time/:entryId" element={<Keyed param="entryId" Component={TimeEntryFormScreen} />} />
         <Route path="/jobs/:jobId/bill" element={<BillScreen />} />
         <Route path="/jobs/:jobId/report" element={<ReportScreen />} />
         <Route path="/orders" element={<OrdersScreen />} />
         <Route path="/bring" element={<BringOverviewScreen />} />
         <Route path="/more" element={<MeScreen />} />
         <Route path="/settings" element={<SettingsScreen />} />
+        <Route path="/price-list" element={<PriceListScreen />} />
         <Route path="/business" element={<BusinessProfileScreen />} />
         <Route path="/team" element={<TeamScreen />} />
         <Route path="/approvals" element={<ApprovalsScreen />} />

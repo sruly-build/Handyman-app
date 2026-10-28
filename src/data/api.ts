@@ -7,6 +7,9 @@ import type {
   Invite,
   Invoice,
   InvoiceLine,
+  JobCharge,
+  Payment,
+  PriceItem,
   ItemPatch,
   Job,
   JobInput,
@@ -207,7 +210,16 @@ export function createApi(db: Db, auth: Auth) {
     async deleteJob(id: string) {
       const items = await db.select<PunchItem>('punch_items', { job_id: id })
       await removeItemsData(items.map((i) => i.id))
-      for (const table of ['parts', 'bring_checks', 'time_entries', 'invoices', 'job_shares', 'punch_items'] as const) {
+      for (const table of [
+        'parts',
+        'bring_checks',
+        'time_entries',
+        'invoices',
+        'job_charges',
+        'payments',
+        'job_shares',
+        'punch_items',
+      ] as const) {
         await db.remove(table, { job_id: id })
       }
       await db.remove('jobs', { id })
@@ -395,8 +407,66 @@ export function createApi(db: Db, auth: Auth) {
       const running = await db.select<TimeEntry>('time_entries', { user_id: (await me()).id, item_id: itemId }, { isNull: 'ended_at' })
       await endEntries(running)
     },
+    /** Time typed in by hand (or "add for someone else" by the owner) */
+    async addTimeEntry(input: Omit<TimeEntry, 'id'>) {
+      return db.insert<TimeEntry>('time_entries', { ...input, id: newId() })
+    },
+    async updateTimeEntry(id: string, patch: Partial<Omit<TimeEntry, 'id' | 'job_id'>>) {
+      return db.update<TimeEntry>('time_entries', id, patch)
+    },
     async deleteTimeEntry(id: string) {
       await db.remove('time_entries', { id })
+    },
+
+    // ---- Extra charges (line items typed in by hand) and the price list ----
+    async listCharges(jobId: string): Promise<JobCharge[]> {
+      const rows = await db.select<JobCharge>('job_charges', { job_id: jobId })
+      return rows
+        .map((c) => ({ ...c, quantity: num(c.quantity) ?? 1, unit_price: num(c.unit_price) ?? 0 }))
+        .sort((a, b) => a.created_at.localeCompare(b.created_at))
+    },
+    async addCharge(jobId: string, description: string, quantity: number, unitPrice: number) {
+      return db.insert<JobCharge>('job_charges', {
+        id: newId(),
+        job_id: jobId,
+        description,
+        quantity,
+        unit_price: unitPrice,
+        created_at: now(),
+      })
+    },
+    async deleteCharge(id: string) {
+      await db.remove('job_charges', { id })
+    },
+    async listPriceList(): Promise<PriceItem[]> {
+      const rows = await db.select<PriceItem>('price_list', { company_id: (await me()).companyId })
+      return rows.map((p) => ({ ...p, price: num(p.price) ?? 0 })).sort((a, b) => a.name.localeCompare(b.name))
+    },
+    async addPriceItem(name: string, price: number) {
+      return db.insert<PriceItem>('price_list', {
+        id: newId(),
+        company_id: (await me()).companyId,
+        name,
+        price,
+        created_at: now(),
+      })
+    },
+    async deletePriceItem(id: string) {
+      await db.remove('price_list', { id })
+    },
+
+    // ---- Payments ----
+    async listPayments(jobId: string): Promise<Payment[]> {
+      const rows = await db.select<Payment>('payments', { job_id: jobId })
+      return rows
+        .map((p) => ({ ...p, amount: num(p.amount) ?? 0 }))
+        .sort((a, b) => a.paid_on.localeCompare(b.paid_on) || a.created_at.localeCompare(b.created_at))
+    },
+    async addPayment(input: Omit<Payment, 'id' | 'created_at'>) {
+      return db.insert<Payment>('payments', { ...input, id: newId(), created_at: now() })
+    },
+    async deletePayment(id: string) {
+      await db.remove('payments', { id })
     },
 
     // ---- Invoices ----
@@ -419,6 +489,10 @@ export function createApi(db: Db, auth: Auth) {
         created_at: now(),
         paid_at: null,
       })
+    },
+    /** Change an invoice's lines and totals (adding or removing a line item after it was made) */
+    async updateInvoice(id: string, patch: Pick<Invoice, 'lines' | 'total'>) {
+      return fixInvoice(await db.update<Invoice>('invoices', id, patch))
     },
     async setInvoicePaid(id: string, paid: boolean) {
       return db.update<Invoice>('invoices', id, { status: paid ? 'paid' : 'unpaid', paid_at: paid ? now() : null })
