@@ -78,7 +78,7 @@ export function ContactFormScreen() {
 
   const back = {
     to: (contact?.kind ?? form?.kind) === 'client' ? '/directory?show=clients' : '/directory',
-    label: 'Directory',
+    label: (contact?.kind ?? form?.kind) === 'client' ? 'Clients' : 'Vendors',
   }
   if (editing && (isLoading || error || !contact || !form)) {
     return (

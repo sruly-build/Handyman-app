@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { MessageIcon, PeopleIcon, PhoneIcon, PlusIcon, SearchIcon } from '../components/Icons'
 import { Screen } from '../components/Screen'
-import { Card, Divider, EmptyState, ErrorNote, Loading, Segmented } from '../components/ui'
+import { Card, Divider, EmptyState, ErrorNote, Loading } from '../components/ui'
 import { categoriesInUse, matchesSearch } from '../data/directory'
 import { useContacts, useDirectoryShares, useSharedDirectories } from '../data/queries'
 import type { Contact, ContactKind } from '../data/types'
@@ -10,17 +10,12 @@ import { useUser } from '../lib/auth'
 import { phoneLink, textLink } from '../lib/links'
 
 /** My clients and vendors, searchable by name, business, address or category (plumbing, electric…) */
-const countOf = (list: Contact[], kind: ContactKind) => {
-  const n = list.filter((c) => c.kind === kind).length
-  return n ? ` (${n})` : ''
-}
-
 export function DirectoryScreen() {
   const user = useUser()
   const { data: contacts, isLoading, error } = useContacts()
   const { data: shares = [] } = useDirectoryShares()
   const { data: sharedWithMe = [] } = useSharedDirectories()
-  const [params, setParams] = useSearchParams()
+  const [params] = useSearchParams()
   // Kept in the address so Back from a contact returns to the same part
   const kind: ContactKind = params.get('show') === 'clients' ? 'client' : 'vendor'
   const [query, setQuery] = useState('')
@@ -43,7 +38,7 @@ export function DirectoryScreen() {
 
   return (
     <Screen
-      title="Directory"
+      title={kind === 'client' ? 'Clients' : 'Vendors'}
       back={{ to: '/more', label: 'Me' }}
       action={
         <Link
@@ -56,20 +51,8 @@ export function DirectoryScreen() {
         </Link>
       }
     >
-      <Segmented
-        label="Show"
-        value={kind}
-        onChange={(k) => {
-          setParams(k === 'client' ? { show: 'clients' } : {}, { replace: true })
-          setCategory(null)
-        }}
-        options={[
-          { value: 'vendor', label: `Vendors${countOf(everyone, 'vendor')}` },
-          { value: 'client', label: `Clients${countOf(everyone, 'client')}` },
-        ]}
-      />
 
-      <label className="mt-3 flex min-h-12 items-center gap-2 rounded-2xl bg-card px-4">
+      <label className="flex min-h-12 items-center gap-2 rounded-2xl bg-card px-4">
         <SearchIcon size={20} className="shrink-0 text-muted" />
         <input
           type="search"

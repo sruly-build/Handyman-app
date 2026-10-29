@@ -37,7 +37,7 @@ export function DirectorySharingScreen() {
   }
 
   return (
-    <Screen title="Directory sharing" back={{ to: '/directory', label: 'Directory' }}>
+    <Screen title="Directory sharing" back={{ to: '/more', label: 'Me' }}>
       <p className="mb-5 px-1 text-[15px] text-muted">
         Your directory is private: nobody else sees it, not even your own team, unless you add them here. People you
         add can look up and call your contacts, but can't change them.
