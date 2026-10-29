@@ -984,3 +984,6 @@ create policy "add photos to my jobs" on storage.objects for insert to authentic
 drop policy if exists "delete photos of my jobs" on storage.objects;
 create policy "delete photos of my jobs" on storage.objects for delete to authenticated
   using (bucket_id = 'photos' and public.can_access_photo_file(name));
+
+-- Tell the app's data service to pick up the changes above right away
+notify pgrst, 'reload schema';
