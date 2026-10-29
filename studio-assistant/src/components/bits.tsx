@@ -11,7 +11,7 @@ export const STAGE_LABEL: Record<Stage, string> = {
 }
 
 export const STAGE_TONE: Record<Stage, Tone> = {
-  todo: 'gray',
+  todo: 'purple',
   progress: 'blue',
   revisions: 'orange',
   done: 'green',

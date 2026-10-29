@@ -63,11 +63,38 @@ export function Card({ children, className, onClick }: { children: ReactNode; cl
   )
 }
 
-export function Section({ title, action, children, className }: { title: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) {
+const ICON_TILE: Record<Tone, string> = {
+  gray: 'bg-ink-2 text-white',
+  blue: 'bg-accent text-white',
+  green: 'bg-green text-white',
+  orange: 'bg-orange text-white',
+  red: 'bg-red text-white',
+  purple: 'bg-purple text-white',
+  gold: 'bg-gold text-white',
+}
+
+export function Section({
+  title,
+  action,
+  children,
+  className,
+  icon,
+  tone = 'blue',
+}: {
+  title: ReactNode
+  action?: ReactNode
+  children: ReactNode
+  className?: string
+  icon?: ReactNode
+  tone?: Tone
+}) {
   return (
     <section className={cx('mt-7', className)}>
-      <div className="mb-2 flex items-end justify-between px-1">
-        <h2 className="text-[20px] font-semibold tracking-tight">{title}</h2>
+      <div className="mb-2 flex items-center justify-between gap-2 px-1">
+        <h2 className="flex items-center gap-2.5 text-[20px] font-semibold tracking-tight">
+          {icon && <span className={cx('flex h-7 w-7 items-center justify-center rounded-lg', ICON_TILE[tone])}>{icon}</span>}
+          {title}
+        </h2>
         {action}
       </div>
       {children}

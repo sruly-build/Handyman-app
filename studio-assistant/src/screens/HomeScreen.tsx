@@ -8,6 +8,9 @@ import {
   Clock,
   FolderPlus,
   ListPlus,
+  HeartHandshake,
+  Mail,
+  ShoppingBag,
   Pause,
   Play,
   Reply,
@@ -54,7 +57,7 @@ export function HomeScreen() {
         </Link>
       </header>
 
-      <Section title="Today">
+      <Section title="Today" icon={<Camera size={16} />} tone="blue">
         <div className="space-y-3">
           {todayShoots.map((p) => (
             <ShootCard key={p.id} project={p} />
@@ -65,7 +68,7 @@ export function HomeScreen() {
 
       <ToOrder />
 
-      <Section title="Prep for tomorrow">
+      <Section title="Prep for tomorrow" icon={<Sun size={16} />} tone="purple">
         {tomorrowShoots.length ? (
           <div className="space-y-3">
             {tomorrowShoots.map((p) => (
@@ -204,7 +207,7 @@ function ToOrder() {
   const tasks = state.tasks.filter((x) => x.due === tm)
   if (!items.length && !tasks.length) return null
   return (
-    <Section title="To order and plan">
+    <Section title="To order and plan" icon={<ShoppingBag size={16} />} tone="orange">
       <Card className="py-1">
         {items.map(({ p, o }) => (
           <div key={o.id} className="flex items-center gap-3 px-4 py-2.5">
@@ -246,7 +249,7 @@ function PrepCard({ project: p }: { project: Project }) {
   return (
     <Card className="overflow-hidden">
       <button onClick={() => nav(`/projects/${p.id}`)} className="flex w-full items-center gap-3 px-4 pt-4 pb-2 text-left">
-        <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl bg-accent-soft text-accent">
+        <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl bg-purple-soft text-purple">
           <Sun size={18} />
         </div>
         <div className="min-w-0 flex-1">
@@ -286,7 +289,7 @@ function Emails() {
   const { state } = useStore()
   const emails = state.emails.filter((e) => !e.archived).sort((a, b) => b.receivedAt - a.receivedAt)
   return (
-    <Section title="Important emails" action={<span className="text-[13px] text-ink-3">From Gmail · sample</span>}>
+    <Section title="Important emails" icon={<Mail size={16} />} tone="red" action={<span className="text-[13px] text-ink-3">From Gmail · sample</span>}>
       {emails.length ? (
         <div className="space-y-3">
           {emails.map((e) => (
@@ -538,7 +541,7 @@ function ReachOutCard() {
   }
 
   return (
-    <Section title="Reach out today">
+    <Section title="Reach out today" icon={<HeartHandshake size={16} />} tone="green">
       {r ? (
         <Card className="p-4">
           <div className="flex items-center gap-3">

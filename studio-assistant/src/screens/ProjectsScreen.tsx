@@ -1,15 +1,23 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Archive, ChevronDown, Plus, Search } from 'lucide-react'
+import { Archive, ArrowRightLeft, ChevronDown, Plus, Search } from 'lucide-react'
 import { useStore } from '../data/store'
 import { isArchived } from '../data/billing'
 import { fmtRelative } from '../lib/dates'
 import { STAGES, type Project, type Stage } from '../data/types'
-import { PriorityBadge, STAGE_LABEL, STAGE_TONE } from '../components/bits'
+import { PriorityBadge, STAGE_LABEL } from '../components/bits'
 import { ScheduleSheet } from '../components/sheets'
 import { Badge, Button, Card, Empty, Page, PageHeader, cx, inputCls } from '../components/ui'
 
 type Filter = 'all' | Stage | 'archived'
+
+// Each status has its own colour so the columns are easy to tell apart at a glance
+const COLOR: Record<Stage, { dot: string; text: string; tint: string; chip: string }> = {
+  todo: { dot: 'bg-purple', text: 'text-purple', tint: 'bg-purple-soft/60', chip: 'bg-purple text-white' },
+  progress: { dot: 'bg-accent', text: 'text-accent', tint: 'bg-accent-soft/70', chip: 'bg-accent text-white' },
+  revisions: { dot: 'bg-orange', text: 'text-orange', tint: 'bg-orange-soft/70', chip: 'bg-orange text-white' },
+  done: { dot: 'bg-green', text: 'text-green', tint: 'bg-green-soft/70', chip: 'bg-green text-white' },
+}
 
 // Board order: what you're working on first, then what's coming up
 const BOARD: { key: Stage; hint: string }[] = [
@@ -57,11 +65,12 @@ export function ProjectsScreen() {
             key={f}
             onClick={() => setFilter(f)}
             className={cx(
-              'h-8 shrink-0 rounded-full px-3.5 text-[13px] font-medium transition',
-              filter === f ? 'bg-ink text-white' : 'bg-card text-ink-2 shadow-card',
+              'flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition',
+              filter === f ? (f === 'all' || f === 'archived' ? 'bg-ink text-white' : COLOR[f].chip) : 'bg-card text-ink-2 shadow-card',
             )}
           >
-            {f === 'all' ? 'Board' : f === 'archived' ? 'Archived' : STAGE_LABEL[f]} <span className="opacity-60">{count(f)}</span>
+            {f !== 'all' && f !== 'archived' && filter !== f && <span className={cx('h-2 w-2 rounded-full', COLOR[f].dot)} />}
+            {f === 'all' ? 'Board' : f === 'archived' ? 'Archived' : STAGE_LABEL[f]} <span className="opacity-70">{count(f)}</span>
           </button>
         ))}
       </div>
@@ -107,18 +116,17 @@ export function ProjectsScreen() {
 function Column({ stage, hint, projects }: { stage: Stage; hint: string; projects: Project[] }) {
   return (
     <section>
-      <div className="mb-2 px-1">
-        <div className="flex items-baseline gap-2">
-          <h2 className="text-[17px] font-semibold tracking-tight">{STAGE_LABEL[stage]}</h2>
-          <span className="text-[13px] text-ink-3">{projects.length}</span>
+      <div className={cx('space-y-2.5 rounded-[20px] p-2 lg:min-h-[160px]', COLOR[stage].tint)}>
+        <div className="flex items-center gap-2 px-2 pt-1 pb-0.5">
+          <span className={cx('h-2.5 w-2.5 rounded-full', COLOR[stage].dot)} />
+          <h2 className={cx('text-[16px] font-semibold tracking-tight whitespace-nowrap', COLOR[stage].text)}>{STAGE_LABEL[stage]}</h2>
+          <span className={cx('rounded-full px-1.5 text-[12px] font-semibold', COLOR[stage].chip)}>{projects.length}</span>
+          <span className="ml-auto truncate text-[12px] text-ink-2 lg:hidden">{hint}</span>
         </div>
-        <div className="text-[12px] text-ink-3">{hint}</div>
-      </div>
-      <div className="space-y-2.5 lg:min-h-[120px] lg:rounded-2xl lg:bg-fill/70 lg:p-2">
         {projects.map((p) => (
           <ProjectCard key={p.id} p={p} />
         ))}
-        {!projects.length && <div className="rounded-2xl border border-dashed border-line px-4 py-5 text-center text-[13px] text-ink-3">No projects</div>}
+        {!projects.length && <div className="rounded-2xl border border-dashed border-ink-3/40 px-4 py-5 text-center text-[13px] text-ink-2">No projects</div>}
       </div>
     </section>
   )
@@ -153,34 +161,31 @@ function ProjectCard({ p, archived }: { p: Project; archived?: boolean }) {
       <div className="mt-2.5 flex flex-wrap items-center gap-2">
         <span className="text-[12px] whitespace-nowrap text-ink-2">{p.stage === 'todo' ? `Shoot ${fmtRelative(p.shootDate)}` : `Due ${fmtRelative(p.dueDate)}`}</span>
         {unpaid && <Badge tone="gold">Invoice unpaid</Badge>}
-        {archived ? (
-          <Badge className="ml-auto">Archived</Badge>
-        ) : (
-          <select
-            aria-label="Status"
-            value={p.stage}
+        {!archived && (
+          // The column already shows the status, so the card only offers to move it
+          <label
             onClick={(e) => e.stopPropagation()}
-            onChange={(e) => {
-              const v = e.target.value as Stage
-              update((s) => void (s.projects.find((x) => x.id === p.id)!.stage = v))
-              toast(`Moved to ${STAGE_LABEL[v]}`)
-            }}
-            className={cx(
-              'ml-auto h-7 cursor-pointer appearance-none rounded-full border-none px-2.5 text-[12px] font-semibold outline-none',
-              {
-                gray: 'bg-fill text-ink-2',
-                blue: 'bg-accent-soft text-accent',
-                orange: 'bg-orange-soft text-orange',
-                green: 'bg-green-soft text-green',
-              }[STAGE_TONE[p.stage] as 'gray' | 'blue' | 'orange' | 'green'],
-            )}
+            className="relative ml-auto flex h-7 cursor-pointer items-center gap-1 rounded-full bg-fill px-2.5 text-[12px] font-medium text-ink-2"
           >
-            {STAGES.map((s) => (
-              <option key={s} value={s}>
-                {STAGE_LABEL[s]}
-              </option>
-            ))}
-          </select>
+            <ArrowRightLeft size={12} />
+            Move
+            <select
+              aria-label="Move to status"
+              value={p.stage}
+              onChange={(e) => {
+                const v = e.target.value as Stage
+                update((s) => void (s.projects.find((x) => x.id === p.id)!.stage = v))
+                toast(`Moved to ${STAGE_LABEL[v]}`)
+              }}
+              className="absolute inset-0 cursor-pointer opacity-0"
+            >
+              {STAGES.map((s) => (
+                <option key={s} value={s}>
+                  {STAGE_LABEL[s]}
+                </option>
+              ))}
+            </select>
+          </label>
         )}
       </div>
     </Card>
