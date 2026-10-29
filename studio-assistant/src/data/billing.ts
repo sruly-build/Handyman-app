@@ -1,6 +1,6 @@
 import { round2 } from '../lib/money'
 import { today } from '../lib/dates'
-import type { Invoice, Settings } from './types'
+import type { Invoice, Project, Settings, State } from './types'
 
 export interface Totals {
   subtotal: number
@@ -25,6 +25,13 @@ export function totals(inv: Invoice, s: Settings): Totals {
   const deposit = round2(inv.depositType === 'pct' ? (afterDiscount * inv.deposit) / 100 : inv.deposit)
   const paid = round2(inv.payments.reduce((sum, p) => sum + p.amount, 0))
   return { subtotal, discount, afterDiscount, cardFee, total, deposit, paid, balance: round2(Math.max(0, total - paid)) }
+}
+
+/** A done project is archived once it has an invoice and every invoice on it is paid. */
+export function isArchived(state: State, p: Project): boolean {
+  if (p.stage !== 'done') return false
+  const invs = state.invoices.filter((i) => i.projectId === p.id && i.kind === 'invoice')
+  return invs.length > 0 && invs.every((i) => i.status === 'paid')
 }
 
 export function isOverdue(inv: Invoice): boolean {

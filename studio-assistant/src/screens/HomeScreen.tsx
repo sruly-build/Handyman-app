@@ -22,6 +22,7 @@ import { fmtClock, fmtLong, fmtMonthsAgo, fmtStamp, greeting, today, tomorrow } 
 import { hebrewDate } from '../lib/jewish'
 import type { Email, Project } from '../data/types'
 import { AddTaskSheet } from '../components/sheets'
+import { isArchived } from '../data/billing'
 import { Avatar, Badge, Button, Card, Checkbox, Empty, Page, Section, Sheet, cx, inputCls } from '../components/ui'
 import { PriorityBadge } from '../components/bits'
 
@@ -505,7 +506,7 @@ function LinkSheet({ email: e, open, onClose }: { email: Email; open: boolean; o
       <div className="mt-6 mb-2 px-1 text-[13px] font-semibold tracking-wide text-ink-2 uppercase">Or link to a project</div>
       <div className="overflow-hidden rounded-2xl bg-card shadow-card">
         {state.projects
-          .filter((p) => p.stage !== 'paid')
+          .filter((p) => !isArchived(state, p))
           .map((p) => {
             const c = state.clients.find((x) => x.id === p.clientId)
             return (

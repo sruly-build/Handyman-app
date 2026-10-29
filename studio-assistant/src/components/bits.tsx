@@ -4,24 +4,21 @@ import { isOverdue } from '../data/billing'
 import { Badge, cx, type Tone } from './ui'
 
 export const STAGE_LABEL: Record<Stage, string> = {
-  inquiry: 'Inquiry',
-  booked: 'Booked',
-  shooting: 'Shooting',
-  editing: 'Editing',
-  delivered: 'Delivered',
-  paid: 'Paid',
+  todo: 'To do',
+  progress: 'In progress',
+  revisions: 'Revisions',
+  done: 'Done',
 }
 
 export const STAGE_TONE: Record<Stage, Tone> = {
-  inquiry: 'gray',
-  booked: 'blue',
-  shooting: 'orange',
-  editing: 'purple',
-  delivered: 'gold',
-  paid: 'green',
+  todo: 'gray',
+  progress: 'blue',
+  revisions: 'orange',
+  done: 'green',
 }
 
-export function StageBadge({ stage }: { stage: Stage }) {
+export function StageBadge({ stage, archived }: { stage: Stage; archived?: boolean }) {
+  if (archived) return <Badge>Archived</Badge>
   return <Badge tone={STAGE_TONE[stage]}>{STAGE_LABEL[stage]}</Badge>
 }
 
@@ -43,7 +40,7 @@ export function StageStepper({ stage, onChange }: { stage: Stage; onChange: (s: 
         const done = i < idx
         const current = i === idx
         return (
-          <button key={s} onClick={() => onChange(s)} className="group flex min-w-[64px] flex-1 flex-col items-center gap-1.5">
+          <button key={s} onClick={() => onChange(s)} className="group flex min-w-[72px] flex-1 flex-col items-center gap-1.5">
             <div className="flex w-full items-center">
               <div className={cx('h-[2px] flex-1', i === 0 ? 'opacity-0' : i <= idx ? 'bg-accent' : 'bg-line')} />
               <div

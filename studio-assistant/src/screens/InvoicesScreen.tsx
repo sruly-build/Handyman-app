@@ -57,8 +57,6 @@ export function convertEstimate(s: State, estimateId: string, newId: string) {
   }
   s.invoices.unshift(inv)
   s.invoices = s.invoices.filter((i) => i.id !== estimateId)
-  const p = s.projects.find((x) => x.id === est.projectId)
-  if (p && p.stage === 'inquiry') p.stage = 'booked'
 }
 
 type Filter = 'all' | 'unpaid' | 'estimates' | 'paid'

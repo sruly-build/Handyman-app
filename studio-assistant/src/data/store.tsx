@@ -4,7 +4,7 @@ import { today, parse } from '../lib/dates'
 import { blockingHoliday, holidayShortName, holidaysOn, type Holiday } from '../lib/jewish'
 import type { Project, Settings, ShotItem, State } from './types'
 
-const KEY = 'studio-assistant-preview-v1'
+const KEY = 'studio-assistant-preview-v2'
 
 function load(): State {
   try {

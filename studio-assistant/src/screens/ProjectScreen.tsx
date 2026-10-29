@@ -22,7 +22,7 @@ import {
 import { itemSeconds, projectSeconds, startTimer, stopTimer, uid, useNow, useStore } from '../data/store'
 import { addDays, fmtClock, fmtDuration, fmtRelative, fmtShort, fmtStamp, today } from '../lib/dates'
 import { money } from '../lib/money'
-import { totals } from '../data/billing'
+import { isArchived, totals } from '../data/billing'
 import { TEAM } from '../data/sample'
 import type { Project, ProjectFile, ShotItem } from '../data/types'
 import { InvoiceBadge, PriorityBadge, StageBadge, StageStepper } from '../components/bits'
@@ -65,7 +65,7 @@ export function ProjectScreen() {
 
       <Card className="p-4">
         <div className="flex flex-wrap items-center gap-2">
-          <StageBadge stage={p.stage} />
+          <StageBadge stage={p.stage} archived={isArchived(state, p)} />
           <button
             onClick={() => edit((x) => void (x.priority = x.priority === 'high' ? 'normal' : 'high'))}
             className="active:opacity-60"

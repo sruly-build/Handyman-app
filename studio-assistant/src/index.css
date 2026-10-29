@@ -44,19 +44,20 @@ button {
   cursor: pointer;
 }
 
-input,
-textarea,
-select {
-  font: inherit;
-  color: inherit;
-}
-
-/* iOS zooms into inputs smaller than 16px */
-@media (max-width: 1023px) {
+@layer base {
   input,
   textarea,
   select {
-    font-size: 16px;
+    font: inherit;
+    color: inherit;
+  }
+
+  /* iOS zooms into inputs smaller than 16px */
+  @media (max-width: 1023px) {
+    input,
+    textarea {
+      font-size: 16px;
+    }
   }
 }
 

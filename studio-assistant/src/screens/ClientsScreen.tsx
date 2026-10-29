@@ -52,7 +52,7 @@ function ClientList() {
       </div>
       <Card className="overflow-hidden">
         {list.map((c) => {
-          const active = state.projects.filter((p) => p.clientId === c.id && p.stage !== 'paid').length
+          const active = state.projects.filter((p) => p.clientId === c.id && p.stage !== 'done').length
           return (
             <button key={c.id} onClick={() => nav(`/clients/${c.id}`)} className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-fill [&+&]:border-t [&+&]:border-line">
               <Avatar name={c.company} />
@@ -180,7 +180,7 @@ function useConvert() {
         id: pid,
         clientId: cid,
         title: `${l.company || l.name} shoot`,
-        stage: 'booked',
+        stage: 'todo',
         shootDate: addDays(today(), 21),
         dueDate: addDays(today(), 31),
         priority: 'normal',

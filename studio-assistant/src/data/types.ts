@@ -1,5 +1,5 @@
-export type Stage = 'inquiry' | 'booked' | 'shooting' | 'editing' | 'delivered' | 'paid'
-export const STAGES: Stage[] = ['inquiry', 'booked', 'shooting', 'editing', 'delivered', 'paid']
+export type Stage = 'todo' | 'progress' | 'revisions' | 'done'
+export const STAGES: Stage[] = ['todo', 'progress', 'revisions', 'done']
 
 export type Priority = 'high' | 'normal'
 

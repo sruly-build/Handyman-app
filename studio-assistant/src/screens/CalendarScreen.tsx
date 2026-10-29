@@ -23,7 +23,7 @@ function eventsOn(state: State, date: string): CalEvent[] {
   for (const p of state.projects) {
     const c = state.clients.find((x) => x.id === p.clientId)
     if (p.shootDate === date) out.push({ id: `s${p.id}`, kind: 'shoot', title: p.title, sub: `${p.shootTime ?? 'All day'} · ${c?.company}`, to: `/projects/${p.id}` })
-    if (p.dueDate === date && p.stage !== 'paid' && p.stage !== 'delivered')
+    if (p.dueDate === date && p.stage !== 'done')
       out.push({ id: `d${p.id}`, kind: 'due', title: `Delivery: ${p.title}`, sub: c?.company, to: `/projects/${p.id}` })
     for (const it of p.shotList)
       if (it.due === date && !it.done && p.shootDate !== date) out.push({ id: it.id, kind: 'task', title: it.title, sub: p.title, to: `/projects/${p.id}` })

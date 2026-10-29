@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Mail, MapPin, MessageCircle, Phone } from 'lucide-react'
 import { useStore } from '../data/store'
-import { totals } from '../data/billing'
+import { isArchived, totals } from '../data/billing'
 import { fmtRelative, fmtShort, fmtStamp } from '../lib/dates'
 import { money } from '../lib/money'
 import { InvoiceBadge, StageBadge } from '../components/bits'
@@ -92,7 +92,7 @@ export function ClientScreen() {
                 <div className="truncate text-[15px] font-medium">{p.title}</div>
                 <div className="text-[12px] text-ink-2">Shoot {fmtRelative(p.shootDate)}</div>
               </div>
-              <StageBadge stage={p.stage} />
+              <StageBadge stage={p.stage} archived={isArchived(state, p)} />
             </Link>
           ))}
           {!projects.length && <Empty title="No projects yet" />}

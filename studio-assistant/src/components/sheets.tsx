@@ -102,10 +102,6 @@ export function PaymentSheet({ inv, open, onClose }: { inv: Invoice; open: boole
       i.payments.push({ id: uid('pay'), amount: n, date: today(), method, note: note || undefined })
       const paid = i.payments.reduce((sum, p) => sum + p.amount, 0)
       i.status = paid >= totals(i, s.settings).total - 0.001 ? 'paid' : 'partly paid'
-      if (i.status === 'paid') {
-        const p = s.projects.find((x) => x.id === i.projectId)
-        if (p && p.stage === 'delivered') p.stage = 'paid'
-      }
     })
     toast(state.settings.autoReceipts ? `${money(n)} recorded · receipt emailed` : `${money(n)} recorded`)
     onClose()
@@ -200,7 +196,7 @@ export function ScheduleSheet({ open, onClose, date: initialDate }: { open: bool
         id,
         clientId,
         title: title.trim() || 'New shoot',
-        stage: 'booked',
+        stage: 'todo',
         shootDate: date,
         shootTime: label,
         dueDate: addDays(date, 10),
