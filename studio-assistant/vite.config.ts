@@ -4,6 +4,6 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  // The Jewish calendar library is most of the bundle; one file is fine for a preview
-  build: { chunkSizeWarningLimit: 800 },
+  // The calendar and database libraries are most of the bundle; one file loads fine
+  build: { chunkSizeWarningLimit: 1200 },
 })

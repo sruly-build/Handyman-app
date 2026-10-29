@@ -61,6 +61,8 @@ export interface ProjectFile {
   kind: 'pdf' | 'doc' | 'image' | 'sheet' | 'zip'
   size: string
   added: string
+  /** Where the file is stored (live mode) */
+  path?: string
 }
 
 export interface Sticky {
@@ -118,6 +120,8 @@ export interface Email {
   archived: boolean
   draft: string
   replied?: boolean
+  threadId?: string
+  messageId?: string
 }
 
 export interface ReachOut {
@@ -129,6 +133,8 @@ export interface ReachOut {
   note: string
   draft: string
   status: 'pending' | 'skipped' | 'never' | 'sent'
+  /** The day it was suggested */
+  day?: string
 }
 
 export interface Comment {
@@ -143,11 +149,13 @@ export type PhotoKind = 'plate' | 'bowl' | 'salad' | 'stack' | 'pasta' | 'mug'
 
 export interface Photo {
   id: string
-  kind: PhotoKind
-  bg: string
-  ware: string
-  accent: string
   name: string
+  /** Dropbox path for real photos; sample photos are drawn from kind and colours instead */
+  path?: string
+  kind?: PhotoKind
+  bg?: string
+  ware?: string
+  accent?: string
   favourite: boolean
   comments: Comment[]
 }
@@ -221,6 +229,7 @@ export interface Settings {
   website: string
   address: string
   logoColor: string
+  logoUrl?: string
   zelleName: string
   zelleContact: string
   checkPayee: string

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   Archive,
@@ -12,6 +12,7 @@ import {
   Mail,
   ShoppingBag,
   Pause,
+  RefreshCw,
   Play,
   Reply,
   Send,
@@ -28,6 +29,7 @@ import { AddTaskSheet } from '../components/sheets'
 import { isArchived } from '../data/billing'
 import { Avatar, Badge, Button, Card, Checkbox, Empty, Page, Section, Sheet, cx, inputCls } from '../components/ui'
 import { PriorityBadge } from '../components/bits'
+import { ApiError, api, errorText } from '../lib/api'
 
 export function HomeScreen() {
   const { state } = useStore()
@@ -45,7 +47,8 @@ export function HomeScreen() {
             {fmtLong(t)} · {heb.day} {heb.month}
           </div>
           <h1 className="mt-1 text-[30px] leading-tight font-bold tracking-tight lg:text-[34px]">
-            {greeting()}, {state.settings.owner}
+            {greeting()}
+            {state.settings.owner && `, ${state.settings.owner}`}
           </h1>
           <p className="mt-1 text-[15px] text-ink-2">
             {todayShoots.length ? `${todayShoots.length} shoot${todayShoots.length > 1 ? 's' : ''} today` : 'No shoots today'}
@@ -285,11 +288,97 @@ function PrepCard({ project: p }: { project: Project }) {
   )
 }
 
+const SEEN_KEY = 'studio-assistant-seen-emails'
+let lastInboxCheck = 0
+
+function seenIds(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(SEEN_KEY) ?? '[]') as string[]
+  } catch {
+    return []
+  }
+}
+
 function Emails() {
-  const { state } = useStore()
-  const emails = state.emails.filter((e) => !e.archived).sort((a, b) => b.receivedAt - a.receivedAt)
+  const { state, update, live } = useStore()
+  const [status, setStatus] = useState<'idle' | 'checking' | 'notConnected' | 'notSetUp' | 'error'>('idle')
+  const [error, setError] = useState('')
+  const emails = state.emails
+    .filter((e) => !e.archived)
+    .sort((a, b) => b.receivedAt - a.receivedAt)
+    .slice(0, 12)
+
+  const stateRef = useRef(state)
+  stateRef.current = state
+
+  const check = useCallback(async () => {
+    setStatus('checking')
+    try {
+      const known = [...new Set([...seenIds(), ...stateRef.current.emails.map((e) => e.id)])]
+      const res = await api<{ checked: string[]; emails: (Omit<Email, 'archived' | 'draft'> & { body: string })[] }>('gmail/inbox', {
+        body: {
+          known,
+          clients: stateRef.current.clients.map((c) => c.email).filter(Boolean),
+          studio: { owner: stateRef.current.settings.owner, business: stateRef.current.settings.businessName },
+        },
+      })
+      try {
+        localStorage.setItem(SEEN_KEY, JSON.stringify([...known, ...res.checked].slice(-800)))
+      } catch {
+        // Not remembering skipped emails only means they get checked again
+      }
+      if (res.emails.length)
+        update((s) => {
+          for (const m of res.emails) {
+            if (s.emails.some((x) => x.id === m.id)) continue
+            const client = s.clients.find((c) => c.email.toLowerCase() === m.fromEmail.toLowerCase())
+            s.emails.push({ ...m, archived: false, draft: '', clientId: client?.id, isLead: m.isLead && !client })
+          }
+        })
+      setStatus('idle')
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) setStatus('notConnected')
+      else if (e instanceof ApiError && (e.status === 503 || e.status === 404)) setStatus('notSetUp')
+      else {
+        setError(errorText(e))
+        setStatus('error')
+      }
+    }
+  }, [update])
+
+  useEffect(() => {
+    // Check by itself at most every 5 minutes; the button checks any time
+    if (!live || Date.now() - lastInboxCheck < 5 * 60_000) return
+    lastInboxCheck = Date.now()
+    void check()
+  }, [live, check])
+
   return (
-    <Section title="Important emails" icon={<Mail size={16} />} tone="red" action={<span className="text-[13px] text-ink-3">From Gmail · sample</span>}>
+    <Section
+      title="Important emails"
+      icon={<Mail size={16} />}
+      tone="red"
+      action={
+        live ? (
+          <button onClick={() => void check()} disabled={status === 'checking'} className="flex items-center gap-1 text-[13px] text-accent disabled:text-ink-3">
+            <RefreshCw size={13} className={status === 'checking' ? 'animate-spin' : ''} />
+            {status === 'checking' ? 'Checking…' : 'Check Gmail'}
+          </button>
+        ) : (
+          <span className="text-[13px] text-ink-3">From Gmail · sample</span>
+        )
+      }
+    >
+      {status === 'notConnected' && (
+        <Card className="mb-3 flex items-center gap-3 p-4">
+          <Mail className="shrink-0 text-red" />
+          <div className="flex-1 text-[14px] text-ink-2">Connect Gmail to see important emails and new leads here.</div>
+          <Link to="/settings" className="rounded-full bg-accent px-3.5 py-2 text-[13px] font-semibold text-white">
+            Connect
+          </Link>
+        </Card>
+      )}
+      {status === 'error' && <p className="mb-3 rounded-xl bg-red-soft px-3.5 py-2.5 text-[14px] text-red">{error}</p>}
       {emails.length ? (
         <div className="space-y-3">
           {emails.map((e) => (
@@ -297,9 +386,11 @@ function Emails() {
           ))}
         </div>
       ) : (
-        <Card>
-          <Empty icon={<CheckCircle2 size={32} />} title="Inbox zero" text="All important emails are handled." />
-        </Card>
+        status !== 'notConnected' && (
+          <Card>
+            <Empty icon={<CheckCircle2 size={32} />} title="Inbox zero" text={status === 'checking' ? 'Checking Gmail…' : 'All important emails are handled.'} />
+          </Card>
+        )
       )}
     </Section>
   )
@@ -312,21 +403,75 @@ const REWRITES = [
 ]
 
 export function EmailCard({ email: e, compact }: { email: Email; compact?: boolean }) {
-  const { state, update, toast } = useStore()
+  const { state, update, toast, live } = useStore()
   const nav = useNavigate()
   const [open, setOpen] = useState(false)
   const [replying, setReplying] = useState(false)
   const [draft, setDraft] = useState(e.draft)
   const [variant, setVariant] = useState(0)
+  const [writing, setWriting] = useState(false)
+  const [sending, setSending] = useState(false)
   const [linkSheet, setLinkSheet] = useState(false)
   const [taskSheet, setTaskSheet] = useState(false)
   const project = state.projects.find((p) => p.id === e.projectId)
   const lead = state.leads.find((l) => l.id === e.leadId)
 
-  const send = () => {
+  const writeDraft = async (style: number) => {
+    setWriting(true)
+    try {
+      const res = await api<{ draft: string }>('ai/draft', {
+        body: {
+          type: 'reply',
+          style,
+          studio: { owner: state.settings.owner, business: state.settings.businessName },
+          email: { id: e.id, from: e.from, fromEmail: e.fromEmail, subject: e.subject, body: e.body },
+        },
+      })
+      setDraft(res.draft)
+      update((s) => void (s.emails.find((x) => x.id === e.id)!.draft = res.draft))
+    } catch (err) {
+      toast(errorText(err))
+    }
+    setWriting(false)
+  }
+
+  const openReply = () => {
+    setReplying(!replying)
+    if (!replying && live && !draft) void writeDraft(0)
+  }
+
+  const anotherDraft = () => {
+    const v = (variant + 1) % 3
+    setVariant(v)
+    if (live) void writeDraft(v)
+    else setDraft(REWRITES[v](e.draft))
+  }
+
+  const send = async () => {
+    if (!draft.trim()) return
+    if (live) {
+      setSending(true)
+      try {
+        await api('gmail/send', {
+          body: {
+            to: e.fromEmail,
+            subject: /^re:/i.test(e.subject) ? e.subject : `Re: ${e.subject}`,
+            text: draft,
+            threadId: e.threadId,
+            inReplyTo: e.messageId,
+          },
+        })
+      } catch (err) {
+        setSending(false)
+        toast(errorText(err))
+        return
+      }
+      setSending(false)
+    }
     update((s) => {
       const m = s.emails.find((x) => x.id === e.id)!
       m.replied = true
+      m.draft = draft
       const l = s.leads.find((x) => x.id === e.leadId)
       if (l && l.status === 'new') l.status = 'contacted'
     })
@@ -390,31 +535,30 @@ export function EmailCard({ email: e, compact }: { email: Email; compact?: boole
             <span className="flex items-center gap-1.5 text-[12px] font-semibold text-purple">
               <Sparkles size={14} /> AI draft
             </span>
-            <button
-              onClick={() => {
-                const v = (variant + 1) % REWRITES.length
-                setVariant(v)
-                setDraft(REWRITES[v](e.draft))
-              }}
-              className="text-[12px] font-medium text-accent"
-            >
-              Try another
+            <button onClick={anotherDraft} disabled={writing} className="text-[12px] font-medium text-accent disabled:text-ink-3">
+              {writing ? 'Writing…' : 'Try another'}
             </button>
           </div>
-          <textarea value={draft} onChange={(ev) => setDraft(ev.target.value)} rows={6} className={cx(inputCls, 'border-none px-0 py-0 focus:ring-0')} />
+          <textarea
+            value={draft}
+            onChange={(ev) => setDraft(ev.target.value)}
+            rows={6}
+            placeholder={writing ? 'Writing a draft…' : 'Write your reply'}
+            className={cx(inputCls, 'border-none px-0 py-0 focus:ring-0')}
+          />
           <div className="mt-2 flex justify-end gap-2">
             <Button size="sm" onClick={() => setReplying(false)}>
               Cancel
             </Button>
-            <Button size="sm" variant="primary" icon={<Send size={14} />} onClick={send}>
-              Send
+            <Button size="sm" variant="primary" icon={<Send size={14} />} onClick={() => void send()} disabled={sending || writing || !draft.trim()}>
+              {sending ? 'Sending…' : 'Send'}
             </Button>
           </div>
         </div>
       )}
 
       <div className="no-scrollbar mt-3 flex gap-1 overflow-x-auto border-t border-line px-2 py-1.5">
-        <ActionBtn icon={<Reply size={16} />} label="Reply" onClick={() => setReplying(!replying)} active={replying} />
+        <ActionBtn icon={<Reply size={16} />} label="Reply" onClick={openReply} active={replying} />
         <ActionBtn icon={<UserPlus size={16} />} label={e.isLead ? 'Lead' : 'Link'} onClick={() => setLinkSheet(true)} />
         <ActionBtn icon={<ListPlus size={16} />} label="Task" onClick={() => setTaskSheet(true)} />
         <ActionBtn icon={<Archive size={16} />} label="Archive" onClick={archive} />
@@ -528,40 +672,89 @@ function LinkSheet({ email: e, open, onClose }: { email: Email; open: boolean; o
 }
 
 function ReachOutCard() {
-  const { state, update, toast } = useStore()
-  const r = state.reachOuts.find((x) => x.status === 'pending')
+  const { state, update, toast, live } = useStore()
+  const t = today()
+  // Live: one suggestion per day, picked from people you emailed a while ago. Preview: the sample list.
+  const r = live ? state.reachOuts.find((x) => x.day === t) : state.reachOuts.find((x) => x.status === 'pending')
   const [draft, setDraft] = useState<Record<string, string>>({})
   const [editing, setEditing] = useState(false)
+  const [finding, setFinding] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [problem, setProblem] = useState('')
+  const asked = useRef(false)
 
-  const set = (status: 'skipped' | 'never' | 'sent', msg: string) => {
+  useEffect(() => {
+    if (!live || r || asked.current) return
+    asked.current = true
+    setFinding(true)
+    ;(async () => {
+      try {
+        const exclude = [...state.reachOuts.map((x) => x.email), ...state.clients.map((c) => c.email)].filter(Boolean)
+        const { contacts } = await api<{ contacts: { name: string; email: string; lastContact: string; lastSubject: string }[] }>('gmail/contacts', {
+          body: { exclude },
+        })
+        const c = contacts[0]
+        if (!c) {
+          setProblem('No one to suggest today.')
+          return
+        }
+        const studio = { owner: state.settings.owner, business: state.settings.businessName }
+        const ai = await api<{ note: string; draft: string }>('ai/draft', { body: { type: 'reachout', studio, contact: c } }).catch(() => ({
+          note: `Last emailed about “${c.lastSubject}”.`,
+          draft: `Hi ${c.name.split(' ')[0]},\n\nIt has been a while! I hope all is well. If you have any products coming up that need photos, I would love to help.\n\n${state.settings.owner}`,
+        }))
+        update((s) => {
+          s.reachOuts.push({ id: uid('r'), name: c.name, company: '', email: c.email, lastContact: c.lastContact, note: ai.note, draft: ai.draft, status: 'pending', day: t })
+        })
+      } catch (e) {
+        setProblem(e instanceof ApiError && e.status === 409 ? 'Connect Gmail in Settings to get a daily suggestion.' : errorText(e))
+      } finally {
+        setFinding(false)
+      }
+    })()
+  }, [live, r, state, update, t])
+
+  const set = async (status: 'skipped' | 'never' | 'sent', msg: string) => {
     if (!r) return
-    update((s) => void (s.reachOuts.find((x) => x.id === r.id)!.status = status))
+    if (status === 'sent' && live) {
+      setSending(true)
+      try {
+        await api('gmail/send', { body: { to: r.email, subject: `Checking in from ${state.settings.businessName}`, text: draft[r.id] ?? r.draft } })
+      } catch (e) {
+        setSending(false)
+        toast(errorText(e))
+        return
+      }
+      setSending(false)
+    }
+    update((s) => {
+      const x = s.reachOuts.find((y) => y.id === r.id)!
+      x.status = status
+      x.draft = draft[r.id] ?? r.draft
+    })
     setEditing(false)
     toast(msg)
   }
 
+  const handled = r && r.status !== 'pending'
+
   return (
     <Section title="Reach out today" icon={<HeartHandshake size={16} />} tone="green">
-      {r ? (
+      {r && !handled ? (
         <Card className="p-4">
           <div className="flex items-center gap-3">
             <Avatar name={r.name} size={44} />
             <div className="min-w-0 flex-1">
               <div className="text-[17px] font-semibold">{r.name}</div>
               <div className="text-[13px] text-ink-2">
-                {r.company} · <Clock size={12} className="inline -mt-0.5" /> last emailed {fmtMonthsAgo(r.lastContact)}
+                {r.company ? `${r.company} · ` : ''}
+                <Clock size={12} className="-mt-0.5 inline" /> last emailed {fmtMonthsAgo(r.lastContact)}
               </div>
             </div>
           </div>
           <p className="mt-3 text-[15px] text-ink-2">{r.note}</p>
           {editing ? (
-            <textarea
-              autoFocus
-              value={draft[r.id] ?? r.draft}
-              onChange={(e) => setDraft({ ...draft, [r.id]: e.target.value })}
-              rows={7}
-              className={cx(inputCls, 'mt-3')}
-            />
+            <textarea autoFocus value={draft[r.id] ?? r.draft} onChange={(e) => setDraft({ ...draft, [r.id]: e.target.value })} rows={7} className={cx(inputCls, 'mt-3')} />
           ) : (
             <button onClick={() => setEditing(true)} className="mt-3 block w-full rounded-xl bg-fill px-3.5 py-3 text-left text-[14px] whitespace-pre-line text-ink">
               <span className="mb-1 flex items-center gap-1.5 text-[12px] font-semibold text-purple">
@@ -571,18 +764,22 @@ function ReachOutCard() {
             </button>
           )}
           <div className="mt-3 flex items-center gap-2">
-            <Button variant="primary" icon={<Send size={15} />} onClick={() => set('sent', `Sent to ${r.name.split(' ')[0]}`)}>
-              Send
+            <Button variant="primary" icon={<Send size={15} />} disabled={sending} onClick={() => void set('sent', `Sent to ${r.name.split(' ')[0]}`)}>
+              {sending ? 'Sending…' : 'Send'}
             </Button>
-            <Button onClick={() => set('skipped', 'Skipped for today')}>Skip</Button>
-            <Button variant="plain" size="sm" className="ml-auto text-ink-2" onClick={() => set('never', `Won’t suggest ${r.name.split(' ')[0]} again`)}>
+            <Button onClick={() => void set('skipped', 'Skipped for today')}>Skip</Button>
+            <Button variant="plain" size="sm" className="ml-auto text-ink-2" onClick={() => void set('never', `Won’t suggest ${r.name.split(' ')[0]} again`)}>
               Never suggest
             </Button>
           </div>
         </Card>
       ) : (
         <Card>
-          <Empty icon={<CheckCircle2 size={30} />} title="Done for today" text="A new contact will be suggested tomorrow." />
+          <Empty
+            icon={<CheckCircle2 size={30} />}
+            title={finding ? 'Finding someone…' : handled || !live ? 'Done for today' : 'Nothing today'}
+            text={finding ? 'Looking through past emails.' : problem || 'A new contact will be suggested tomorrow.'}
+          />
         </Card>
       )}
     </Section>

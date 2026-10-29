@@ -14,7 +14,7 @@ const TABS = [
 ]
 
 export function Layout() {
-  const { state } = useStore()
+  const { state, live, pending } = useStore()
   return (
     <div className="min-h-dvh lg:flex">
       <aside className="sticky top-0 hidden h-dvh w-[248px] shrink-0 flex-col border-r border-line bg-white/70 px-3 py-6 backdrop-blur lg:flex">
@@ -57,7 +57,7 @@ export function Layout() {
             Settings
           </NavLink>
           <div className="mt-3 rounded-xl bg-fill px-3 py-2.5 text-[12px] leading-snug text-ink-2">
-            Design preview. All data is sample data and nothing is sent.
+            {live ? (pending ? 'Saving…' : 'All changes saved') : 'Preview with sample data. Nothing is sent.'}
           </div>
         </div>
       </aside>

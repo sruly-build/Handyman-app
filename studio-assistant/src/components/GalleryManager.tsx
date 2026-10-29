@@ -1,19 +1,23 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Cloud, ExternalLink, Heart, Image as ImageIcon, Link2, Lock, MessageCircle, Star } from 'lucide-react'
+import { Cloud, ExternalLink, FolderOpen, Heart, Image as ImageIcon, Link2, Lock, MessageCircle, RefreshCw, Star } from 'lucide-react'
 import { uid, useStore } from '../data/store'
 import { totals } from '../data/billing'
 import { fmtStamp } from '../lib/dates'
 import type { Gallery } from '../data/types'
-import { ProductPhoto } from './ProductPhoto'
+import { PhotoImg } from './PhotoImg'
+import { DropboxPicker, photosIn } from './DropboxPicker'
+import { errorText } from '../lib/api'
 import { Badge, Button, Card, Segmented, Sheet, Toggle, cx, inputCls } from './ui'
 
 type Filter = 'all' | 'fav' | 'comments'
 
 export function GalleryManager({ gallery: g }: { gallery: Gallery }) {
-  const { state, update, toast } = useStore()
+  const { state, update, toast, live } = useStore()
   const nav = useNavigate()
   const [filter, setFilter] = useState<Filter>('all')
+  const [picking, setPicking] = useState(false)
+  const [syncing, setSyncing] = useState(false)
   const [openId, setOpenId] = useState<string | null>(null)
   const [reply, setReply] = useState('')
   const favs = g.photos.filter((p) => p.favourite).length
@@ -23,6 +27,22 @@ export function GalleryManager({ gallery: g }: { gallery: Gallery }) {
   const invoice = state.invoices.find((i) => i.projectId === g.projectId && i.kind === 'invoice')
   const balance = invoice ? totals(invoice, state.settings).balance : 0
   const editG = (fn: (g: Gallery) => void) => update((s) => fn(s.galleries.find((x) => x.id === g.id)!))
+
+  const sync = async (path = g.dropboxPath) => {
+    setSyncing(true)
+    try {
+      const photos = await photosIn(path, g.photos)
+      editG((x) => {
+        x.dropboxPath = path
+        x.photos = photos
+        if (!photos.some((p) => p.id === x.coverId)) x.coverId = photos[0]?.id ?? ''
+      })
+      toast(`${photos.length} photos from Dropbox`)
+    } catch (e) {
+      toast(errorText(e))
+    }
+    setSyncing(false)
+  }
 
   const share = async () => {
     const url = `${location.origin}/g/${g.id}`
@@ -42,7 +62,17 @@ export function GalleryManager({ gallery: g }: { gallery: Gallery }) {
             <Cloud size={16} className="shrink-0 text-accent" />
             <span className="truncate">Dropbox: {g.dropboxPath}</span>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {live && (
+              <>
+                <Button size="sm" icon={<RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />} onClick={() => void sync()} disabled={syncing}>
+                  Sync
+                </Button>
+                <Button size="sm" icon={<FolderOpen size={14} />} onClick={() => setPicking(true)}>
+                  Folder
+                </Button>
+              </>
+            )}
             <Button size="sm" icon={<Link2 size={14} />} onClick={share}>
               Copy link
             </Button>
@@ -91,7 +121,7 @@ export function GalleryManager({ gallery: g }: { gallery: Gallery }) {
       <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 lg:grid-cols-5">
         {shown.map((ph) => (
           <button key={ph.id} onClick={() => setOpenId(ph.id)} className="relative aspect-square overflow-hidden rounded-xl active:opacity-80">
-            <ProductPhoto photo={ph} className="h-full w-full" />
+            <PhotoImg galleryId={g.id} photo={ph} className="h-full w-full" />
             {g.coverId === ph.id && (
               <span className="absolute top-1.5 left-1.5 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur">Cover</span>
             )}
@@ -116,7 +146,7 @@ export function GalleryManager({ gallery: g }: { gallery: Gallery }) {
         {photo && (
           <>
             <div className="overflow-hidden rounded-2xl">
-              <ProductPhoto photo={photo} className="aspect-square w-full lg:aspect-[4/3]" />
+              <PhotoImg galleryId={g.id} photo={photo} large className="aspect-square w-full object-contain lg:aspect-[4/3]" />
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {photo.favourite ? (
@@ -179,6 +209,14 @@ export function GalleryManager({ gallery: g }: { gallery: Gallery }) {
           </>
         )}
       </Sheet>
+      <DropboxPicker
+        open={picking}
+        onClose={() => setPicking(false)}
+        onPick={(path) => {
+          setPicking(false)
+          void sync(path)
+        }}
+      />
     </>
   )
 }
