@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatAddress, toSuggestions, typedHouseNumber } from './addresses'
+import { formatAddress, fromGoogle, toSuggestions, typedHouseNumber } from './addresses'
 
 describe('formatAddress', () => {
   it('formats a house address', () => {
@@ -45,5 +45,22 @@ describe('toSuggestions', () => {
     expect(toSuggestions([street('Clifton Avenue', 'Lakewood')], 'Clifton Ave')).toEqual([
       'Clifton Avenue, Lakewood, NJ 08701',
     ])
+  })
+})
+
+describe('fromGoogle', () => {
+  it('takes the suggestion text, without ", USA"', () => {
+    const data = {
+      suggestions: [
+        { placePrediction: { text: { text: '120 Clifton Avenue, Lakewood, NJ, USA' } } },
+        { placePrediction: { text: { text: '120 Clifton Avenue, Lakewood, NJ, USA' } } },
+        { placePrediction: { text: { text: '120 Clifton Ave, Toms River, NJ, USA' } } },
+        {},
+      ],
+    }
+    expect(fromGoogle(data)).toEqual(['120 Clifton Avenue, Lakewood, NJ', '120 Clifton Ave, Toms River, NJ'])
+  })
+  it('copes with no suggestions', () => {
+    expect(fromGoogle({})).toEqual([])
   })
 })

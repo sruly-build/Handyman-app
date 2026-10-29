@@ -1,7 +1,51 @@
 /**
- * Address suggestions from Photon (https://photon.komoot.io), a free
- * OpenStreetMap search that is built for search-as-you-type and needs no key.
+ * Address suggestions as you type. With a Google Maps key (VITE_GOOGLE_MAPS_KEY)
+ * they come from Google Places, which knows house numbers best. Without one,
+ * from Photon (https://photon.komoot.io), a free OpenStreetMap search.
  */
+
+const googleKey = (import.meta.env.VITE_GOOGLE_MAPS_KEY as string | undefined)?.trim() || ''
+
+/** Which service the suggestions come from (shown under the list) */
+export const addressSource: 'google' | 'osm' = googleKey ? 'google' : 'osm'
+
+interface GoogleResponse {
+  suggestions?: { placePrediction?: { text?: { text?: string } } }[]
+}
+
+/** "120 Clifton Ave, Lakewood, NJ, USA" → "120 Clifton Ave, Lakewood, NJ" */
+export function fromGoogle(data: GoogleResponse): string[] {
+  const seen = new Set<string>()
+  return (data.suggestions ?? [])
+    .map((s) => (s.placePrediction?.text?.text ?? '').replace(/,\s*USA$/, '').trim())
+    .filter((a) => a && !seen.has(a) && seen.add(a))
+    .slice(0, 6)
+}
+
+// Google bills a typing session (all the letters of one address) together
+let session = ''
+const newSession = () => (session = crypto.randomUUID())
+/** Call when an address is picked, so the next one starts a new session */
+export const endAddressSession = () => newSession()
+
+async function searchGoogle(query: string, near: { lat: number; lon: number }, signal?: AbortSignal) {
+  if (!session) newSession()
+  const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+    method: 'POST',
+    signal,
+    headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': googleKey },
+    body: JSON.stringify({
+      input: query,
+      sessionToken: session,
+      includedRegionCodes: ['us'],
+      // Nearby first: within about 30 miles counts most
+      locationBias: { circle: { center: { latitude: near.lat, longitude: near.lon }, radius: 50000 } },
+      origin: { latitude: near.lat, longitude: near.lon },
+    }),
+  })
+  if (!res.ok) throw new Error(`Address search failed (${res.status})`)
+  return fromGoogle((await res.json()) as GoogleResponse)
+}
 
 interface PhotonProperties {
   name?: string
@@ -102,6 +146,14 @@ export function toSuggestions(features: { properties?: PhotonProperties }[], que
 export async function searchAddresses(query: string, signal?: AbortSignal): Promise<string[]> {
   bias ??= knownLocation()
   const near = (await bias) ?? HOME_AREA
+  if (googleKey) {
+    try {
+      return await searchGoogle(query, near, signal)
+    } catch (err) {
+      // Typing on: fall back to the free search if Google is down or the key is wrong
+      if (signal?.aborted) throw err
+    }
+  }
   const params = new URLSearchParams({
     q: query,
     limit: '15',

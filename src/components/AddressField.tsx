@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { searchAddresses } from '../lib/addresses'
+import { addressSource, endAddressSession, searchAddresses } from '../lib/addresses'
 import { PinIcon } from './Icons'
 
 /**
@@ -31,6 +31,7 @@ export function AddressField({ value, onChange }: { value: string; onChange: (v:
   }, [value])
 
   function pick(address: string) {
+    endAddressSession()
     typed.current = false
     setSuggestions([])
     setOpen(false)
@@ -76,7 +77,9 @@ export function AddressField({ value, onChange }: { value: string; onChange: (v:
               </button>
             </li>
           ))}
-          <li className="px-4 pb-2 text-right text-[11px] text-muted">Addresses © OpenStreetMap</li>
+          <li className="px-4 pb-2 text-right text-[11px] text-muted">
+            {addressSource === 'google' ? 'Powered by Google' : 'Addresses © OpenStreetMap'}
+          </li>
         </ul>
       )}
     </div>

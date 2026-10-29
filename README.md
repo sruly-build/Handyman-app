@@ -8,7 +8,7 @@ The full plan is in [docs/BUILD_PLAN.md](docs/BUILD_PLAN.md).
 
 All five stages from the build plan are built:
 
-- **Jobs and punch lists.** Create a job with the customer's details (the address box suggests real addresses as you type, nearest first: around where your phone is if you've allowed location, otherwise around Lakewood, NJ. The area is set by `HOME_AREA` in `src/lib/addresses.ts`). **Call**, **Text** and **Directions** are one tap away. **Text** offers ready-made messages ("On my way, there in about 30 minutes", "Running late", "I'm here", or your own), which you can edit, then send by text or WhatsApp. (For WhatsApp, numbers typed without a country code are taken as US/Canada; type +44, +972 etc. for other countries.) Add each thing that needs fixing as a punch list item.
+- **Jobs and punch lists.** Create a job with the customer's details (the address box suggests real addresses as you type, from Google Maps once a key is added (see **Google address suggestions** below), nearest first: around where your phone is if you've allowed location, otherwise around Lakewood, NJ. The area is set by `HOME_AREA` in `src/lib/addresses.ts`). **Call**, **Text** and **Directions** are one tap away. **Text** offers ready-made messages ("On my way, there in about 30 minutes", "Running late", "I'm here", or your own), which you can edit, then send by text or WhatsApp. (For WhatsApp, numbers typed without a country code are taken as US/Canada; type +44, +972 etc. for other countries.) Add each thing that needs fixing as a punch list item.
 - **Sign-up by approval only.** Nobody can create an account unless their email has been approved. Only the app's admin (super admin: the first person who signed up) can approve anyone, in **Me → Approve sign-ups**, choosing whether each person starts a new company or joins an existing one. Company owners can't approve people. Approved people tap **Sign up**, enter their email, then choose their own name and password. The database itself turns away everyone else.
 - **Companies.** Each approved new sign-up gets their own company with its business profile (name, email, phone, address). A company sees only its own jobs, prices, parts, time, estimates and invoices. The database itself enforces this.
 - **Your team.** To add a worker to a company, the admin approves their email for that company. When they sign up with that email, they join the company and see all its jobs, clock in, run timers and so on. Only the owner changes the business profile and prices.
@@ -93,6 +93,19 @@ Your project's URL and publishable key are already built into the app (in `.env.
 4. Wait for it to finish. After a minute you'll get a link like `https://handyman-app.vercel.app`.
 
 From now on, every change pushed to GitHub updates the app automatically.
+
+### Optional: Google address suggestions
+
+Without this, address suggestions come from a free map service that misses many house numbers. With a Google key they come from Google Maps.
+
+1. Go to <https://console.cloud.google.com>, sign in with a Google account, and create a project (any name, e.g. "Handyman app"). Add a billing account when asked. Google gives a free monthly allowance (10,000 address searches a month at the time of writing), which a small business normally stays within.
+2. In the search bar, find **Places API (New)** and click **Enable**.
+3. Go to **APIs & Services → Credentials → Create credentials → API key**. Copy the key.
+4. Click the key to restrict it:
+   - **Application restrictions → Websites**: add your app's address followed by `/*`, e.g. `https://handyman-app.vercel.app/*`
+   - **API restrictions → Restrict key → Places API (New)**
+   - Save.
+5. Put the key in `.env.production` after `VITE_GOOGLE_MAPS_KEY=` (or send it to whoever maintains the app). Once pushed, Vercel updates the app and the address list says "Powered by Google".
 
 ### Step 5: Add it to your iPhone home screen
 
