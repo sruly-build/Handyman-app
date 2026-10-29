@@ -104,14 +104,60 @@ const LEAD_SOLID: Record<string, string> = { blue: 'bg-accent text-white', purpl
 const LEAD_DOT: Record<string, string> = { blue: 'bg-accent', purple: 'bg-purple', orange: 'bg-orange', green: 'bg-green' }
 
 function Leads() {
-  const { state } = useStore()
+  const { state, update, toast } = useStore()
   const [filter, setFilter] = useState<LeadStatus | 'all'>('all')
   const [openId, setOpenId] = useState<string | null>(null)
+  const [adding, setAdding] = useState(false)
+  const [form, setForm] = useState({ name: '', company: '', email: '', phone: '', source: '', note: '' })
   const leads = state.leads.filter((l) => !l.convertedProjectId && (filter === 'all' || l.status === filter))
   const lead = state.leads.find((l) => l.id === openId)
 
   return (
     <>
+      <div className="mb-3 flex justify-end">
+        <Button variant="tinted" size="sm" icon={<Plus size={15} />} onClick={() => setAdding(true)}>
+          Add lead
+        </Button>
+      </div>
+      <Sheet
+        open={adding}
+        onClose={() => setAdding(false)}
+        title="New lead"
+        footer={
+          <Button
+            variant="primary"
+            size="lg"
+            onClick={() => {
+              if (!form.name.trim()) return toast('Add a name first')
+              update((s) =>
+                s.leads.unshift({ id: uid('ld'), ...form, source: form.source || 'Other', status: 'new', value: 0, createdAt: today() }),
+              )
+              setAdding(false)
+              setForm({ name: '', company: '', email: '', phone: '', source: '', note: '' })
+              toast('Lead added')
+            }}
+          >
+            Add lead
+          </Button>
+        }
+      >
+        <div className="space-y-3">
+          {(
+            [
+              ['name', 'Name'],
+              ['company', 'Company'],
+              ['email', 'Email'],
+              ['phone', 'Phone'],
+              ['source', 'Where they found you'],
+              ['note', 'What they want'],
+            ] as const
+          ).map(([k, label]) => (
+            <Field key={k} label={label}>
+              <input value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} className={inputCls} />
+            </Field>
+          ))}
+        </div>
+      </Sheet>
       <div className="no-scrollbar -mx-4 mb-4 flex gap-2 overflow-x-auto px-4">
         {(['all', ...LEAD_STATUSES] as const).map((s) => {
           const n = s === 'all' ? state.leads.filter((l) => !l.convertedProjectId).length : state.leads.filter((l) => l.status === s && !l.convertedProjectId).length

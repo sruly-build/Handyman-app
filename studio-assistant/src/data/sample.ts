@@ -810,3 +810,34 @@ export function makeSample(): State {
 }
 
 export const TEAM = ['Shira', 'Leah', 'Dov']
+
+/** A brand-new live account: no sample clients or shoots, just a starting price sheet and closed weekends. */
+export function emptyState(): State {
+  const s = makeSample().settings
+  return {
+    seedDay: today(),
+    timer: null,
+    settings: {
+      ...s,
+      businessName: 'My Studio',
+      owner: '',
+      email: '',
+      phone: '',
+      website: '',
+      address: '',
+      zelleName: '',
+      zelleContact: '',
+      checkPayee: '',
+      checkAddress: '',
+      closedDates: [],
+    },
+    clients: [],
+    leads: [],
+    projects: [],
+    tasks: [],
+    emails: [],
+    reachOuts: [],
+    galleries: [],
+    invoices: [],
+  }
+}

@@ -6,7 +6,7 @@ import { isArchived, totals } from '../data/billing'
 import { fmtRelative, fmtShort, fmtStamp } from '../lib/dates'
 import { money } from '../lib/money'
 import { InvoiceBadge, StageBadge } from '../components/bits'
-import { ProductPhoto } from '../components/ProductPhoto'
+import { PhotoImg } from '../components/PhotoImg'
 import { Avatar, Card, Empty, Page, PageHeader, Segmented } from '../components/ui'
 
 type Tab = 'projects' | 'emails' | 'invoices' | 'galleries'
@@ -137,7 +137,7 @@ export function ClientScreen() {
             return (
               <Link key={g.id} to={`/projects/${g.projectId}/gallery`}>
                 <Card className="overflow-hidden">
-                  <ProductPhoto photo={cover} className="aspect-[4/3] w-full" />
+                  {cover ? <PhotoImg galleryId={g.id} photo={cover} className="aspect-[4/3] w-full" /> : <div className="aspect-[4/3] w-full bg-fill" />}
                   <div className="px-3 py-2.5">
                     <div className="truncate text-[15px] font-medium">{g.title}</div>
                     <div className="text-[12px] text-ink-2">

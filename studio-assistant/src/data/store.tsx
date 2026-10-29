@@ -2,11 +2,13 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { makeSample } from './sample'
 import { today, parse } from '../lib/dates'
 import { blockingHoliday, holidayShortName, holidaysOn, type Holiday } from '../lib/jewish'
+import { isLive, loadAll, saveChanges, snapshot, toDocs } from '../lib/cloud'
 import type { Project, Settings, ShotItem, State } from './types'
 
 const KEY = 'studio-assistant-preview-v2'
 
-function load(): State {
+/** Sample data for the preview (no database), kept in this browser for the day. */
+export function loadPreview(): State {
   try {
     const raw = localStorage.getItem(KEY)
     if (raw) {
@@ -31,22 +33,102 @@ interface Store {
   reset: () => void
   toast: (text: string) => void
   toasts: Toast[]
+  /** True when saving to the database; false in the sample-data preview */
+  live: boolean
+  /** Unsaved changes waiting to go to the database */
+  pending: boolean
 }
 
 const Ctx = createContext<Store | null>(null)
 
-export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<State>(load)
+export function StoreProvider({ children, initial }: { children: ReactNode; initial: State }) {
+  const [state, setState] = useState<State>(initial)
   const [toasts, setToasts] = useState<Toast[]>([])
+  const [pending, setPending] = useState(false)
   const seq = useRef(0)
+  const saved = useRef(isLive ? snapshot(initial) : new Map<string, string>())
+  const saving = useRef<Promise<void> | null>(null)
+  const latest = useRef(state)
+  latest.current = state
 
+  const toast = useCallback((text: string) => {
+    const id = ++seq.current
+    setToasts((t) => [...t, { id, text }])
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2800)
+  }, [])
+
+  // Preview: keep the sample data in this browser
   useEffect(() => {
+    if (isLive) return
     try {
       localStorage.setItem(KEY, JSON.stringify(state))
     } catch {
       // Storage full or blocked; the preview still works for this visit
     }
   }, [state])
+
+  // Live: save what changed, shortly after the last edit
+  const save = useCallback(async () => {
+    if (saving.current) await saving.current
+    const run = (async () => {
+      try {
+        saved.current = await saveChanges(saved.current, toDocs(latest.current))
+        setPending(false)
+      } catch {
+        toast('Couldn’t save. Retrying…')
+        setTimeout(() => void save(), 5000)
+      }
+    })()
+    saving.current = run
+    await run
+    saving.current = null
+  }, [toast])
+
+  useEffect(() => {
+    if (!isLive) return
+    const next = snapshot(state)
+    const changed = next.size !== saved.current.size || [...next].some(([k, v]) => saved.current.get(k) !== v)
+    if (!changed) return
+    setPending(true)
+    const t = setTimeout(() => void save(), 700)
+    return () => clearTimeout(t)
+  }, [state, save])
+
+  // Live: pick up changes made elsewhere (client hearts and comments, card payments, other devices)
+  useEffect(() => {
+    if (!isLive) return
+    const refresh = async () => {
+      if (document.visibilityState !== 'visible' || saving.current) return
+      const next = snapshot(latest.current)
+      const dirty = next.size !== saved.current.size || [...next].some(([k, v]) => saved.current.get(k) !== v)
+      if (dirty) return
+      try {
+        const fresh = await loadAll()
+        if (saving.current) return
+        saved.current = snapshot(fresh)
+        setState(fresh)
+      } catch {
+        // Offline for a moment; try again next time
+      }
+    }
+    const onVis = () => void refresh()
+    document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('focus', onVis)
+    const t = setInterval(onVis, 60_000)
+    return () => {
+      document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener('focus', onVis)
+      clearInterval(t)
+    }
+  }, [])
+
+  // Warn before closing with unsaved changes
+  useEffect(() => {
+    if (!pending) return
+    const onLeave = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', onLeave)
+    return () => window.removeEventListener('beforeunload', onLeave)
+  }, [pending])
 
   const update = useCallback((fn: (draft: State) => void) => {
     setState((s) => {
@@ -56,15 +138,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  const toast = useCallback((text: string) => {
-    const id = ++seq.current
-    setToasts((t) => [...t, { id, text }])
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2600)
-  }, [])
-
   const reset = useCallback(() => setState(makeSample()), [])
 
-  const value = useMemo(() => ({ state, update, reset, toast, toasts }), [state, update, reset, toast, toasts])
+  const value = useMemo(() => ({ state, update, reset, toast, toasts, live: isLive, pending }), [state, update, reset, toast, toasts, pending])
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
 
@@ -74,8 +150,10 @@ export function useStore(): Store {
   return s
 }
 
+/** Random ids. Galleries and invoices use theirs in client links, so they must be hard to guess. */
 export function uid(prefix = 'x'): string {
-  return prefix + Math.random().toString(36).slice(2, 9)
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  return prefix + Array.from(bytes, (b) => (b % 36).toString(36)).join('')
 }
 
 /** Re-renders every second while a timer runs. */

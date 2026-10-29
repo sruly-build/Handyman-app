@@ -13,6 +13,7 @@ import { InvoiceEditScreen } from './screens/InvoiceEditScreen'
 import { ReportScreen } from './screens/ReportScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { ClientGalleryScreen } from './screens/ClientGalleryScreen'
+import { PayScreen } from './screens/PayScreen'
 import { Empty, Page } from './components/ui'
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/g/:id" element={<ClientGalleryScreen />} />
+      <Route path="/pay/:id" element={<PayScreen />} />
       <Route element={<Layout />}>
         <Route index element={<HomeScreen />} />
         <Route path="projects" element={<ProjectsScreen />} />

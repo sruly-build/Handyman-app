@@ -7,17 +7,29 @@ import { addDays, fmtLong, today, fmtRelativeInline } from '../lib/dates'
 import { money, round2 } from '../lib/money'
 import type { Invoice, PayMethod } from '../data/types'
 import { Button, Confirm, Field, Segmented, Sheet, inputCls, cx } from './ui'
+import { api, errorText } from '../lib/api'
+
+export function payLink(invoiceId: string): string {
+  return `${location.origin}/pay/${invoiceId}`
+}
+
+/** Phone number as digits with country code; 10-digit numbers are taken as US/Canada. */
+export function phoneDigits(phone: string): string {
+  const d = phone.replace(/\D/g, '')
+  return d.length === 10 ? `1${d}` : d
+}
 
 type Channel = 'email' | 'whatsapp' | 'text'
 
 /** Send or remind: pick email, WhatsApp or text, edit the message, send. */
 export function SendSheet({ inv, open, onClose, remind }: { inv: Invoice; open: boolean; onClose: () => void; remind?: boolean }) {
-  const { state, update, toast } = useStore()
+  const { state, update, toast, live } = useStore()
   const client = state.clients.find((c) => c.id === inv.clientId)
   const t = totals(inv, state.settings)
   const [channel, setChannel] = useState<Channel>('email')
+  const [busy, setBusy] = useState(false)
   const first = client?.name.split(' ')[0] ?? 'there'
-  const link = `${state.settings.website}/pay/${inv.number.toLowerCase()}`
+  const link = payLink(inv.id)
   const defaultMsg = remind
     ? `Hi ${first}, a friendly reminder that ${inv.number} for ${money(t.balance)} is due ${fmtRelativeInline(inv.due)}. You can pay by Zelle, check or card here: ${link}\n\nThank you!\n${state.settings.owner}`
     : `Hi ${first}, here is your ${inv.kind} ${inv.number} for ${money(t.total)}. View and pay here: ${link}\n\nThank you!\n${state.settings.owner}`
@@ -27,14 +39,34 @@ export function SendSheet({ inv, open, onClose, remind }: { inv: Invoice; open: 
     // Reset the message each time the sheet opens
   }, [open])
 
-  const send = () => {
+  const send = async () => {
+    const phone = phoneDigits(client?.phone ?? '')
+    if (channel === 'email') {
+      if (!client?.email) return toast('Add an email address for this client first')
+      if (live) {
+        setBusy(true)
+        try {
+          const what = remind ? 'Reminder:' : inv.kind === 'estimate' ? 'Estimate' : 'Invoice'
+          await api('gmail/send', { body: { to: client.email, subject: `${what} ${inv.number} from ${state.settings.businessName}`, text: msg } })
+        } catch (e) {
+          setBusy(false)
+          return toast(errorText(e))
+        }
+        setBusy(false)
+      }
+    } else {
+      if (!phone) return toast('Add a phone number for this client first')
+      // Opens WhatsApp or Messages with the message filled in, ready to send
+      const href = channel === 'whatsapp' ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}` : `sms:+${phone}?&body=${encodeURIComponent(msg)}`
+      window.open(href, channel === 'whatsapp' ? '_blank' : '_self')
+    }
     update((s) => {
       const i = s.invoices.find((x) => x.id === inv.id)!
       if (i.status === 'draft') i.status = 'sent'
       if (remind) i.lastReminder = today()
     })
-    const where = { email: `by email to ${client?.email}`, whatsapp: 'on WhatsApp', text: 'by text' }[channel]
-    toast(`${remind ? 'Reminder' : inv.kind === 'estimate' ? 'Estimate' : 'Invoice'} sent ${where}`)
+    const where = { email: `sent to ${client?.email}`, whatsapp: 'ready in WhatsApp', text: 'ready in Messages' }[channel]
+    toast(`${remind ? 'Reminder' : inv.kind === 'estimate' ? 'Estimate' : 'Invoice'} ${where}`)
     onClose()
   }
 
@@ -50,8 +82,8 @@ export function SendSheet({ inv, open, onClose, remind }: { inv: Invoice; open: 
       onClose={onClose}
       title={remind ? `Remind ${first}` : `Send ${inv.number}`}
       footer={
-        <Button variant="primary" size="lg" onClick={send}>
-          {remind ? 'Send reminder' : 'Send'}
+        <Button variant="primary" size="lg" onClick={() => void send()} disabled={busy}>
+          {busy ? 'Sending…' : remind ? 'Send reminder' : 'Send'}
         </Button>
       }
     >
@@ -82,7 +114,7 @@ export function SendSheet({ inv, open, onClose, remind }: { inv: Invoice; open: 
 }
 
 export function PaymentSheet({ inv, open, onClose }: { inv: Invoice; open: boolean; onClose: () => void }) {
-  const { state, update, toast } = useStore()
+  const { state, update, toast, live } = useStore()
   const t = totals(inv, state.settings)
   const [amount, setAmount] = useState('')
   const [method, setMethod] = useState<PayMethod>('zelle')
@@ -103,8 +135,25 @@ export function PaymentSheet({ inv, open, onClose }: { inv: Invoice; open: boole
       const paid = i.payments.reduce((sum, p) => sum + p.amount, 0)
       i.status = paid >= totals(i, s.settings).total - 0.001 ? 'paid' : 'partly paid'
     })
-    toast(state.settings.autoReceipts ? `${money(n)} recorded · receipt emailed` : `${money(n)} recorded`)
     onClose()
+    const client = state.clients.find((c) => c.id === inv.clientId)
+    if (!state.settings.autoReceipts || !client?.email) return toast(`${money(n)} recorded`)
+    if (!live) return toast(`${money(n)} recorded · receipt emailed`)
+    const paidNow = round2(t.paid + n)
+    const left = round2(Math.max(0, t.total - paidNow))
+    const how = { zelle: 'Zelle', check: 'check', card: 'card' }[method]
+    api('gmail/send', {
+      body: {
+        to: client.email,
+        subject: `Receipt for ${inv.number} from ${state.settings.businessName}`,
+        text:
+          `Hi ${client.name.split(' ')[0]},\n\nThank you! We received your payment of ${money(n)} by ${how} for ${inv.number}.\n` +
+          (left > 0 ? `Balance remaining: ${money(left)}.\n` : 'This invoice is now paid in full.\n') +
+          `\nYou can see the invoice here: ${payLink(inv.id)}\n\n${state.settings.owner}`,
+      },
+    })
+      .then(() => toast(`${money(n)} recorded · receipt emailed`))
+      .catch(() => toast(`${money(n)} recorded · receipt not sent (connect Gmail)`))
   }
 
   return (

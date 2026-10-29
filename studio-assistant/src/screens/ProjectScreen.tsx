@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   Camera,
@@ -32,8 +32,11 @@ import type { Project, ProjectFile, ShotItem } from '../data/types'
 import { InvoiceBadge, PriorityBadge, StageBadge, StageStepper } from '../components/bits'
 import { Whiteboard } from '../components/Whiteboard'
 import { GalleryManager } from '../components/GalleryManager'
+import { DropboxPicker, photosIn } from '../components/DropboxPicker'
+import { api, errorText } from '../lib/api'
+import { deleteFile, fileKind, fileSize, openFileUrl, uploadProjectFile } from '../lib/files'
 import { EmailCard } from './HomeScreen'
-import { Badge, Button, Card, Checkbox, Empty, IconTile, Page, PageHeader, Section, Sheet, Field, cx, inputCls } from '../components/ui'
+import { Badge, Button, Card, Checkbox, Confirm, Empty, IconTile, Page, PageHeader, Section, Sheet, Field, cx, inputCls } from '../components/ui'
 import { newInvoice } from './InvoicesScreen'
 
 const TABS = ['overview', 'files', 'whiteboard', 'gallery', 'billing', 'messages'] as const
@@ -349,39 +352,81 @@ const FILE_ICON: Record<ProjectFile['kind'], ReactNode> = {
 }
 
 function Files({ p }: { p: Project }) {
-  const { update, toast } = useStore()
-  const add = () => {
+  const { update, toast, live } = useStore()
+  const input = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(0)
+  const [removing, setRemoving] = useState<ProjectFile | null>(null)
+  const edit = (fn: (x: Project) => void) => update((s) => fn(s.projects.find((x) => x.id === p.id)!))
+
+  const addSample = () => {
     const samples: Omit<ProjectFile, 'id' | 'added'>[] = [
       { name: 'Props list.pdf', kind: 'pdf', size: '320 KB' },
       { name: 'Lighting diagram.jpg', kind: 'image', size: '860 KB' },
       { name: 'Client logo pack.zip', kind: 'zip', size: '12.4 MB' },
     ]
     const f = samples[p.files.length % samples.length]
-    update((s) => void s.projects.find((x) => x.id === p.id)!.files.unshift({ ...f, id: uid('f'), added: today() }))
+    edit((x) => void x.files.unshift({ ...f, id: uid('f'), added: today() }))
     toast(`${f.name} added`)
   }
+
+  const upload = async (files: FileList | null) => {
+    if (!files?.length) return
+    setUploading(files.length)
+    for (const file of Array.from(files)) {
+      const id = uid('f')
+      try {
+        const path = await uploadProjectFile(p.id, id, file)
+        edit((x) => void x.files.unshift({ id, name: file.name, kind: fileKind(file.name), size: fileSize(file.size), added: today(), path }))
+      } catch (e) {
+        toast(errorText(e))
+      }
+      setUploading((n) => n - 1)
+    }
+    if (input.current) input.current.value = ''
+  }
+
+  const open = async (f: ProjectFile) => {
+    if (!f.path) return toast(`${f.name} is a sample file`)
+    // Open the tab first so phones don't block it as a pop-up
+    const win = window.open('', '_blank')
+    try {
+      const url = await openFileUrl(f.path)
+      if (win) win.location.href = url
+      else location.href = url
+    } catch (e) {
+      win?.close()
+      toast(errorText(e))
+    }
+  }
+
   return (
     <>
       <div className="mb-3 flex items-center justify-between">
         <span className="flex items-center gap-1.5 text-[13px] text-ink-2">
-          <Cloud size={15} /> Synced with Dropbox
+          <Cloud size={15} /> {live ? 'Stored privately with your account' : 'Sample files'}
         </span>
-        <Button variant="tinted" size="sm" icon={<Upload size={15} />} onClick={add}>
-          Add file
+        <Button variant="tinted" size="sm" icon={<Upload size={15} />} disabled={uploading > 0} onClick={() => (live ? input.current?.click() : addSample())}>
+          {uploading > 0 ? `Uploading ${uploading}…` : 'Add files'}
         </Button>
+        <input ref={input} type="file" multiple hidden onChange={(e) => void upload(e.target.files)} />
       </div>
       {p.files.length ? (
         <Card className="overflow-hidden">
           {p.files.map((f) => (
-            <button key={f.id} onClick={() => toast(`Opening ${f.name} (preview only)`)} className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-fill [&+&]:border-t [&+&]:border-line">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-fill">{FILE_ICON[f.kind]}</div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[15px]">{f.name}</div>
-                <div className="text-[12px] text-ink-3">
-                  {f.size} · added {fmtShort(f.added)}
+            <div key={f.id} className="flex items-center gap-3 px-4 py-3 [&+&]:border-t [&+&]:border-line">
+              <button onClick={() => void open(f)} className="flex min-w-0 flex-1 items-center gap-3 text-left active:opacity-60">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-fill">{FILE_ICON[f.kind]}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[15px]">{f.name}</div>
+                  <div className="text-[12px] text-ink-3">
+                    {f.size} · added {fmtShort(f.added)}
+                  </div>
                 </div>
-              </div>
-            </button>
+              </button>
+              <button onClick={() => setRemoving(f)} aria-label={`Delete ${f.name}`} className="p-2 text-ink-3 active:text-red">
+                <Trash2 size={16} />
+              </button>
+            </div>
           ))}
         </Card>
       ) : (
@@ -389,13 +434,46 @@ function Files({ p }: { p: Project }) {
           <Empty icon={<FileText size={30} />} title="No files yet" text="Briefs, mood boards and spec sheets for this shoot go here." />
         </Card>
       )}
+      <Confirm
+        open={!!removing}
+        title="Delete this file?"
+        message={removing?.name ?? ''}
+        confirmLabel="Delete"
+        onCancel={() => setRemoving(null)}
+        onConfirm={() => {
+          const f = removing!
+          setRemoving(null)
+          edit((x) => void (x.files = x.files.filter((y) => y.id !== f.id)))
+          if (f.path) void deleteFile(f.path)
+        }}
+      />
     </>
   )
 }
 
 function GalleryTab({ p }: { p: Project }) {
-  const { state, update, toast } = useStore()
+  const { state, update, toast, live } = useStore()
+  const [picking, setPicking] = useState(false)
+  const [busy, setBusy] = useState(false)
   const g = state.galleries.find((x) => x.id === p.galleryId)
+
+  const createFrom = async (path: string) => {
+    setPicking(false)
+    setBusy(true)
+    try {
+      const photos = await photosIn(path)
+      const id = uid('g')
+      update((s) => {
+        s.galleries.push({ id, projectId: p.id, title: p.title, dropboxPath: path, photos, coverId: photos[0]?.id ?? '', lockDownloads: true })
+        s.projects.find((x) => x.id === p.id)!.galleryId = id
+      })
+      toast(`Gallery created with ${photos.length} photos`)
+    } catch (e) {
+      toast(errorText(e))
+    }
+    setBusy(false)
+  }
+
   if (!g)
     return (
       <Card>
@@ -403,7 +481,9 @@ function GalleryTab({ p }: { p: Project }) {
         <div className="flex justify-center pb-8">
           <Button
             variant="primary"
+            disabled={busy}
             onClick={() => {
+              if (live) return setPicking(true)
               const id = uid('g')
               update((s) => {
                 const src = s.galleries[0].photos.slice(0, 8).map((ph, i) => ({ ...ph, id: uid('ph'), favourite: false, comments: [], name: `${p.title} — ${String(i + 1).padStart(2, '0')}` }))
@@ -413,9 +493,10 @@ function GalleryTab({ p }: { p: Project }) {
               toast('Gallery created from Dropbox')
             }}
           >
-            Create gallery
+            {busy ? 'Loading photos…' : live ? 'Choose Dropbox folder' : 'Create gallery'}
           </Button>
         </div>
+        <DropboxPicker open={picking} onClose={() => setPicking(false)} onPick={(path) => void createFrom(path)} />
       </Card>
     )
   return <GalleryManager gallery={g} />
@@ -490,13 +571,32 @@ function Billing({ p }: { p: Project }) {
 }
 
 function Messages({ p }: { p: Project }) {
-  const { state, toast } = useStore()
+  const { state, toast, live } = useStore()
   const client = state.clients.find((c) => c.id === p.clientId)
   const emails = state.emails.filter((e) => e.projectId === p.id).sort((a, b) => b.receivedAt - a.receivedAt)
   const g = state.galleries.find((x) => x.id === p.galleryId)
   const comments = (g?.photos ?? []).flatMap((ph) => ph.comments.map((c) => ({ c, ph }))).sort((a, b) => b.c.at - a.c.at)
   const [msg, setMsg] = useState('')
+  const [subject, setSubject] = useState(p.title)
   const [compose, setCompose] = useState(false)
+  const [sending, setSending] = useState(false)
+
+  const sendEmail = async () => {
+    if (!client?.email || !msg.trim()) return toast(client?.email ? 'Write a message first' : 'Add an email address for this client first')
+    if (live) {
+      setSending(true)
+      try {
+        await api('gmail/send', { body: { to: client.email, subject, text: msg } })
+      } catch (e) {
+        setSending(false)
+        return toast(errorText(e))
+      }
+      setSending(false)
+    }
+    setCompose(false)
+    setMsg('')
+    toast(`Email sent to ${client.email}`)
+  }
 
   return (
     <>
@@ -544,17 +644,15 @@ function Messages({ p }: { p: Project }) {
           <Button
             variant="primary"
             size="lg"
-            onClick={() => {
-              setCompose(false)
-              setMsg('')
-              toast(`Email sent to ${client?.email}`)
-            }}
+            onClick={() => void sendEmail()}
+            disabled={sending}
           >
-            Send
+            {sending ? 'Sending…' : 'Send'}
           </Button>
         }
       >
-        <div className="mb-3 text-[14px] text-ink-2">To: {client?.email}</div>
+        <div className="mb-3 text-[14px] text-ink-2">To: {client?.email || 'no email address yet'}</div>
+        <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" className={cx(inputCls, 'mb-3')} />
         <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={8} placeholder="Write a message…" className={inputCls} />
       </Sheet>
     </>
