@@ -1,6 +1,10 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
+  Camera,
+  NotebookPen,
+  ShoppingBag,
+  Timer,
   CalendarDays,
   ChevronDown,
   Cloud,
@@ -29,7 +33,7 @@ import { InvoiceBadge, PriorityBadge, StageBadge, StageStepper } from '../compon
 import { Whiteboard } from '../components/Whiteboard'
 import { GalleryManager } from '../components/GalleryManager'
 import { EmailCard } from './HomeScreen'
-import { Badge, Button, Card, Checkbox, Empty, Page, PageHeader, Section, Sheet, Field, cx, inputCls } from '../components/ui'
+import { Badge, Button, Card, Checkbox, Empty, IconTile, Page, PageHeader, Section, Sheet, Field, cx, inputCls } from '../components/ui'
 import { newInvoice } from './InvoicesScreen'
 
 const TABS = ['overview', 'files', 'whiteboard', 'gallery', 'billing', 'messages'] as const
@@ -134,7 +138,8 @@ function Overview({ p }: { p: Project }) {
 
   return (
     <>
-      <Card className="flex items-center gap-4 p-4">
+      <Card className={cx('flex items-center gap-4 p-4', running && 'bg-accent-soft')}>
+        <IconTile icon={<Timer size={20} />} tone="blue" size={44} />
         <div className="min-w-0 flex-1">
           <div className="text-[13px] text-ink-2">Project time</div>
           <div className="text-[32px] leading-tight font-semibold tracking-tight tabular-nums">{fmtClock(total)}</div>
@@ -163,6 +168,8 @@ function Overview({ p }: { p: Project }) {
       </Card>
 
       <Section
+        icon={<Camera size={15} />}
+        tone="blue"
         title="Shot list"
         action={
           <span className="text-[13px] text-ink-2">
@@ -190,7 +197,7 @@ function Overview({ p }: { p: Project }) {
       </Section>
 
       <div className="grid gap-x-4 lg:grid-cols-2">
-        <Section title="To order">
+        <Section title="To order" icon={<ShoppingBag size={15} />} tone="orange">
           <Card className="overflow-hidden py-1">
             {p.toOrder.map((o) => (
               <div key={o.id} className="flex items-center gap-3 px-4 py-2.5">
@@ -214,7 +221,7 @@ function Overview({ p }: { p: Project }) {
           </Card>
         </Section>
 
-        <Section title="Notes">
+        <Section title="Notes" icon={<NotebookPen size={15} />} tone="gold">
           <Card className="p-1">
             <textarea
               value={p.notes}
@@ -426,16 +433,18 @@ function Billing({ p }: { p: Project }) {
   }
   return (
     <>
-      <Card className="grid grid-cols-2 gap-4 p-4">
-        <div>
-          <div className="text-[13px] text-ink-2">Tracked time</div>
-          <div className="text-[22px] font-semibold tabular-nums">{fmtDuration(secs)}</div>
-        </div>
-        <div>
-          <div className="text-[13px] text-ink-2">At hourly rate</div>
-          <div className="text-[22px] font-semibold tabular-nums">{money((secs / 3600) * state.settings.hourlyRate)}</div>
-        </div>
-      </Card>
+      <div className="grid grid-cols-2 gap-2">
+        <Card className="p-4">
+          <IconTile icon={<Timer size={15} />} tone="blue" size={26} />
+          <div className="mt-2 text-[13px] text-ink-2">Tracked time</div>
+          <div className="text-[22px] font-semibold text-accent tabular-nums">{fmtDuration(secs)}</div>
+        </Card>
+        <Card className="p-4">
+          <IconTile icon={<Receipt size={15} />} tone="green" size={26} />
+          <div className="mt-2 text-[13px] text-ink-2">At hourly rate</div>
+          <div className="text-[22px] font-semibold text-green tabular-nums">{money((secs / 3600) * state.settings.hourlyRate)}</div>
+        </Card>
+      </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
         <Button variant="tinted" onClick={() => create('estimate', 'items')}>
           New estimate
@@ -444,7 +453,7 @@ function Billing({ p }: { p: Project }) {
           New invoice
         </Button>
       </div>
-      <Section title="Estimates and invoices">
+      <Section title="Estimates and invoices" icon={<Receipt size={15} />} tone="green">
         {invs.length ? (
           <Card className="overflow-hidden">
             {invs.map((inv) => {
@@ -503,7 +512,7 @@ function Messages({ p }: { p: Project }) {
           ))}
         </div>
       )}
-      <Section title="Gallery comments">
+      <Section title="Gallery comments" icon={<MessageSquare size={15} />} tone="purple">
         {comments.length ? (
           <Card className="overflow-hidden">
             {comments.map(({ c, ph }) => (

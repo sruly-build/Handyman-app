@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Cloud, CreditCard, Mail, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react'
+import { Building2, CalendarOff, Cloud, CreditCard, Link2, Mail, Plus, Receipt, RotateCcw, Tags, Trash2, Upload, Wallet, X } from 'lucide-react'
 import { uid, useStore } from '../data/store'
 import { fmtRelative, today } from '../lib/dates'
 import type { Settings } from '../data/types'
@@ -20,7 +20,7 @@ export function SettingsScreen() {
     <Page>
       <PageHeader title="Settings" />
 
-      <Section title="Business" className="mt-2">
+      <Section title="Business" className="mt-2" icon={<Building2 size={15} />} tone="blue">
         <Group>
           <div className="flex items-center gap-4 px-4 py-3.5">
             <StudioLogo size={56} />
@@ -51,7 +51,7 @@ export function SettingsScreen() {
         </Group>
       </Section>
 
-      <Section title="Getting paid">
+      <Section title="Getting paid" icon={<Wallet size={15} />} tone="green">
         <Group>
           <TextRow label="Zelle name" value={s.zelleName} onChange={(v) => set((x) => void (x.zelleName = v))} />
           <TextRow label="Zelle email or phone" value={s.zelleContact} onChange={(v) => set((x) => void (x.zelleContact = v))} />
@@ -64,6 +64,8 @@ export function SettingsScreen() {
       </Section>
 
       <Section
+        icon={<Tags size={15} />}
+        tone="orange"
         title="Price sheet"
         action={
           <Button
@@ -111,7 +113,7 @@ export function SettingsScreen() {
         </Group>
       </Section>
 
-      <Section title="Closed days">
+      <Section title="Closed days" icon={<CalendarOff size={15} />} tone="purple">
         <Group>
           <div className="px-4 py-3">
             <div className="text-[15px]">Closed every week</div>
@@ -165,7 +167,7 @@ export function SettingsScreen() {
         <p className="mt-2 px-4 text-[12px] text-ink-3">Jewish holidays, Chol Hamoed and fast days are added automatically. Closed days never block scheduling, you just get a heads-up.</p>
       </Section>
 
-      <Section title="Invoices">
+      <Section title="Invoices" icon={<Receipt size={15} />} tone="red">
         <Group>
           <ToggleRow label="Automatic receipts" sub="Email a receipt when a payment is recorded" on={s.autoReceipts} onChange={(v) => set((x) => void (x.autoReceipts = v))} />
           <ToggleRow label="Overdue reminders" sub={`Remind every ${s.reminderDays} days after the due date`} on={s.autoReminders} onChange={(v) => set((x) => void (x.autoReminders = v))} />
@@ -173,7 +175,7 @@ export function SettingsScreen() {
         </Group>
       </Section>
 
-      <Section title="Connections">
+      <Section title="Connections" icon={<Link2 size={15} />} tone="gray">
         <Group>
           <ConnRow icon={<Mail size={18} className="text-red" />} name="Gmail" />
           <ConnRow icon={<Cloud size={18} className="text-accent" />} name="Dropbox" />

@@ -52,15 +52,15 @@ export function GalleryManager({ gallery: g }: { gallery: Gallery }) {
           </div>
         </div>
         <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-xl bg-fill py-2.5">
+          <div className="rounded-xl bg-accent-soft py-2.5 text-accent">
             <div className="text-[20px] font-semibold">{g.photos.length}</div>
             <div className="text-[12px] text-ink-2">Photos</div>
           </div>
-          <div className="rounded-xl bg-fill py-2.5">
+          <div className="rounded-xl bg-red-soft py-2.5 text-red">
             <div className="text-[20px] font-semibold">{favs}</div>
             <div className="text-[12px] text-ink-2">Favourites</div>
           </div>
-          <div className="rounded-xl bg-fill py-2.5">
+          <div className="rounded-xl bg-purple-soft py-2.5 text-purple">
             <div className="text-[20px] font-semibold">{comments}</div>
             <div className="text-[12px] text-ink-2">Comments</div>
           </div>

@@ -5,7 +5,7 @@ import { uid, useStore } from '../data/store'
 import { addDays, fmtRelative, today } from '../lib/dates'
 import { money } from '../lib/money'
 import { LEAD_STATUSES, type Lead, type LeadStatus } from '../data/types'
-import { LeadBadge } from '../components/bits'
+import { LEAD_TONE, LeadBadge } from '../components/bits'
 import { Avatar, Button, Card, Empty, Field, Page, PageHeader, Segmented, Sheet, cx, inputCls } from '../components/ui'
 
 export function ClientsScreen({ leads }: { leads?: boolean }) {
@@ -100,6 +100,9 @@ function ClientList() {
   )
 }
 
+const LEAD_SOLID: Record<string, string> = { blue: 'bg-accent text-white', purple: 'bg-purple text-white', orange: 'bg-orange text-white', green: 'bg-green text-white' }
+const LEAD_DOT: Record<string, string> = { blue: 'bg-accent', purple: 'bg-purple', orange: 'bg-orange', green: 'bg-green' }
+
 function Leads() {
   const { state } = useStore()
   const [filter, setFilter] = useState<LeadStatus | 'all'>('all')
@@ -117,11 +120,12 @@ function Leads() {
               key={s}
               onClick={() => setFilter(s)}
               className={cx(
-                'h-8 shrink-0 rounded-full px-3.5 text-[13px] font-medium capitalize transition',
-                filter === s ? 'bg-ink text-white' : 'bg-card text-ink-2 shadow-card',
+                'flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium capitalize transition',
+                filter === s ? (s === 'all' ? 'bg-ink text-white' : LEAD_SOLID[LEAD_TONE[s]]) : 'bg-card text-ink-2 shadow-card',
               )}
             >
-              {s} <span className="opacity-60">{n}</span>
+              {s !== 'all' && filter !== s && <span className={cx('h-2 w-2 rounded-full', LEAD_DOT[LEAD_TONE[s]])} />}
+              {s} <span className="opacity-70">{n}</span>
             </button>
           )
         })}

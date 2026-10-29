@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { BarChart3, Bell, Eye, FileCheck2, Pencil, Plus, Send, Wallet } from 'lucide-react'
+import { AlertCircle, BarChart3, Bell, Clock, Eye, FileCheck2, Pencil, Plus, Send, TrendingUp, Wallet } from 'lucide-react'
 import { projectSeconds, uid, useStore } from '../data/store'
 import { isOverdue, totals } from '../data/billing'
 import { addDays, fmtShort, today, fmtRelativeInline } from '../lib/dates'
@@ -8,7 +8,7 @@ import { money } from '../lib/money'
 import type { BillingMethod, Invoice, State } from '../data/types'
 import { InvoiceBadge } from '../components/bits'
 import { PaymentSheet, SendSheet } from '../components/sheets'
-import { Button, Card, Empty, Field, Page, PageHeader, Segmented, Sheet, cx, inputCls } from '../components/ui'
+import { Button, Card, Empty, Field, IconTile, Page, PageHeader, Segmented, Sheet, cx, inputCls } from '../components/ui'
 
 export function newInvoice(s: State, id: string, projectId: string, kind: 'estimate' | 'invoice', method: BillingMethod) {
   const p = s.projects.find((x) => x.id === projectId)!
@@ -98,16 +98,19 @@ export function InvoicesScreen() {
 
       <div className="grid grid-cols-3 gap-2">
         <Card className="p-3.5">
-          <div className="text-[12px] text-ink-2">Outstanding</div>
-          <div className="text-[19px] font-semibold tracking-tight tabular-nums">{money(outstanding, false)}</div>
+          <IconTile icon={<Clock size={15} />} tone="orange" size={26} />
+          <div className="mt-2 text-[12px] text-ink-2">Outstanding</div>
+          <div className="text-[19px] font-semibold tracking-tight text-orange tabular-nums">{money(outstanding, false)}</div>
         </Card>
-        <Card className="p-3.5">
-          <div className="text-[12px] text-ink-2">Overdue</div>
+        <Card className={cx('p-3.5', overdue.length > 0 && 'bg-red-soft')}>
+          <IconTile icon={<AlertCircle size={15} />} tone="red" size={26} />
+          <div className="mt-2 text-[12px] text-ink-2">Overdue</div>
           <div className={cx('text-[19px] font-semibold tracking-tight', overdue.length > 0 && 'text-red')}>{overdue.length}</div>
         </Card>
         <Link to="/invoices/report">
           <Card className="p-3.5">
-            <div className="text-[12px] text-ink-2">In this month</div>
+            <IconTile icon={<TrendingUp size={15} />} tone="green" size={26} />
+            <div className="mt-2 text-[12px] text-ink-2">In this month</div>
             <div className="text-[19px] font-semibold tracking-tight text-green tabular-nums">{money(thisMonth, false)}</div>
           </Card>
         </Link>
@@ -176,11 +179,12 @@ function InvoiceRow({ inv }: { inv: Invoice }) {
         {overdue && inv.lastReminder && <div className="mt-1.5 text-[12px] text-ink-3">Reminder sent {fmtRelativeInline(inv.lastReminder)}</div>}
       </button>
       <div className="grid grid-cols-4 border-t border-line">
-        <QuickBtn icon={remind ? <Bell size={17} /> : <Send size={17} />} label={remind ? 'Remind' : 'Send'} onClick={() => setSending(true)} disabled={inv.status === 'paid'} />
+        <QuickBtn icon={remind ? <Bell size={17} /> : <Send size={17} />} label={remind ? 'Remind' : 'Send'} color={remind ? 'text-orange' : 'text-accent'} onClick={() => setSending(true)} disabled={inv.status === 'paid'} />
         {inv.kind === 'estimate' ? (
           <QuickBtn
             icon={<FileCheck2 size={17} />}
             label="Invoice it"
+            color="text-purple"
             onClick={() => {
               const id = uid('i')
               update((s) => convertEstimate(s, inv.id, id))
@@ -189,10 +193,10 @@ function InvoiceRow({ inv }: { inv: Invoice }) {
             }}
           />
         ) : (
-          <QuickBtn icon={<Wallet size={17} />} label="Payment" onClick={() => setPaying(true)} disabled={inv.status === 'paid'} />
+          <QuickBtn icon={<Wallet size={17} />} label="Payment" color="text-green" onClick={() => setPaying(true)} disabled={inv.status === 'paid'} />
         )}
-        <QuickBtn icon={<Eye size={17} />} label="View" onClick={() => nav(`/invoices/${inv.id}`)} />
-        <QuickBtn icon={<Pencil size={17} />} label="Edit" onClick={() => nav(`/invoices/${inv.id}/edit`)} />
+        <QuickBtn icon={<Eye size={17} />} label="View" color="text-accent" onClick={() => nav(`/invoices/${inv.id}`)} />
+        <QuickBtn icon={<Pencil size={17} />} label="Edit" color="text-ink-2" onClick={() => nav(`/invoices/${inv.id}/edit`)} />
       </div>
       <SendSheet inv={inv} open={sending} onClose={() => setSending(false)} remind={remind} />
       <PaymentSheet inv={inv} open={paying} onClose={() => setPaying(false)} />
@@ -200,12 +204,15 @@ function InvoiceRow({ inv }: { inv: Invoice }) {
   )
 }
 
-function QuickBtn({ icon, label, onClick, disabled }: { icon: React.ReactNode; label: string; onClick: () => void; disabled?: boolean }) {
+function QuickBtn({ icon, label, onClick, disabled, color }: { icon: React.ReactNode; label: string; onClick: () => void; disabled?: boolean; color: string }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className="flex h-[52px] flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-accent active:bg-fill disabled:text-ink-3 [&+&]:border-l [&+&]:border-line"
+      className={cx(
+        'flex h-[52px] flex-col items-center justify-center gap-0.5 text-[11px] font-medium active:bg-fill disabled:text-ink-3 [&+&]:border-l [&+&]:border-line',
+        color,
+      )}
     >
       {icon}
       {label}

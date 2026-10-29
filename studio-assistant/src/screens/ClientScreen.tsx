@@ -43,9 +43,9 @@ export function ClientScreen() {
       </div>
 
       <div className="mt-5 grid grid-cols-3 gap-2">
-        <ContactBtn href={`mailto:${c.email}`} icon={<Mail size={20} />} label="Email" />
-        <ContactBtn href={`tel:${c.phone}`} icon={<Phone size={20} />} label="Call" />
-        <ContactBtn href={whatsapp} icon={<MessageCircle size={20} />} label="WhatsApp" />
+        <ContactBtn href={`mailto:${c.email}`} icon={<Mail size={20} />} label="Email" color="bg-accent" />
+        <ContactBtn href={`tel:${c.phone}`} icon={<Phone size={20} />} label="Call" color="bg-green" />
+        <ContactBtn href={whatsapp} icon={<MessageCircle size={20} />} label="WhatsApp" color="bg-[#1f9d55]" />
       </div>
 
       <Card className="mt-4 overflow-hidden text-[15px]">
@@ -159,10 +159,10 @@ export function ClientScreen() {
   )
 }
 
-function ContactBtn({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
+function ContactBtn({ href, icon, label, color }: { href: string; icon: React.ReactNode; label: string; color: string }) {
   return (
-    <a href={href} target={href.startsWith('http') ? '_blank' : undefined} rel="noreferrer" className="flex flex-col items-center gap-1 rounded-2xl bg-card py-3 text-accent shadow-card active:opacity-60">
-      {icon}
+    <a href={href} target={href.startsWith('http') ? '_blank' : undefined} rel="noreferrer" className="flex flex-col items-center gap-1.5 rounded-2xl bg-card py-3 text-ink shadow-card active:opacity-60">
+      <span className={`flex h-9 w-9 items-center justify-center rounded-full text-white ${color}`}>{icon}</span>
       <span className="text-[12px] font-medium">{label}</span>
     </a>
   )

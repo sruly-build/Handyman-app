@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Clock, Minus, Plus, Trash2 } from 'lucide-react'
+import { CalendarDays, Clock, CreditCard, List, Minus, Percent, Plus, Trash2 } from 'lucide-react'
 import { projectSeconds, uid, useStore } from '../data/store'
 import { totals } from '../data/billing'
 import { fmtDuration } from '../lib/dates'
@@ -60,7 +60,7 @@ export function InvoiceEditScreen() {
       </Field>
 
       {inv.method === 'hourly' && (
-        <Section title="Hours">
+        <Section title="Hours" icon={<Clock size={15} />} tone="blue">
           <Card className="p-4">
             <div className="grid grid-cols-2 gap-3">
               <Field label="Hours">
@@ -83,6 +83,8 @@ export function InvoiceEditScreen() {
       )}
 
       <Section
+        icon={<List size={15} />}
+        tone="orange"
         title={inv.method === 'hourly' ? 'Extras' : 'Items'}
         action={
           <Button variant="plain" size="sm" onClick={() => setPicking(true)}>
@@ -132,7 +134,7 @@ export function InvoiceEditScreen() {
         </Card>
       </Section>
 
-      <Section title="Discount and deposit">
+      <Section title="Discount and deposit" icon={<Percent size={15} />} tone="purple">
         <Card className="space-y-4 p-4">
           <div>
             <div className="mb-1 px-1 text-[13px] font-medium text-ink-2">Discount</div>
@@ -167,7 +169,7 @@ export function InvoiceEditScreen() {
         </Card>
       </Section>
 
-      <Section title="Card payments">
+      <Section title="Card payments" icon={<CreditCard size={15} />} tone="green">
         <Card className="overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-3">
             <div className="flex-1">
@@ -186,7 +188,7 @@ export function InvoiceEditScreen() {
         </Card>
       </Section>
 
-      <Section title="Details">
+      <Section title="Details" icon={<CalendarDays size={15} />} tone="gray">
         <Card className="space-y-4 p-4">
           <div className="grid grid-cols-2 gap-3">
             <Field label="Issued">

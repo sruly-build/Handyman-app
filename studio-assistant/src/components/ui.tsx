@@ -73,6 +73,27 @@ const ICON_TILE: Record<Tone, string> = {
   gold: 'bg-gold text-white',
 }
 
+const SOFT_TILE: Record<Tone, string> = {
+  gray: 'bg-fill text-ink-2',
+  blue: 'bg-accent-soft text-accent',
+  green: 'bg-green-soft text-green',
+  orange: 'bg-orange-soft text-orange',
+  red: 'bg-red-soft text-red',
+  purple: 'bg-purple-soft text-purple',
+  gold: 'bg-gold-soft text-gold',
+}
+
+export function IconTile({ icon, tone, soft, size = 28 }: { icon: ReactNode; tone: Tone; soft?: boolean; size?: number }) {
+  return (
+    <span
+      style={{ width: size, height: size }}
+      className={cx('flex shrink-0 items-center justify-center rounded-[9px]', soft ? SOFT_TILE[tone] : ICON_TILE[tone])}
+    >
+      {icon}
+    </span>
+  )
+}
+
 export function Section({
   title,
   action,
@@ -92,7 +113,7 @@ export function Section({
     <section className={cx('mt-7', className)}>
       <div className="mb-2 flex items-center justify-between gap-2 px-1">
         <h2 className="flex items-center gap-2.5 text-[20px] font-semibold tracking-tight">
-          {icon && <span className={cx('flex h-7 w-7 items-center justify-center rounded-lg', ICON_TILE[tone])}>{icon}</span>}
+          {icon && <IconTile icon={icon} tone={tone} />}
           {title}
         </h2>
         {action}

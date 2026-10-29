@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, CreditCard, Landmark, Zap } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CreditCard, Landmark, Wallet, Zap } from 'lucide-react'
 import { useStore } from '../data/store'
 import { fmtShort, parse, today } from '../lib/dates'
 import { money } from '../lib/money'
@@ -76,7 +76,7 @@ export function ReportScreen() {
         )}
       </Card>
 
-      <Section title="Payments">
+      <Section title="Payments" icon={<Wallet size={15} />} tone="green">
         {payments.length ? (
           <Card className="overflow-hidden">
             {payments.map(({ p, inv }) => {

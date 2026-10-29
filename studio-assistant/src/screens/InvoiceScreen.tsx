@@ -9,7 +9,7 @@ import type { Invoice } from '../data/types'
 import { InvoiceBadge } from '../components/bits'
 import { PaymentSheet, SendSheet } from '../components/sheets'
 import { StudioLogo } from '../components/StudioLogo'
-import { Badge, Button, Card, Empty, Page, PageHeader, Section, Toggle, cx } from '../components/ui'
+import { Badge, Button, Card, Empty, IconTile, Page, PageHeader, Section, Toggle, cx, type Tone } from '../components/ui'
 import { convertEstimate } from './InvoicesScreen'
 
 const STEPS: Invoice['status'][] = ['sent', 'viewed', 'partly paid', 'paid']
@@ -171,7 +171,7 @@ export function InvoiceScreen() {
             {t.deposit > 0 && <TotalRow label={`Deposit${inv.depositType === 'pct' ? ` (${inv.deposit}%)` : ''}`} value={money(t.deposit)} muted />}
             {t.paid > 0 && <TotalRow label="Paid" value={`−${money(t.paid)}`} muted />}
             {inv.kind === 'invoice' && (
-              <div className="flex justify-between rounded-xl bg-fill px-3 py-2 text-[16px] font-semibold">
+              <div className={cx('flex justify-between rounded-xl px-3 py-2 text-[16px] font-semibold', t.balance > 0 ? 'bg-orange-soft text-orange' : 'bg-green-soft text-green')}>
                 <span>Balance due</span>
                 <span className="tabular-nums">{money(t.balance)}</span>
               </div>
@@ -185,10 +185,11 @@ export function InvoiceScreen() {
         <div className="border-t border-line bg-fill/60 p-5 sm:p-7">
           <div className="mb-3 text-[13px] font-semibold tracking-wide text-ink-2 uppercase">How to pay</div>
           <div className="grid gap-2.5 sm:grid-cols-3">
-            <PayOption icon={<Zap size={18} />} title="Zelle" lines={[s.zelleName, s.zelleContact]} />
-            <PayOption icon={<Landmark size={18} />} title="Check" lines={[`Payable to ${s.checkPayee}`, s.checkAddress]} />
+            <PayOption icon={<Zap size={16} />} tone="purple" title="Zelle" lines={[s.zelleName, s.zelleContact]} />
+            <PayOption icon={<Landmark size={16} />} tone="blue" title="Check" lines={[`Payable to ${s.checkPayee}`, s.checkAddress]} />
             <PayOption
               icon={<CreditCard size={18} />}
+              tone="green"
               title="Credit card"
               lines={['Pay securely with Stripe', inv.cardFee ? `A ${s.cardFeePct}% processing fee is added` : 'No card fee']}
               action
@@ -207,7 +208,7 @@ export function InvoiceScreen() {
       </Card>
 
       {inv.payments.length > 0 && (
-        <Section title="Payments">
+        <Section title="Payments" icon={<Wallet size={15} />} tone="green">
           <Card className="overflow-hidden">
             {inv.payments.map((p) => (
               <div key={p.id} className="flex items-center gap-3 px-4 py-3 [&+&]:border-t [&+&]:border-line">
@@ -259,11 +260,11 @@ function TotalRow({ label, value, muted }: { label: string; value: string; muted
   )
 }
 
-function PayOption({ icon, title, lines, action }: { icon: React.ReactNode; title: string; lines: string[]; action?: boolean }) {
+function PayOption({ icon, title, lines, action, tone }: { icon: React.ReactNode; title: string; lines: string[]; action?: boolean; tone: Tone }) {
   return (
     <div className="rounded-2xl bg-card p-3.5 shadow-card">
       <div className="flex items-center gap-2 text-[15px] font-semibold">
-        <span className="text-accent">{icon}</span>
+        <IconTile icon={icon} tone={tone} size={26} />
         {title}
       </div>
       {lines.map((l) => (
@@ -271,7 +272,7 @@ function PayOption({ icon, title, lines, action }: { icon: React.ReactNode; titl
           {l}
         </div>
       ))}
-      {action && <div className="mt-2.5 rounded-lg bg-ink py-2 text-center text-[13px] font-semibold text-white">Pay with card</div>}
+      {action && <div className="mt-2.5 rounded-lg bg-green py-2 text-center text-[13px] font-semibold text-white">Pay with card</div>}
     </div>
   )
 }
