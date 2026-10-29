@@ -27,9 +27,9 @@ export function whatsappLink(phone: string, body: string): string {
 }
 
 /**
- * Directions to an address. Apple Maps links open the Maps app on iPhone
- * and automatically fall back to Google Maps on other devices.
+ * Driving directions to an address in Google Maps. On a phone with the
+ * Google Maps app this opens the app; otherwise Google Maps in the browser.
  */
 export function directionsLink(address: string): string {
-  return `https://maps.apple.com/?daddr=${encodeURIComponent(address)}`
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}&travelmode=driving`
 }
