@@ -1,6 +1,6 @@
-import { route, json, param } from '../_lib/http.js'
-import { requireUser } from '../_lib/db.js'
-import { IMAGE, dropboxToken, listFolder } from '../_lib/dropbox.js'
+import { route, json, param } from '../../_lib/http.js'
+import { requireUser } from '../../_lib/db.js'
+import { IMAGE, dropboxToken, listFolder } from '../../_lib/dropbox.js'
 
 // The photos in a gallery's folder, in name order.
 export const GET = route(async (req) => {

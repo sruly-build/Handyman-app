@@ -1,8 +1,8 @@
-import { route, json, body, origin, HttpError } from '../_lib/http.js'
-import { findDoc } from '../_lib/db.js'
-import { stripe } from '../_lib/stripe.js'
-import { balanceOf, invoiceWithPayments, projectAndClient, settingsOf, type Invoice } from '../_lib/studio.js'
-import { round2 } from '../_lib/billing.js'
+import { route, json, body, origin, HttpError } from '../../_lib/http.js'
+import { findDoc } from '../../_lib/db.js'
+import { stripe } from '../../_lib/stripe.js'
+import { balanceOf, invoiceWithPayments, projectAndClient, settingsOf, type Invoice } from '../../_lib/studio.js'
+import { round2 } from '../../_lib/billing.js'
 
 // Starts a Stripe card payment for an invoice's balance (plus the card fee, if the invoice adds one).
 export const POST = route(async (req) => {

@@ -1,6 +1,6 @@
-import { origin } from '../_lib/http.js'
-import { readState } from '../_lib/oauthState.js'
-import { exchangeDropboxCode } from '../_lib/dropbox.js'
+import { origin } from '../../_lib/http.js'
+import { readState } from '../../_lib/oauthState.js'
+import { exchangeDropboxCode } from '../../_lib/dropbox.js'
 
 export async function GET(req: Request): Promise<Response> {
   const base = origin(req)

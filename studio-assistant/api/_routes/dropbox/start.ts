@@ -1,7 +1,7 @@
-import { route, json, env, origin } from '../_lib/http.js'
-import { requireUser } from '../_lib/db.js'
-import { makeState } from '../_lib/oauthState.js'
-import { dropboxRedirect } from '../_lib/dropbox.js'
+import { route, json, env, origin } from '../../_lib/http.js'
+import { requireUser } from '../../_lib/db.js'
+import { makeState } from '../../_lib/oauthState.js'
+import { dropboxRedirect } from '../../_lib/dropbox.js'
 
 export const GET = route(async (req) => {
   const owner = await requireUser(req)

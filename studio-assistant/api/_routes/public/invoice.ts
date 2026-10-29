@@ -1,6 +1,6 @@
-import { route, json, param, HttpError, hasEnv } from '../_lib/http.js'
-import { findDoc, getDoc, putDoc } from '../_lib/db.js'
-import { invoiceWithPayments, projectAndClient, publicStudio, settingsOf, type Invoice } from '../_lib/studio.js'
+import { route, json, param, HttpError, hasEnv } from '../../_lib/http.js'
+import { findDoc, getDoc, putDoc } from '../../_lib/db.js'
+import { invoiceWithPayments, projectAndClient, publicStudio, settingsOf, type Invoice } from '../../_lib/studio.js'
 
 // The pay page for one invoice or estimate. Opening it marks it as viewed.
 export const GET = route(async (req) => {

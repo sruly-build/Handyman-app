@@ -1,6 +1,6 @@
-import { origin } from '../_lib/http.js'
-import { readState } from '../_lib/oauthState.js'
-import { exchangeGoogleCode, saveGoogle } from '../_lib/google.js'
+import { origin } from '../../_lib/http.js'
+import { readState } from '../../_lib/oauthState.js'
+import { exchangeGoogleCode, saveGoogle } from '../../_lib/google.js'
 
 // Google sends the browser back here after you allow access.
 export async function GET(req: Request): Promise<Response> {

@@ -1,6 +1,6 @@
-import { route, json, body, HttpError } from '../_lib/http.js'
-import { requireUser } from '../_lib/db.js'
-import { sendEmail } from '../_lib/google.js'
+import { route, json, body, HttpError } from '../../_lib/http.js'
+import { requireUser } from '../../_lib/db.js'
+import { sendEmail } from '../../_lib/google.js'
 
 interface Req {
   to: string

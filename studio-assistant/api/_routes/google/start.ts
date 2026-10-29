@@ -1,7 +1,7 @@
-import { route, json, env, origin } from '../_lib/http.js'
-import { requireUser } from '../_lib/db.js'
-import { makeState } from '../_lib/oauthState.js'
-import { GOOGLE_SCOPES, googleRedirect } from '../_lib/google.js'
+import { route, json, env, origin } from '../../_lib/http.js'
+import { requireUser } from '../../_lib/db.js'
+import { makeState } from '../../_lib/oauthState.js'
+import { GOOGLE_SCOPES, googleRedirect } from '../../_lib/google.js'
 
 // Returns the Google consent page address; the app sends the browser there.
 export const GET = route(async (req) => {

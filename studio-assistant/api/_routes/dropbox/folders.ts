@@ -1,6 +1,6 @@
-import { route, json } from '../_lib/http.js'
-import { requireUser } from '../_lib/db.js'
-import { IMAGE, dropboxToken, listFolder } from '../_lib/dropbox.js'
+import { route, json } from '../../_lib/http.js'
+import { requireUser } from '../../_lib/db.js'
+import { IMAGE, dropboxToken, listFolder } from '../../_lib/dropbox.js'
 
 // Folder browser for picking a gallery folder: sub-folders plus how many photos are in this one.
 export const GET = route(async (req) => {

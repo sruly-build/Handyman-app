@@ -94,10 +94,10 @@ npm run build        # typechecks the app and the API, then builds
 - React + TypeScript + Vite + Tailwind.
 - The app's data lives in `src/data/store.tsx`. In live mode `src/lib/cloud.ts` turns it into one database row per item and saves only what changed.
 - Hearts, comments and payments are rows of their own, so a client using their link and you using the app never overwrite each other. The app picks up their changes when you come back to it.
-- Server routes live in `api/`, one file per route, and run as Vercel functions:
-  - `api/_lib/` holds shared code: database, Gmail, Dropbox, Stripe and AI.
-  - `api/public/` holds the no-login routes behind client links.
-  - `api/cron/reminders.ts` is the daily reminder job.
+- Server routes live in `api/_routes/`, one file per route, with shared code (database, Gmail, Dropbox, Stripe, AI) in `api/_lib/`:
+  - All of them run inside one Vercel function, `api/router.ts`, because Vercel's free plan allows only 12 functions per deployment. `vercel.json` sends every `/api/...` address to it.
+  - `api/_routes/public/` holds the no-login routes behind client links.
+  - `api/cron/reminders.ts`, the daily reminder job, is the only other function.
 - `supabase/schema.sql` creates the tables, security rules and file storage.
 - Gmail and Dropbox tokens are kept in a table that only the server can read.
 - Jewish holidays and Hebrew dates come from `@hebcal/core`.

@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
-import { route, json, body, param, HttpError } from '../_lib/http.js'
-import { findDoc, listDocs, listDocsWhere, putDoc } from '../_lib/db.js'
-import { balanceOf, invoiceWithPayments, projectAndClient, publicStudio, settingsOf, type Gallery, type Invoice } from '../_lib/studio.js'
-import type { Comment } from '../../src/data/types'
+import { route, json, body, param, HttpError } from '../../_lib/http.js'
+import { findDoc, listDocs, listDocsWhere, putDoc } from '../../_lib/db.js'
+import { balanceOf, invoiceWithPayments, projectAndClient, publicStudio, settingsOf, type Gallery, type Invoice } from '../../_lib/studio.js'
+import type { Comment } from '../../../src/data/types'
 
 // The client's view of a gallery. No login: the gallery id in the link is the key.
 

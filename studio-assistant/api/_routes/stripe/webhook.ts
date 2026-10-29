@@ -1,7 +1,7 @@
 import type Stripe from 'stripe'
-import { env, json } from '../_lib/http.js'
-import { getDoc, putDoc } from '../_lib/db.js'
-import { stripe } from '../_lib/stripe.js'
+import { env, json } from '../../_lib/http.js'
+import { getDoc, putDoc } from '../../_lib/db.js'
+import { stripe } from '../../_lib/stripe.js'
 
 // Stripe calls this when a card payment goes through; it records the payment on the invoice.
 // Stripe emails the client a receipt itself (receipt_email is set at checkout).

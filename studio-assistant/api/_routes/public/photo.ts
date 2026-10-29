@@ -1,7 +1,7 @@
-import { route, json, param, HttpError } from '../_lib/http.js'
-import { findDoc, listDocs } from '../_lib/db.js'
-import { dropboxToken, folderZipLink, call, thumbnail } from '../_lib/dropbox.js'
-import { balanceOf, invoiceWithPayments, settingsOf, type Gallery, type Invoice } from '../_lib/studio.js'
+import { route, json, param, HttpError } from '../../_lib/http.js'
+import { findDoc, listDocs } from '../../_lib/db.js'
+import { dropboxToken, folderZipLink, call, thumbnail } from '../../_lib/dropbox.js'
+import { balanceOf, invoiceWithPayments, settingsOf, type Gallery, type Invoice } from '../../_lib/studio.js'
 
 // Photo images for a gallery (from Dropbox), and downloads when they are unlocked.
 // ?g=<gallery>&p=<photo>&size=thumb|large  → the image

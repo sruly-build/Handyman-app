@@ -1,8 +1,8 @@
-import { route, json, body } from '../_lib/http.js'
-import { requireUser } from '../_lib/db.js'
-import { gmail, gmailToken, header, parseAddress, textOf, type GmailMessage } from '../_lib/google.js'
-import { triage, type Studio } from '../_lib/ai.js'
-import { hasEnv } from '../_lib/http.js'
+import { route, json, body } from '../../_lib/http.js'
+import { requireUser } from '../../_lib/db.js'
+import { gmail, gmailToken, header, parseAddress, textOf, type GmailMessage } from '../../_lib/google.js'
+import { triage, type Studio } from '../../_lib/ai.js'
+import { hasEnv } from '../../_lib/http.js'
 
 interface Req {
   known: string[]

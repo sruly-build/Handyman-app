@@ -1,5 +1,5 @@
-import { route, json, hasEnv, param } from './_lib/http.js'
-import { deleteSecret, getSecret, requireUser } from './_lib/db.js'
+import { route, json, hasEnv, param } from '../_lib/http.js'
+import { deleteSecret, getSecret, requireUser } from '../_lib/db.js'
 
 // What's connected, for the Settings screen.
 export const GET = route(async (req) => {

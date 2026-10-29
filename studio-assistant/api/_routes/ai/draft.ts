@@ -1,6 +1,6 @@
-import { route, json, body } from '../_lib/http.js'
-import { requireUser } from '../_lib/db.js'
-import { reachOutDraft, replyDraft, type IncomingEmail, type Studio } from '../_lib/ai.js'
+import { route, json, body } from '../../_lib/http.js'
+import { requireUser } from '../../_lib/db.js'
+import { reachOutDraft, replyDraft, type IncomingEmail, type Studio } from '../../_lib/ai.js'
 
 type Req =
   | { type: 'reply'; studio: Studio; email: IncomingEmail; style?: number }
