@@ -144,6 +144,12 @@ export const LeadIcon = (p: IconProps) => (
     <path d="M6 5h12l2 8v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-5l2-8Z" />
   </Icon>
 )
+export const PersonIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="12" cy="8" r="3.5" />
+    <path d="M5 20a7 7 0 0 1 14 0" />
+  </Icon>
+)
 export const CalendarIcon = (p: IconProps) => (
   <Icon {...p}>
     <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" />

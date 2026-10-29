@@ -21,8 +21,19 @@ const nextPartStatus: Record<PartStatus, PartStatus> = {
 /**
  * One part: tap the coloured pill to move it along, tap the rest to edit.
  * shared: on another company's job, where only the status can be changed and costs are hidden.
+ * vendorName: the part is on a vendor's item, so it says who orders it ("Me" or the vendor).
  */
-export function PartRow({ part, context, shared = false }: { part: Part; context?: string; shared?: boolean }) {
+export function PartRow({
+  part,
+  context,
+  shared = false,
+  vendorName,
+}: {
+  part: Part
+  context?: string
+  shared?: boolean
+  vendorName?: string
+}) {
   const qc = useQueryClient()
   const advance = useMutation({
     mutationFn: async () => {
@@ -37,7 +48,9 @@ export function PartRow({ part, context, shared = false }: { part: Part; context
     received: 'bg-brand-soft text-brand-dark',
   }[part.status]
 
+  const byVendor = Boolean(part.vendor_orders)
   const details = [
+    vendorName && !byVendor ? 'You order' : '',
     part.quantity !== 1 ? `× ${part.quantity}` : '',
     !shared && part.cost != null ? formatMoney(part.cost) : '',
     part.supplier,
@@ -64,19 +77,28 @@ export function PartRow({ part, context, shared = false }: { part: Part; context
           <ChevronIcon size={18} className="shrink-0 text-[#c7c7cc]" />
         </Link>
       )}
-      <button
-        onClick={() => advance.mutate()}
-        disabled={advance.isPending}
-        className="flex min-h-16 shrink-0 items-center px-3"
-        aria-label={`${partStatusLabels[part.status]}. Tap to mark ${partStatusLabels[nextPartStatus[part.status]].toLowerCase()}.`}
-      >
-        <span
-          className={`flex min-w-[92px] items-center justify-center gap-1 rounded-full px-3 py-2 text-[14px] font-semibold ${pill}`}
-        >
-          {part.status === 'received' && <CheckIcon size={15} strokeWidth={3} />}
-          {partStatusLabels[part.status]}
+      {byVendor ? (
+        // The vendor orders it: no stages for me to track
+        <span className="mr-3 flex min-h-16 shrink-0 items-center">
+          <span className="max-w-[140px] truncate rounded-full bg-hairline px-3 py-2 text-[14px] font-semibold text-[#48484a]">
+            {vendorName ?? 'Vendor'} orders
+          </span>
         </span>
-      </button>
+      ) : (
+        <button
+          onClick={() => advance.mutate()}
+          disabled={advance.isPending}
+          className="flex min-h-16 shrink-0 items-center px-3"
+          aria-label={`${partStatusLabels[part.status]}. Tap to mark ${partStatusLabels[nextPartStatus[part.status]].toLowerCase()}.`}
+        >
+          <span
+            className={`flex min-w-[92px] items-center justify-center gap-1 rounded-full px-3 py-2 text-[14px] font-semibold ${pill}`}
+          >
+            {part.status === 'received' && <CheckIcon size={15} strokeWidth={3} />}
+            {partStatusLabels[part.status]}
+          </span>
+        </button>
+      )}
     </div>
   )
 }

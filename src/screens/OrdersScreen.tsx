@@ -9,7 +9,9 @@ import type { PartStatus } from '../data/types'
 /** One combined list of parts across all jobs, so nothing is missed */
 export function OrdersScreen() {
   const [tab, setTab] = useState<PartStatus>('needed')
-  const { data: parts, isLoading, error } = useParts()
+  const { data: allParts, isLoading, error } = useParts()
+  // Parts a vendor orders aren't on my list (they stay visible on the item)
+  const parts = allParts?.filter((p) => !p.vendor_orders)
   // Jobs and leads (parts can be added at a walkthrough)
   const { data: jobs = [] } = useSchedule()
   const { data: items = [] } = useAllItems()

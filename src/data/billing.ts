@@ -1,5 +1,5 @@
 import { msToHours, totalMs } from './time'
-import type { InvoiceLine, JobCharge, Part, Payment, PunchItem, Settings, TimeEntry } from './types'
+import type { InvoiceLine, ItemAssignment, JobCharge, Part, Payment, PunchItem, Settings, TimeEntry } from './types'
 
 /** Round to whole cents */
 export const roundMoney = (n: number) => Math.round(n * 100) / 100
@@ -26,6 +26,10 @@ export interface BillSection {
   detail: string
   /** Only on the job's labour lines (service call, additional time); items show no time or price */
   labour: { hours: number; amount: number } | null
+  /** A vendor's item I pay for: the price the client pays (cost = what the vendor charges me) */
+  vendor?: { amount: number; cost: number } | null
+  /** A vendor's item the client pays directly: not on my bill (its parts I buy still are) */
+  offBill?: boolean
   parts: BillPart[]
 }
 
@@ -43,6 +47,12 @@ export interface Bill {
   /** Line items typed in by hand, at the price entered (no markup) */
   extras: { id: string; description: string; quantity: number; unitPrice: number; amount: number }[]
   extrasTotal: number
+  /** What the client pays for vendors' labour (included in labourTotal) */
+  vendorTotal: number
+  /** What the vendors charge me (private) */
+  vendorCost: number
+  /** Vendor items the client pays directly, for tracking only */
+  clientPaid: { itemId: string; title: string; name: string; price: number | null }[]
   total: number
 }
 
@@ -55,6 +65,8 @@ export interface BillInput {
   job?: { markup_parts?: boolean | null }
   /** Line items typed in by hand */
   charges?: JobCharge[]
+  /** Items given to vendors */
+  assignments?: ItemAssignment[]
   now: number
 }
 
@@ -86,7 +98,10 @@ export function partsMarkup(settings: Settings, job?: { markup_parts?: boolean |
  * hours (estimate), the task timers, or arrival to finish (setting).
  */
 export function buildBill(input: BillInput, basis: 'estimate' | 'actual'): Bill {
-  const { items, parts, entries, settings, job, charges = [], now } = input
+  const { items, entries, settings, job, charges = [], assignments = [], now } = input
+  // Parts a vendor orders aren't mine to bill
+  const parts = input.parts.filter((p) => !p.vendor_orders)
+  const vendorOf = new Map(assignments.map((a) => [a.id, a]))
   const rate = billedRate(settings)
   const firstRate = billedFirstRate(settings)
   const pct = partsMarkup(settings, job)
@@ -99,22 +114,35 @@ export function buildBill(input: BillInput, basis: 'estimate' | 'actual'): Bill 
     price: withMarkup(p.cost ?? 0, pct),
   })
 
-  const sections: BillSection[] = items.map((item) => ({
-    itemId: item.id,
-    title: item.title,
-    detail: item.location,
-    labour: null,
-    parts: parts.filter((p) => p.item_id === item.id).map(toBillPart),
-  }))
+  const sections: BillSection[] = items.map((item) => {
+    const a = vendorOf.get(item.id)
+    const cost = a?.price != null ? Number(a.price) : 0
+    return {
+      itemId: item.id,
+      title: item.title,
+      detail: item.location,
+      labour: null,
+      // The vendor's price replaces my hourly labour on this item
+      vendor:
+        a && a.paid_by === 'me'
+          ? { cost, amount: a.markup ? withMarkup(cost, settings.markup_percent) : roundMoney(cost) }
+          : null,
+      offBill: a?.paid_by === 'client',
+      parts: parts.filter((p) => p.item_id === item.id).map(toBillPart),
+    }
+  })
 
   const itemIds = new Set(items.map((i) => i.id))
   const otherParts = parts.filter((p) => !p.item_id || !itemIds.has(p.item_id)).map(toBillPart)
   if (otherParts.length) sections.push({ itemId: null, title: 'Other parts', detail: '', labour: null, parts: otherParts })
 
+  // My own hours leave out items a vendor is doing
   const worked =
     basis === 'estimate'
-      ? items.reduce((sum, i) => sum + (i.estimated_hours ?? 0), 0)
-      : msToHours(totalMs(entries.filter((e) => e.kind === (settings.labour_mode === 'visit' ? 'visit' : 'task')), now))
+      ? items.filter((i) => !vendorOf.has(i.id)).reduce((sum, i) => sum + (i.estimated_hours ?? 0), 0)
+      : settings.labour_mode === 'visit'
+        ? msToHours(totalMs(entries.filter((e) => e.kind === 'visit'), now))
+        : msToHours(totalMs(entries.filter((e) => e.kind === 'task' && !(e.item_id && vendorOf.has(e.item_id))), now))
 
   if (worked > 0) {
     const billed = Math.max(worked, 1) // 1 hour minimum
@@ -150,7 +178,15 @@ export function buildBill(input: BillInput, basis: 'estimate' | 'actual'): Bill 
   const partsCost = roundMoney(allParts.reduce((sum, p) => sum + p.cost, 0))
   const partsTotal = roundMoney(allParts.reduce((sum, p) => sum + p.price, 0))
   const labourHours = sections.reduce((sum, x) => sum + (x.labour?.hours ?? 0), 0)
-  const labourTotal = roundMoney(sections.reduce((sum, x) => sum + (x.labour?.amount ?? 0), 0))
+  const vendorTotal = roundMoney(sections.reduce((sum, x) => sum + (x.vendor?.amount ?? 0), 0))
+  const vendorCost = roundMoney(sections.reduce((sum, x) => sum + (x.vendor?.cost ?? 0), 0))
+  const labourTotal = roundMoney(sections.reduce((sum, x) => sum + (x.labour?.amount ?? 0), 0) + vendorTotal)
+  const clientPaid = items
+    .filter((i) => vendorOf.get(i.id)?.paid_by === 'client')
+    .map((i) => {
+      const a = vendorOf.get(i.id)!
+      return { itemId: i.id, title: i.title, name: a.name, price: a.price != null ? Number(a.price) : null }
+    })
   const extras = charges.map((c) => ({
     id: c.id,
     description: c.description,
@@ -170,6 +206,9 @@ export function buildBill(input: BillInput, basis: 'estimate' | 'actual'): Bill 
     labourTotal,
     extras,
     extrasTotal,
+    vendorTotal,
+    vendorCost,
+    clientPaid,
     total: roundMoney(partsTotal + labourTotal + extrasTotal),
   }
 }
@@ -196,7 +235,10 @@ function sectionLines(bill: Bill): InvoiceLine[] {
     const lines: InvoiceLine[] = []
     if (s.labour) {
       lines.push({ kind: 'labour', description: s.title, detail: s.detail, quantity: s.labour.hours, amount: s.labour.amount })
-    } else if (s.itemId) {
+    } else if (s.vendor) {
+      // Only the client's price; the vendor's name and cost never go on the invoice
+      lines.push({ kind: 'vendor', description: s.title, detail: s.detail, quantity: 0, amount: s.vendor.amount })
+    } else if (s.itemId && !s.offBill) {
       // Work done; its labour is in the job's labour lines
       lines.push({ kind: 'work', description: s.title, detail: s.detail, quantity: 0, amount: 0 })
     }
@@ -226,5 +268,5 @@ export function paymentSummary(total: number, payments: Payment[]) {
 /** Totals of an invoice's lines by kind (for invoices saved before extra charges existed, too) */
 export function lineTotals(lines: InvoiceLine[]) {
   const sum = (kind: InvoiceLine['kind']) => roundMoney(lines.filter((l) => l.kind === kind).reduce((s, l) => s + l.amount, 0))
-  return { labour: sum('labour'), parts: sum('part'), extras: sum('extra') }
+  return { labour: roundMoney(sum('labour') + sum('vendor')), parts: sum('part'), extras: sum('extra') }
 }

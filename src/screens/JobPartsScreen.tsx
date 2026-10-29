@@ -4,7 +4,7 @@ import { PartRow } from '../components/PartRow'
 import { Screen } from '../components/Screen'
 import { Card, Divider, EmptyState, Loading } from '../components/ui'
 import { formatMoney, partsMarkup, withMarkup } from '../data/billing'
-import { useItems, useJob, useParts, useSettings } from '../data/queries'
+import { useAssignments, useItems, useJob, useParts, useSettings } from '../data/queries'
 import { isPartnerJob } from '../data/api'
 import { useUser } from '../lib/auth'
 
@@ -15,13 +15,16 @@ export function JobPartsScreen() {
   // Another company's job: what to buy, without costs
   const shared = job ? isPartnerJob(job, useUser()) : false
   const { data: parts, isLoading } = useParts(jobId, shared, Boolean(job))
+  const { data: assignments = [] } = useAssignments(jobId, Boolean(job) && !shared)
+  const vendorName = (itemId: string | null) => assignments.find((a) => a.id === itemId)?.name
   const { data: items = [] } = useItems(jobId)
   const { data: settings } = useSettings()
   const titleOf = (id: string | null) => items.find((i) => i.id === id)?.title ?? 'Whole job'
 
-  const bought = (parts ?? []).filter((p) => p.status !== 'needed')
+  const mine = (parts ?? []).filter((p) => !p.vendor_orders)
+  const bought = mine.filter((p) => p.status !== 'needed')
   const paid = bought.reduce((s, p) => s + (p.cost ?? 0), 0)
-  const allCost = (parts ?? []).reduce((s, p) => s + (p.cost ?? 0), 0)
+  const allCost = mine.reduce((s, p) => s + (p.cost ?? 0), 0)
 
   return (
     <Screen
@@ -55,7 +58,7 @@ export function JobPartsScreen() {
             {parts.map((p, i) => (
               <div key={p.id}>
                 {i > 0 && <Divider />}
-                <PartRow part={p} context={titleOf(p.item_id)} shared={shared} />
+                <PartRow part={p} context={titleOf(p.item_id)} shared={shared} vendorName={vendorName(p.item_id)} />
               </div>
             ))}
           </Card>

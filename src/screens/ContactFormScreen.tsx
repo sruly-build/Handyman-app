@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AddressField } from '../components/AddressField'
 import { ClientHistory } from '../components/ClientHistory'
+import { VendorHistory } from '../components/VendorHistory'
 import { CloseIcon, MailIcon, MessageIcon, PhoneIcon, PlusIcon, WhatsAppIcon } from '../components/Icons'
 import { Screen } from '../components/Screen'
 import { Button, Card, Divider, ErrorNote, Field, GroupLabel, Loading, TextArea } from '../components/ui'
@@ -158,6 +159,7 @@ export function ContactFormScreen() {
       )}
 
       {client && contact && !readOnly && <ClientHistory client={contact} />}
+      {!client && contact && !readOnly && <VendorHistory vendor={contact} />}
 
       {client && contact && !readOnly && <GroupLabel>Details</GroupLabel>}
       <form onSubmit={submit} className="space-y-6">

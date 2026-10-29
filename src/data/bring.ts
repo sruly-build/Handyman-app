@@ -31,7 +31,7 @@ export function buildBringList(items: PunchItem[], parts: Part[], extras: string
 
   const titleOf = new Map(items.map((i) => [i.id, i.title]))
   const partEntries: BringEntry[] = parts
-    .filter((p) => p.status !== 'needed')
+    .filter((p) => p.status !== 'needed' && !p.vendor_orders)
     .map((p) => ({
       key: `part:${p.id}`,
       label: p.quantity > 1 ? `${p.name} × ${p.quantity}` : p.name,

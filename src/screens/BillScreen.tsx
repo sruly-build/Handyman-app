@@ -6,7 +6,7 @@ import { BeforeAfterList, DocHeader, LinesTable, Paper, PrintButton } from '../c
 import { Screen } from '../components/Screen'
 import { Button, Card, ErrorNote, Loading, Segmented, Toggle } from '../components/ui'
 import { backend } from '../data/backend'
-import { buildBill, formatMoney, invoiceLines, paymentSummary } from '../data/billing'
+import { buildBill, formatMoney, invoiceLines, paymentSummary, type Bill } from '../data/billing'
 import {
   refreshAll,
   useCharges,
@@ -19,9 +19,11 @@ import {
   usePayments,
   useSettings,
   useTime,
+  useAssignments,
 } from '../data/queries'
 
-const longDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+const longDate = (iso: string) =>
+  new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
 
 /** Estimate (from expected hours) and invoice (from tracked time) for one job */
 export function BillScreen() {
@@ -36,6 +38,7 @@ export function BillScreen() {
   const { data: photos = [] } = useJobPhotos(jobId)
   const { data: charges } = useCharges(jobId)
   const { data: payments } = usePayments(jobId)
+  const { data: assignments } = useAssignments(jobId)
   const [tab, setTab] = useState<'estimate' | 'invoice' | null>(null)
   const [withPhotos, setWithPhotos] = useState(false)
   const qc = useQueryClient()
@@ -43,7 +46,16 @@ export function BillScreen() {
   const create = useMutation({
     mutationFn: async () => {
       const bill = buildBill(
-        { items: items!, parts: parts!, entries: entries!, settings: settings!, job, charges, now: Date.now() },
+        {
+          items: items!,
+          parts: parts!,
+          entries: entries!,
+          settings: settings!,
+          job,
+          charges,
+          assignments,
+          now: Date.now(),
+        },
         'actual',
       )
       const created = await backend.createInvoice(jobId, {
@@ -68,7 +80,19 @@ export function BillScreen() {
   })
 
   const back = { to: `/jobs/${jobId}`, label: job?.stage === 'lead' ? 'Lead' : 'Job' }
-  if (error || !job || !items || !parts || !entries || !settings || !company || !charges || !payments || invoiceLoading) {
+  if (
+    error ||
+    !job ||
+    !items ||
+    !parts ||
+    !entries ||
+    !settings ||
+    !company ||
+    !charges ||
+    !payments ||
+    !assignments ||
+    invoiceLoading
+  ) {
     return (
       <Screen title="Billing" back={back}>
         {error ? <ErrorNote error={error} /> : <Loading />}
@@ -79,11 +103,13 @@ export function BillScreen() {
   // A lead only has an estimate (the invoice comes once it's a job)
   const lead = job.stage === 'lead'
   const shown = lead ? 'estimate' : (tab ?? (invoice ? 'invoice' : 'estimate'))
-  const input = { items, parts, entries, settings, job, charges, now: Date.now() }
+  const input = { items, parts, entries, settings, job, charges, assignments, now: Date.now() }
   const { paid } = paymentSummary(0, payments)
   const estimate = buildBill(input, 'estimate')
   const actual = buildBill(input, 'actual')
-  const missingHours = items.filter((i) => !i.estimated_hours).length
+  // Items a vendor is doing don't need my hours
+  const missingHours = items.filter((i) => !i.estimated_hours && !assignments.some((a) => a.id === i.id)).length
+  const shownBill = shown === 'estimate' ? estimate : actual
   const notDone = items.filter((i) => i.status !== 'done').length
   const rates =
     estimate.firstRate !== null
@@ -206,17 +232,48 @@ export function BillScreen() {
             variant="danger"
             className="print:hidden"
             disabled={remove.isPending}
-            onClick={() => confirm('Delete this invoice so you can make a new one from the latest times and parts?') && remove.mutate()}
+            onClick={() =>
+              confirm('Delete this invoice so you can make a new one from the latest times and parts?') &&
+              remove.mutate()
+            }
           >
             Delete invoice and start over
           </Button>
         </div>
       )}
 
+      <VendorNotes bill={shownBill} />
+
       <div className="mt-8 space-y-8">
         <ExtraCharges jobId={jobId} invoice={invoice ?? null} />
         {shown === 'invoice' && <Payments jobId={jobId} invoice={invoice ?? null} billTotal={actual.total} />}
       </div>
     </Screen>
+  )
+}
+
+/** Only for me (not printed): what vendors cost, and items the client pays a vendor for directly */
+function VendorNotes({ bill }: { bill: Bill }) {
+  if (bill.vendorTotal === 0 && bill.clientPaid.length === 0) return null
+  return (
+    <div className="mt-4 space-y-2 print:hidden">
+      {bill.vendorTotal > 0 && (
+        <p className="rounded-2xl bg-card px-4 py-3 text-[14px] text-muted">
+          Vendors (only you see this): they charge you {formatMoney(bill.vendorCost)}, the client pays{' '}
+          {formatMoney(bill.vendorTotal)}.
+        </p>
+      )}
+      {bill.clientPaid.length > 0 && (
+        <div className="rounded-2xl bg-card px-4 py-3 text-[14px]">
+          <p className="font-semibold">Paid by the client directly (not on this bill)</p>
+          {bill.clientPaid.map((c) => (
+            <p key={c.itemId} className="text-muted">
+              {c.title}: {c.name}
+              {c.price != null ? `, ${formatMoney(c.price)}` : ''}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

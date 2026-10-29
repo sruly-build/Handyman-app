@@ -28,6 +28,7 @@ All five stages from the build plan are built:
 
   **Everything saves by itself as you type.**
 - **Parts and orders.** Each part moves from needed to ordered to received. The **Orders** tab lists every part across all jobs, and each job shows what was paid.
+- **Vendors on items.** Every punch list item has a small grey person icon on the right. Tap it to choose who's doing the item: a vendor from your Directory, or someone new (added to your Vendors). Set their price for the labour, who buys the materials (you or them), who pays them (you, or the client directly), and whether to add your markup on their price. The icon turns green and their name shows under the item. If you pay them, their price (plus markup if on) goes on the client's bill in place of your hourly labour for that item; if the client pays them directly, it stays off your bill but shows on the Billing screen for tracking. Their own price is private and never on the client's invoice. Parts on their item say who orders each one; parts the vendor orders stay off your orders list, bring list and bill. Each vendor's Directory page lists the work you've given them, with price, status, and a Paid / Unpaid mark.
 - **Bring list.** One checklist per job, built from the tools and materials on every item with no duplicates, plus parts ordered for the job. Tick things off while loading the van. **Remind me the night before** adds a calendar alert at 7pm. The Home screen also shows "Load the van for tomorrow" in the evening.
 - **Time.**
   - **Arrived** and **Finished** buttons per person.

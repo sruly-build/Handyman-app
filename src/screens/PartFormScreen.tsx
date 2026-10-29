@@ -6,7 +6,7 @@ import { Button, Card, Divider, ErrorNote, Field, GroupLabel, Loading, Segmented
 import { partStatusLabels } from '../components/PartRow'
 import { backend } from '../data/backend'
 import { formatMoney, partsMarkup, withMarkup } from '../data/billing'
-import { refreshAll, useItems, useJob, usePart, useSettings } from '../data/queries'
+import { refreshAll, useAssignments, useItems, useJob, usePart, useSettings } from '../data/queries'
 import type { PartStatus } from '../data/types'
 import { isPartnerJob } from '../data/api'
 import { useUser } from '../lib/auth'
@@ -18,6 +18,8 @@ interface Form {
   supplier: string
   status: PartStatus
   item_id: string
+  /** On a vendor's item: does the vendor order it? (null = what the item says) */
+  vendor_orders: boolean | null
 }
 
 /** Add a part (/jobs/:jobId/parts/new?item=…) or edit one (/parts/:partId) */
@@ -37,7 +39,15 @@ export function PartFormScreen() {
   const [form, setForm] = useState<Form | null>(
     editing
       ? null
-      : { name: '', quantity: '1', cost: '', supplier: '', status: 'needed', item_id: search.get('item') ?? '' },
+      : {
+          name: '',
+          quantity: '1',
+          cost: '',
+          supplier: '',
+          status: 'needed',
+          item_id: search.get('item') ?? '',
+          vendor_orders: null,
+        },
   )
 
   useEffect(() => {
@@ -49,9 +59,18 @@ export function PartFormScreen() {
         supplier: part.supplier,
         status: part.status,
         item_id: part.item_id ?? '',
+        vendor_orders: part.vendor_orders ?? false,
       })
     }
   }, [part, form])
+
+  // Items given to vendors (not on another company's job)
+  const { data: assignments = [] } = useAssignments(jobId, Boolean(jobId) && !shared)
+  const assignmentFor = (itemId: string) => assignments.find((x) => x.id === itemId)
+  const vendorOrdersFor = (f: Form) => {
+    const a = assignmentFor(f.item_id)
+    return a ? (f.vendor_orders ?? a.materials_by === 'vendor') : false
+  }
 
   const save = useMutation({
     mutationFn: async (f: Form) => {
@@ -64,6 +83,7 @@ export function PartFormScreen() {
         cost: Number.isFinite(cost) ? cost : null,
         supplier: f.supplier.trim(),
         status: f.status,
+        vendor_orders: vendorOrdersFor(f),
       }
       if (shared) return backend.addSharedPart(input)
       return part ? backend.updatePart(part, input) : backend.createPart(input)
@@ -93,6 +113,8 @@ export function PartFormScreen() {
   if (!form) return null
 
   const set = (patch: Partial<Form>) => setForm({ ...form, ...patch })
+  const assignment = assignmentFor(form.item_id)
+  const vendorOrders = vendorOrdersFor(form)
   const costNumber = parseFloat(form.cost)
 
   function submit(e: FormEvent) {
@@ -103,7 +125,26 @@ export function PartFormScreen() {
   return (
     <Screen title={editing ? 'Edit part' : 'New part'} back={back}>
       <form onSubmit={submit} className="space-y-6">
-        {!shared && (
+        {assignment && (
+          <section>
+            <GroupLabel>Who orders it</GroupLabel>
+            <Segmented
+              label="Who orders it"
+              value={vendorOrders ? 'vendor' : 'me'}
+              onChange={(v) => set({ vendor_orders: v === 'vendor' })}
+              options={[
+                { value: 'me', label: 'Me' },
+                { value: 'vendor', label: assignment.name },
+              ]}
+            />
+            {vendorOrders && (
+              <p className="mt-1.5 px-4 text-[13px] text-muted">
+                Stays off your orders list and your bill, but shows on the item.
+              </p>
+            )}
+          </section>
+        )}
+        {!shared && !vendorOrders && (
           <Segmented
             label="Order status"
             value={form.status}

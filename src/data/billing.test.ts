@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { defaultSettings } from './api'
 import { buildBill, compareTime, invoiceLines, lineTotals, partsMarkup, paymentSummary, withMarkup } from './billing'
-import type { Part, PunchItem, Settings, TimeEntry } from './types'
+import type { ItemAssignment, Part, PunchItem, Settings, TimeEntry } from './types'
 
 const item = (id: string, estimated_hours: number | null): PunchItem => ({
   id,
@@ -196,5 +196,71 @@ describe('extra charges and payments', () => {
     expect(paymentSummary(345, [])).toEqual({ paid: 0, balance: 345 })
     expect(paymentSummary(345, [pay(100), pay(45.5)])).toEqual({ paid: 145.5, balance: 199.5 })
     expect(paymentSummary(345, [pay(345)]).balance).toBe(0)
+  })
+})
+
+describe('vendor items', () => {
+  const plain: Settings = { ...settings, first_hour_rate: 150, hourly_rate: 90, markup_labour: false, markup_percent: 20 }
+  const vendor = (id: string, patch: Partial<ItemAssignment> = {}): ItemAssignment => ({
+    id,
+    job_id: 'j',
+    contact_id: 'c',
+    name: 'Window Pros',
+    price: 200,
+    materials_by: 'me',
+    paid_by: 'me',
+    markup: false,
+    vendor_paid: false,
+    vendor_paid_at: null,
+    created_at: '',
+    ...patch,
+  })
+
+  it("I pay the vendor: their price replaces my labour on that item, with markup only if on", () => {
+    const items = [item('mine', 2), item('theirs', 5)]
+    const plainBill = buildBill({ items, parts: [], entries: [], settings: plain, assignments: [vendor('theirs')], now: 0 }, 'estimate')
+    // my 2 hours: $150 + $90; the vendor's item: $200 (not 5 more hours of mine)
+    expect(plainBill.labourTotal).toBe(150 + 90 + 200)
+    expect(plainBill.vendorTotal).toBe(200)
+    const marked = buildBill(
+      { items, parts: [], entries: [], settings: plain, assignments: [vendor('theirs', { markup: true })], now: 0 },
+      'estimate',
+    )
+    expect(marked.vendorTotal).toBe(240)
+    expect(marked.vendorCost).toBe(200)
+    const line = invoiceLines(marked).find((l) => l.kind === 'vendor')!
+    // The client sees the item and its price, never the vendor or their cost
+    expect(line).toMatchObject({ description: 'Item theirs', amount: 240 })
+    expect(JSON.stringify(invoiceLines(marked))).not.toContain('Window Pros')
+    expect(lineTotals(invoiceLines(marked)).labour).toBe(marked.labourTotal)
+  })
+
+  it('the client pays the vendor: off my bill, still tracked', () => {
+    const items = [item('theirs', 3)]
+    const bill = buildBill(
+      { items, parts: [part('p', 'theirs', 50)], entries: [], settings: plain, assignments: [vendor('theirs', { paid_by: 'client' })], now: 0 },
+      'estimate',
+    )
+    expect(bill.labourTotal).toBe(0)
+    expect(bill.clientPaid).toEqual([{ itemId: 'theirs', title: 'Item theirs', name: 'Window Pros', price: 200 }])
+    // Parts I buy for it still follow my normal rules
+    expect(bill.partsTotal).toBe(60)
+    expect(invoiceLines(bill).some((l) => l.kind === 'work' || l.kind === 'vendor')).toBe(false)
+  })
+
+  it('my task timers on a vendor item are not billed as my labour', () => {
+    const entries = [entry('task', 'mine', 1), entry('task', 'theirs', 4)]
+    const bill = buildBill(
+      { items: [item('mine', null), item('theirs', null)], parts: [], entries, settings: plain, assignments: [vendor('theirs')], now: 0 },
+      'actual',
+    )
+    expect(bill.labourHours).toBe(1)
+    expect(bill.labourTotal).toBe(150 + 200)
+  })
+
+  it('parts the vendor orders stay off my bill', () => {
+    const parts = [part('a', 'x', 50), { ...part('b', 'x', 80), vendor_orders: true }]
+    const bill = buildBill({ items: [item('x', null)], parts, entries: [], settings: plain, now: 0 }, 'estimate')
+    expect(bill.partsCost).toBe(50)
   })
 })

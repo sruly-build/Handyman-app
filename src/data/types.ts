@@ -162,6 +162,8 @@ export interface Part {
   created_at: string
   ordered_at: string | null
   received_at: string | null
+  /** On a vendor's item: the vendor orders it (off my orders list and my bill) */
+  vendor_orders?: boolean
 }
 
 export interface BringCheck {
@@ -200,8 +202,11 @@ export interface Settings {
 }
 
 export interface InvoiceLine {
-  /** work = a task listed without its own charge; extra = a line item typed in by hand */
-  kind: 'labour' | 'part' | 'work' | 'extra'
+  /**
+   * work = a task listed without its own charge; extra = a line item typed in by hand;
+   * vendor = a task a vendor did, at the vendor's price (plus markup if chosen)
+   */
+  kind: 'labour' | 'part' | 'work' | 'extra' | 'vendor'
   description: string
   detail: string
   quantity: number
@@ -262,6 +267,42 @@ export type ItemPatch = Partial<
   Pick<PunchItem, 'title' | 'location' | 'notes' | 'status' | 'measurements' | 'tools' | 'estimated_hours'>
 >
 export type PartInput = Omit<Part, 'id' | 'created_at' | 'ordered_at' | 'received_at'>
+
+/** Who buys an item's materials, and who pays its vendor */
+export type MaterialsBy = 'me' | 'vendor'
+export type VendorPaidBy = 'me' | 'client'
+
+/** A punch list item someone else is doing (company only, never shared) */
+export interface ItemAssignment {
+  /** The punch list item's id */
+  id: string
+  job_id: string
+  /** The vendor in my directory (null if it was deleted; the name stays) */
+  contact_id: string | null
+  name: string
+  /** What the vendor charges me for the labour. Private: never on the client's invoice. */
+  price: number | null
+  materials_by: MaterialsBy
+  paid_by: VendorPaidBy
+  /** Add my markup to the vendor's price on the client's bill */
+  markup: boolean
+  /** Have I paid the vendor */
+  vendor_paid: boolean
+  vendor_paid_at: string | null
+  created_at: string
+}
+
+export type AssignmentInput = Pick<
+  ItemAssignment,
+  'contact_id' | 'name' | 'price' | 'materials_by' | 'paid_by' | 'markup' | 'vendor_paid'
+>
+
+/** One item I gave a vendor, for their history */
+export interface VendorWork {
+  assignment: ItemAssignment
+  item: Pick<PunchItem, 'id' | 'title' | 'status' | 'location'> | null
+  job: Pick<Job, 'id' | 'customer_name' | 'job_date' | 'address' | 'stage'> | null
+}
 
 export type ContactKind = 'client' | 'vendor'
 

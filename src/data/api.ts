@@ -8,6 +8,9 @@ import type {
   Invoice,
   InvoiceLine,
   JobCharge,
+  AssignmentInput,
+  ItemAssignment,
+  VendorWork,
   LeadInput,
   LeadStatus,
   ClientJob,
@@ -59,6 +62,13 @@ const fixInvoice = (i: Invoice): Invoice => ({
 })
 const newId = () => crypto.randomUUID()
 const byPosition = (a: PunchItem, b: PunchItem) => a.position - b.position || a.created_at.localeCompare(b.created_at)
+
+const fixAssignment = (a: ItemAssignment): ItemAssignment => ({
+  ...a,
+  price: a.price == null ? null : Number(a.price),
+  markup: Boolean(a.markup),
+  vendor_paid: Boolean(a.vendor_paid),
+})
 
 /** Still a lead (not converted into a job yet) */
 export const isLead = (job: Pick<Job, 'stage'>) => job.stage === 'lead'
@@ -336,6 +346,7 @@ export function createApi(db: Db, auth: Auth) {
         'time_entries',
         'invoices',
         'job_charges',
+        'item_assignments',
         'payments',
         'job_shares',
         'punch_items',
@@ -414,6 +425,7 @@ export function createApi(db: Db, auth: Auth) {
     },
     async deleteItem(id: string) {
       await removeItemsData([id])
+      await db.remove('item_assignments', { id })
       // Parts stay on the job as "other parts" so money paid isn't lost
       for (const part of await db.select<Part>('parts', { item_id: id })) {
         await db.update<Part>('parts', part.id, { item_id: null })
@@ -690,6 +702,74 @@ export function createApi(db: Db, auth: Auth) {
         }),
       )
       return rows.sort((a, b) => (b.job.job_date ?? b.job.created_at).localeCompare(a.job.job_date ?? a.job.created_at))
+    },
+
+    // ---- Vendors on punch list items (my company only) ----
+    async listAssignments(jobId: string): Promise<ItemAssignment[]> {
+      return (await db.select<ItemAssignment>('item_assignments', { job_id: jobId })).map(fixAssignment)
+    },
+    /** Give an item to a vendor (or change who/what); a new person is added to my vendors */
+    async assignItem(item: Pick<PunchItem, 'id' | 'job_id'>, input: AssignmentInput, newPerson?: { phone: string }) {
+      let contactId = input.contact_id
+      if (!contactId && newPerson) {
+        contactId = (
+          await api.saveContact({
+            kind: 'vendor',
+            name: input.name.trim(),
+            business: '',
+            categories: [],
+            phone: newPerson.phone.trim(),
+            email: '',
+            notes: '',
+            address: '',
+          })
+        ).id
+      }
+      const [existing] = await db.select<ItemAssignment>('item_assignments', { id: item.id })
+      const row = {
+        ...input,
+        name: input.name.trim(),
+        contact_id: contactId,
+        vendor_paid_at: input.vendor_paid ? (existing?.vendor_paid_at ?? now()) : null,
+      }
+      const saved = existing
+        ? await db.update<ItemAssignment>('item_assignments', item.id, row)
+        : await db.insert<ItemAssignment>('item_assignments', { ...row, id: item.id, job_id: item.job_id, created_at: now() })
+      // "Who buys the materials" applies to the item's parts (each can still be changed on the part)
+      if (!existing || existing.materials_by !== input.materials_by) {
+        const vendorOrders = input.materials_by === 'vendor'
+        for (const part of await db.select<Part>('parts', { item_id: item.id })) {
+          if (Boolean(part.vendor_orders) !== vendorOrders) await db.update<Part>('parts', part.id, { vendor_orders: vendorOrders })
+        }
+      }
+      return fixAssignment(saved)
+    },
+    /** Back to me */
+    async unassignItem(itemId: string) {
+      await db.remove('item_assignments', { id: itemId })
+      // The vendor's parts become mine to order again
+      for (const part of await db.select<Part>('parts', { item_id: itemId })) {
+        if (part.vendor_orders) await db.update<Part>('parts', part.id, { vendor_orders: false })
+      }
+    },
+    async setVendorPaid(itemId: string, paid: boolean) {
+      return db.update<ItemAssignment>('item_assignments', itemId, { vendor_paid: paid, vendor_paid_at: paid ? now() : null })
+    },
+    /** Everything I've given one vendor, newest first */
+    async listVendorWork(contactId: string): Promise<VendorWork[]> {
+      const rows = (await db.select<ItemAssignment>('item_assignments', { contact_id: contactId })).map(fixAssignment)
+      const work = await Promise.all(
+        rows.map(async (assignment) => {
+          const [[item], [job]] = await Promise.all([
+            db.select<PunchItem>('punch_items', { id: assignment.id }),
+            db.select<Job>('jobs', { id: assignment.job_id }),
+          ])
+          return { assignment, item: item ?? null, job: job ?? null }
+        }),
+      )
+      return work.sort((a, b) =>
+        (b.job?.job_date ?? b.assignment.created_at).localeCompare(a.job?.job_date ?? a.assignment.created_at),
+      )
     },
 
     // ---- Invoices ----

@@ -80,6 +80,10 @@ export const usePayments = (jobId: string) =>
   useQuery({ queryKey: ['payments', jobId], queryFn: () => backend.listPayments(jobId) })
 export const useClientJobs = (clientId: string, enabled = true) =>
   useQuery({ queryKey: ['clientJobs', clientId], queryFn: () => backend.listClientJobs(clientId), enabled })
+export const useAssignments = (jobId: string, enabled = true) =>
+  useQuery({ queryKey: ['assignments', jobId], queryFn: () => backend.listAssignments(jobId), enabled })
+export const useVendorWork = (contactId: string, enabled = true) =>
+  useQuery({ queryKey: ['vendorWork', contactId], queryFn: () => backend.listVendorWork(contactId), enabled })
 export const useContacts = () => useQuery({ queryKey: ['contacts'], queryFn: () => backend.listContacts() })
 export const useDirectoryShares = () =>
   useQuery({ queryKey: ['directoryShares'], queryFn: () => backend.listDirectoryShares() })

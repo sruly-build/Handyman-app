@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
+  PersonIcon,
   BookIcon,
   ChecklistIcon,
   ChevronIcon,
@@ -17,6 +18,7 @@ import {
 } from '../components/Icons'
 import { Screen } from '../components/Screen'
 import { TextClientSheet } from '../components/TextClient'
+import { AssignSheet } from '../components/AssignSheet'
 import { ClockCard } from '../components/TimeWidgets'
 import {
   Card,
@@ -45,6 +47,7 @@ import {
   useCharges,
   useSettings,
   useMyShare,
+  useAssignments,
   useContacts,
   useShares,
   useTime,
@@ -80,6 +83,10 @@ export function JobDetailScreen() {
   // Only when the client is in my own directory (the job may have been made by someone else)
   const client = contacts.find((c) => c.id === job?.client_id && c.owner_id === user.id)
   const [texting, setTexting] = useState(false)
+  const [assigning, setAssigning] = useState<PunchItem | null>(null)
+  // Items given to vendors (my company only; never for a shared job)
+  const { data: assignments = [] } = useAssignments(jobId, Boolean(job) && !(job && isPartnerJob(job, user)))
+  const vendorOf = (itemId: string) => assignments.find((a) => a.id === itemId)
   const { data: ownerCompany } = useCompany(job?.company_id, partner)
   const { data: shares = [] } = useShares(jobId, Boolean(job) && !partner)
 
@@ -124,7 +131,10 @@ export function JobDetailScreen() {
     Date.now(),
   )
   const estimate = settings
-    ? buildBill({ items: items ?? [], parts, entries, settings, job, charges, now: Date.now() }, 'estimate').total
+    ? buildBill(
+        { items: items ?? [], parts, entries, settings, job, charges, assignments, now: Date.now() },
+        'estimate',
+      ).total
     : 0
   const { balance } = paymentSummary(invoice ? Number(invoice.total) : 0, payments)
   const billValue = !invoice
@@ -268,7 +278,7 @@ export function JobDetailScreen() {
                 </button>
                 <Link
                   to={`/jobs/${job.id}/items/${item.id}`}
-                  className="flex min-h-16 min-w-0 flex-1 items-center gap-2 py-3 pr-4 active:opacity-60"
+                  className={`flex min-h-16 min-w-0 flex-1 items-center gap-2 py-3 active:opacity-60 ${partner ? 'pr-4' : ''}`}
                 >
                   <div className="min-w-0 flex-1">
                     <p
@@ -277,15 +287,33 @@ export function JobDetailScreen() {
                       {item.title}
                     </p>
                     {item.location && <p className="truncate text-[14px] text-muted">{item.location}</p>}
+                    {vendorOf(item.id) && (
+                      <p className="truncate text-[13px] font-medium text-brand-dark">{vendorOf(item.id)!.name}</p>
+                    )}
                   </div>
-                  <ChevronIcon size={20} className="shrink-0 text-[#c7c7cc]" />
+                  {partner && <ChevronIcon size={20} className="shrink-0 text-[#c7c7cc]" />}
                 </Link>
+                {/* Who is doing it: quiet grey until someone is assigned */}
+                {!partner && (
+                  <button
+                    onClick={() => setAssigning(item)}
+                    className={`flex h-16 w-12 shrink-0 items-center justify-center active:opacity-50 ${
+                      vendorOf(item.id) ? 'text-brand' : 'text-[#c7c7cc]'
+                    }`}
+                    aria-label={vendorOf(item.id) ? `Done by ${vendorOf(item.id)!.name}. Change` : 'Assign to someone'}
+                  >
+                    <PersonIcon size={18} strokeWidth={vendorOf(item.id) ? 2.4 : 2} />
+                  </button>
+                )}
               </div>
             </div>
           ))}
         </Card>
       )}
       {cycle.error && <ErrorNote error={cycle.error} />}
+      {assigning && (
+        <AssignSheet item={assigning} assignment={vendorOf(assigning.id)} onClose={() => setAssigning(null)} />
+      )}
 
       <Link
         to={`/jobs/${job.id}/items/new`}
@@ -406,12 +434,7 @@ function ActionButton({
     return <span className={`${base} bg-card text-[#c7c7cc]`}>{content}</span>
   }
   return (
-    <a
-      href={href}
-      target={newTab ? '_blank' : undefined}
-      rel={newTab ? 'noreferrer' : undefined}
-      className={active}
-    >
+    <a href={href} target={newTab ? '_blank' : undefined} rel={newTab ? 'noreferrer' : undefined} className={active}>
       {content}
     </a>
   )

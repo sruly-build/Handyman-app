@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { PencilIcon, PlusIcon } from '../components/Icons'
+import { PencilIcon, PersonIcon, PlusIcon } from '../components/Icons'
 import { ListEditor } from '../components/ListEditor'
 import { MeasurementsEditor } from '../components/MeasurementsEditor'
 import { PartRow } from '../components/PartRow'
@@ -21,7 +21,8 @@ import {
 } from '../components/ui'
 import { backend } from '../data/backend'
 import { isPartnerJob } from '../data/api'
-import { keys, refreshAll, useItem, useJob, useMyShare, useParts, usePhotos } from '../data/queries'
+import { keys, refreshAll, useAssignments, useItem, useJob, useMyShare, useParts, usePhotos } from '../data/queries'
+import { AssignSheet } from '../components/AssignSheet'
 import { useUser } from '../lib/auth'
 import type { ItemPatch, PunchItem } from '../data/types'
 
@@ -52,6 +53,10 @@ export function ItemScreen() {
   const showParts = !partner || Boolean(myShare?.share_parts)
   const showTime = (!partner || Boolean(myShare?.share_time)) && job?.stage !== 'lead'
   const { data: parts = [] } = useParts(jobId, partner, Boolean(job))
+  // Who is doing it, if not me (my company only)
+  const { data: assignments = [] } = useAssignments(jobId, Boolean(job) && !partner)
+  const assignment = assignments.find((a) => a.id === itemId)
+  const [assigning, setAssigning] = useState(false)
   const { data: photos = [] } = usePhotos(itemId)
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -91,6 +96,26 @@ export function ItemScreen() {
       action={<SaveIndicator state={saveState} />}
     >
       <StatusPicker value={draft.status} onChange={(status) => set({ status })} />
+      {assignment && (
+        <button
+          onClick={() => setAssigning(true)}
+          className="mt-3 flex min-h-12 w-full items-center gap-2 rounded-2xl bg-card px-4 text-left active:bg-canvas"
+        >
+          <PersonIcon size={18} className="shrink-0 text-brand" strokeWidth={2.4} />
+          <span className="min-w-0 flex-1 truncate text-[15px]">
+            <strong>{assignment.name}</strong> is doing this
+            {assignment.paid_by === 'client' ? ' · client pays them' : ''}
+          </span>
+          <span className="text-[15px] font-semibold text-brand">Change</span>
+        </button>
+      )}
+      {assigning && (
+        <AssignSheet
+          item={{ id: itemId, job_id: jobId, title: draft.title }}
+          assignment={assignment}
+          onClose={() => setAssigning(false)}
+        />
+      )}
       {showTime && (
         <div className="mt-3">
           <TaskTimer
@@ -155,7 +180,7 @@ export function ItemScreen() {
               {itemParts.map((p, i) => (
                 <div key={p.id}>
                   {i > 0 && <Divider />}
-                  <PartRow part={p} shared={partner} />
+                  <PartRow part={p} shared={partner} vendorName={assignment?.name} />
                 </div>
               ))}
             </Card>

@@ -323,6 +323,8 @@ create table if not exists public.parts (
   received_at timestamptz
 );
 create index if not exists parts_job_id_idx on public.parts (job_id);
+-- A part the vendor orders themselves (stays off my orders list and my bill)
+alter table public.parts add column if not exists vendor_orders boolean not null default false;
 
 -- ---------------------------------------------------------------
 -- Bring list ticks (what's been loaded in the van)
@@ -406,6 +408,7 @@ create table if not exists public.price_list (
 );
 create index if not exists price_list_company_id_idx on public.price_list (company_id);
 
+
 -- ---------------------------------------------------------------
 -- Directory: each person's own contacts (vendors, subs, suppliers), private
 -- to them unless they share their directory with specific people
@@ -436,6 +439,29 @@ create table if not exists public.directory_shares (
   primary key (owner_id, viewer_id)
 );
 create index if not exists directory_shares_viewer_id_idx on public.directory_shares (viewer_id);
+
+-- ---------------------------------------------------------------
+-- A punch list item given to a vendor (or anyone else). Kept apart from the
+-- item itself so a company a job is shared with never sees vendors or prices.
+--   price: what the vendor charges me for the labour (never on the client's invoice)
+--   paid_by 'me': billed to the client in place of my hourly labour (plus my
+--     markup if markup is on); 'client': the client pays the vendor directly
+-- ---------------------------------------------------------------
+create table if not exists public.item_assignments (
+  id uuid primary key references public.punch_items (id) on delete cascade, -- the item's id
+  job_id uuid not null references public.jobs (id) on delete cascade,
+  contact_id uuid references public.contacts (id) on delete set null,
+  name text not null,
+  price numeric(10, 2),
+  materials_by text not null default 'me' check (materials_by in ('me', 'vendor')),
+  paid_by text not null default 'me' check (paid_by in ('me', 'client')),
+  markup boolean not null default false,
+  vendor_paid boolean not null default false,
+  vendor_paid_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists item_assignments_job_id_idx on public.item_assignments (job_id);
+create index if not exists item_assignments_contact_id_idx on public.item_assignments (contact_id);
 
 -- Each job's client (in the directory of whoever made the job)
 alter table public.jobs add column if not exists client_id uuid references public.contacts (id) on delete set null;
@@ -791,7 +817,8 @@ declare t text;
 begin
   foreach t in array array['companies', 'profiles', 'settings', 'company_invites', 'jobs', 'job_shares',
                            'punch_items', 'photos', 'parts', 'bring_checks', 'time_entries', 'invoices',
-                           'job_charges', 'price_list', 'payments', 'contacts', 'directory_shares']
+                           'job_charges', 'price_list', 'payments', 'contacts', 'directory_shares',
+                           'item_assignments']
   loop
     execute format('alter table public.%I enable row level security', t);
   end loop;
@@ -910,6 +937,15 @@ begin
       using (public.is_my_job(job_id)) with check (public.is_my_job(job_id))', t);
   end loop;
 end $$;
+
+-- Vendors on items: my company's jobs only, and only for an item on that job
+drop policy if exists "my company's item vendors" on public.item_assignments;
+create policy "my company's item vendors" on public.item_assignments for all to authenticated
+  using (public.is_my_job(job_id))
+  with check (
+    public.is_my_job(job_id)
+    and exists (select 1 from public.punch_items p where p.id = item_assignments.id and p.job_id = item_assignments.job_id)
+  );
 
 -- Bring list ticks: each company ticks its own (each loads its own van), on its
 -- own jobs and on jobs whose bring list is shared with it
