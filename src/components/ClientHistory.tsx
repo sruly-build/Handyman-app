@@ -40,7 +40,11 @@ export function ClientHistory({ client }: { client: Contact }) {
                   {i > 0 && <Divider />}
                   <Link to={`/jobs/${r.job.id}`} className="flex items-center gap-2 py-3 pl-4 pr-3 active:bg-canvas">
                     <div className="min-w-0 flex-1">
-                      <p className="text-[16px] font-semibold">{friendlyDate(r.job.job_date)}</p>
+                      <p className="text-[16px] font-semibold">
+                        {r.job.stage === 'lead'
+                          ? `Lead${r.job.lead_status === 'lost' ? ' (lost)' : ''}`
+                          : friendlyDate(r.job.job_date)}
+                      </p>
                       {r.job.address && <p className="truncate text-[14px] text-muted">{r.job.address}</p>}
                       <p className="text-[14px]">{work || 'No punch list items'}</p>
                     </div>

@@ -37,6 +37,9 @@ export function refreshPhotos(qc: QueryClient) {
 }
 
 export const useJobs = () => useQuery({ queryKey: keys.jobs, queryFn: () => backend.listJobs() })
+export const useLeads = () => useQuery({ queryKey: ['leads'], queryFn: () => backend.listLeads() })
+/** Jobs and leads together, for the schedule */
+export const useSchedule = () => useQuery({ queryKey: ['schedule'], queryFn: () => backend.listJobsAndLeads() })
 export const useJob = (id: string, enabled = true) =>
   useQuery({ queryKey: keys.job(id), queryFn: () => backend.getJob(id), enabled })
 export const useItems = (jobId: string) => useQuery({ queryKey: keys.items(jobId), queryFn: () => backend.listItems(jobId) })

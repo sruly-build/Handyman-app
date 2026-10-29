@@ -75,7 +75,7 @@ export function JobFormScreen() {
     mutationFn: () => backend.deleteJob(jobId!),
     onSuccess: () => {
       void refreshAll(qc)
-      navigate('/jobs', { replace: true })
+      navigate(form?.stage === 'lead' ? '/leads' : '/jobs', { replace: true })
     },
   })
 
@@ -91,6 +91,7 @@ export function JobFormScreen() {
   if (!form) return null
 
   const set = (patch: Partial<JobInput>) => setForm({ ...form, ...patch })
+  const lead = form.stage === 'lead'
   const linked = clients.find((c) => c.id === form.client_id)
 
   function submit(e: FormEvent) {
@@ -99,7 +100,7 @@ export function JobFormScreen() {
   }
 
   return (
-    <Screen title={editing ? 'Edit job' : 'New job'} back={back}>
+    <Screen title={editing ? (lead ? 'Edit lead' : 'Edit job') : 'New job'} back={back}>
       <form onSubmit={submit} className="space-y-6">
         <section>
           <h2 className="mb-1.5 px-4 text-[13px] font-semibold uppercase tracking-wide text-muted">Customer</h2>
@@ -140,17 +141,33 @@ export function JobFormScreen() {
         </section>
 
         <section>
-          <h2 className="mb-1.5 px-4 text-[13px] font-semibold uppercase tracking-wide text-muted">Job</h2>
+          <h2 className="mb-1.5 px-4 text-[13px] font-semibold uppercase tracking-wide text-muted">
+            {lead ? 'Lead' : 'Job'}
+          </h2>
           <Card>
-            <Field
-              label="Job date"
-              type="date"
-              value={form.job_date ?? ''}
-              onChange={(e) => set({ job_date: e.target.value || null })}
-            />
-            <Divider />
+            {/* A lead's walkthrough is booked on its page; the job date comes when it's converted */}
+            {!lead && (
+              <>
+                <div className="grid grid-cols-2">
+                  <Field
+                    label="Job date"
+                    type="date"
+                    value={form.job_date ?? ''}
+                    onChange={(e) => set({ job_date: e.target.value || null })}
+                  />
+                  <Field
+                    label="Start time (optional)"
+                    type="time"
+                    value={form.job_time?.slice(0, 5) ?? ''}
+                    onChange={(e) => set({ job_time: e.target.value || null })}
+                    className="border-l border-hairline"
+                  />
+                </div>
+                <Divider />
+              </>
+            )}
             <TextArea
-              label="Notes"
+              label={lead ? 'What they need' : 'Notes'}
               value={form.notes}
               onChange={(e) => set({ notes: e.target.value })}
               placeholder="Gate code, parking, pets, anything to remember"
@@ -169,10 +186,12 @@ export function JobFormScreen() {
             variant="danger"
             disabled={remove.isPending}
             onClick={() =>
-              confirm('Delete this job and everything in it (items, photos)? This cannot be undone.') && remove.mutate()
+              confirm(
+                `Delete this ${lead ? 'lead' : 'job'} and everything in it (items, photos)? This cannot be undone.`,
+              ) && remove.mutate()
             }
           >
-            {remove.isPending ? 'Deleting…' : 'Delete job'}
+            {remove.isPending ? 'Deleting…' : lead ? 'Delete lead' : 'Delete job'}
           </Button>
         )}
         {remove.error && <ErrorNote error={remove.error} />}

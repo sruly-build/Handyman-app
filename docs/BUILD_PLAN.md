@@ -11,7 +11,8 @@ A phone-first app for a small handyman business. The app name is still to be dec
 | 3 | Clock in and out, task timers, and the second user | ✅ Built |
 | 4 | Sketch pad and before and after photos | ✅ Built |
 | 5 | Estimates, invoices and the 20% markup | ✅ Built |
-| Later | Booking, scheduling, and sending reports to clients | |
+| 6 | Leads, walkthroughs and the schedule (day and week) | ✅ Built |
+| Later | Online booking and sending reports to clients | |
 
 Every stage has been tested in a phone-sized browser in Demo mode. All of it still needs testing on a real phone with Supabase connected (see the checklist in the README).
 

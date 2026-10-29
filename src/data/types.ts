@@ -76,7 +76,25 @@ export interface Job {
   markup_parts?: boolean | null
   /** The client in the directory (filled in automatically when the job is saved) */
   client_id?: string | null
+  /** 'lead' until it's converted into a job (missing = job, for older data) */
+  stage?: JobStage
+  /** Only for leads */
+  lead_status?: LeadStatus | null
+  /** Booked walkthrough (date and time), for leads */
+  walkthrough_at?: string | null
+  /** When the lead was won or lost */
+  lead_closed_at?: string | null
+  /** Optional start time on job_date, "HH:MM" (the database may add ":SS") */
+  job_time?: string | null
   created_at: string
+}
+
+export type JobStage = 'lead' | 'job'
+export type LeadStatus = 'new' | 'walkthrough_booked' | 'estimate_sent' | 'won' | 'lost'
+
+/** What's needed to start a lead */
+export type LeadInput = Pick<Job, 'customer_name' | 'customer_phone' | 'address' | 'notes'> & {
+  client_id?: string | null
 }
 
 /** A job plus counts, for list screens */

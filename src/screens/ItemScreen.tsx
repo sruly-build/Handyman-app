@@ -50,7 +50,7 @@ export function ItemScreen() {
   const partner = job ? isPartnerJob(job, useUser()) : false
   const { data: myShare } = useMyShare(jobId, partner)
   const showParts = !partner || Boolean(myShare?.share_parts)
-  const showTime = !partner || Boolean(myShare?.share_time)
+  const showTime = (!partner || Boolean(myShare?.share_time)) && job?.stage !== 'lead'
   const { data: parts = [] } = useParts(jobId, partner, Boolean(job))
   const { data: photos = [] } = usePhotos(itemId)
   const navigate = useNavigate()

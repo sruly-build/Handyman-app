@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useCompany } from '../data/queries'
 import { useUser } from '../lib/auth'
 import { smsLink, whatsappLink } from '../lib/links'
@@ -42,7 +43,7 @@ export function TextClientSheet({ phone, customer, onClose }: { phone: string; c
       active ? 'bg-brand text-white' : 'bg-canvas text-ink active:opacity-60'
     }`
 
-  return (
+  return createPortal(
     <div className="animate-fade-in fixed inset-0 z-50 flex items-end bg-black/40" onClick={onClose}>
       <div
         role="dialog"
@@ -129,6 +130,7 @@ export function TextClientSheet({ phone, customer, onClose }: { phone: string; c
           </a>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

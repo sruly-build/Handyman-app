@@ -15,6 +15,8 @@
 --     sees that job's punch list and photos, plus (if chosen) the parts to
 --     buy, the bring list and time. Never prices, estimates, invoices or
 --     payments.
+--   * Leads and the schedule belong to the company, like jobs: no other
+--     company sees them.
 --   * Each person's directory (clients and vendors) is private to them,
 --     unless they share it with specific people, who can then only look.
 
@@ -216,6 +218,22 @@ alter table public.jobs add column if not exists bring_extras jsonb not null def
 alter table public.jobs add column if not exists markup_parts boolean;
 alter table public.jobs add column if not exists company_id uuid references public.companies (id) on delete cascade;
 create index if not exists jobs_company_id_idx on public.jobs (company_id);
+-- Leads: a job that isn't confirmed yet. Converting a lead just turns it into
+-- a job, so the walkthrough's punch list, photos and measurements stay with it.
+alter table public.jobs add column if not exists stage text not null default 'job';
+alter table public.jobs drop constraint if exists jobs_stage_check;
+alter table public.jobs add constraint jobs_stage_check check (stage in ('lead', 'job'));
+alter table public.jobs add column if not exists lead_status text;
+alter table public.jobs drop constraint if exists jobs_lead_status_check;
+alter table public.jobs add constraint jobs_lead_status_check
+  check (lead_status in ('new', 'walkthrough_booked', 'estimate_sent', 'won', 'lost'));
+-- When the walkthrough is booked (date and time)
+alter table public.jobs add column if not exists walkthrough_at timestamptz;
+-- When a lead was won or lost
+alter table public.jobs add column if not exists lead_closed_at timestamptz;
+-- A job's start time on its date (optional), for the schedule
+alter table public.jobs add column if not exists job_time time;
+create index if not exists jobs_stage_idx on public.jobs (company_id, stage);
 -- Earlier versions protected per-person sharing with a trigger; it would block
 -- the upgrade steps below, so remove it first
 drop trigger if exists protect_job_sharing on public.jobs;

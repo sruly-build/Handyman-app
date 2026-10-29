@@ -51,9 +51,10 @@ import {
 } from '../data/queries'
 import { formatDuration, totalMs } from '../data/time'
 import type { ItemStatus, PunchItem } from '../data/types'
-import { isPartnerJob } from '../data/api'
+import { isLead, isPartnerJob } from '../data/api'
+import { LeadActions, LeadPanel } from '../components/LeadPanel'
 import { useUser } from '../lib/auth'
-import { friendlyDate } from '../lib/dates'
+import { clockLabel, friendlyDate } from '../lib/dates'
 import { directionsLink, phoneLink } from '../lib/links'
 
 const nextStatus: Record<ItemStatus, ItemStatus> = { todo: 'in_progress', in_progress: 'done', done: 'todo' }
@@ -102,7 +103,8 @@ export function JobDetailScreen() {
     onSettled: () => refreshAll(qc),
   })
 
-  const back = { to: '/jobs', label: 'Jobs' }
+  const lead = job ? isLead(job) : false
+  const back = lead ? { to: '/leads', label: 'Leads' } : { to: '/jobs', label: 'Jobs' }
   if (isLoading || error || !job) {
     return (
       <Screen title="Job" back={back}>
@@ -136,7 +138,11 @@ export function JobDetailScreen() {
   return (
     <Screen
       title={job.customer_name}
-      eyebrow={friendlyDate(job.job_date)}
+      eyebrow={
+        lead
+          ? 'Lead'
+          : `${friendlyDate(job.job_date)}${job.job_date && job.job_time ? ` · ${clockLabel(job.job_time)}` : ''}`
+      }
       back={back}
       action={
         !partner && (
@@ -177,11 +183,13 @@ export function JobDetailScreen() {
           {job.customer_phone && (job.customer_email || job.notes) && <Divider />}
           {job.customer_email && <InfoRow label="Email" value={job.customer_email} />}
           {job.customer_email && job.notes && <Divider />}
-          {job.notes && <InfoRow label="Notes" value={job.notes} />}
+          {job.notes && <InfoRow label={lead ? 'What they need' : 'Notes'} value={job.notes} />}
         </Card>
       )}
 
-      {partner ? (
+      {lead && <LeadPanel lead={job} />}
+
+      {lead ? null : partner ? (
         <p className="mt-3 flex flex-wrap items-center gap-x-1.5 px-1 text-[13px] text-muted">
           <PeopleIcon size={14} className="shrink-0" />
           <span>Shared by {ownerCompany?.name || 'another company'}</span>
@@ -206,7 +214,7 @@ export function JobDetailScreen() {
           </span>
         </Link>
       )}
-      {client && (
+      {client && !lead && (
         <Link
           to={`/directory/${client.id}`}
           className="flex min-h-8 items-center gap-1.5 px-1 text-[13px] text-muted active:opacity-50"
@@ -217,7 +225,7 @@ export function JobDetailScreen() {
       )}
       {leave.error && <ErrorNote error={leave.error} />}
 
-      {(!partner || myShare?.share_time) && (
+      {!lead && (!partner || myShare?.share_time) && (
         <>
           <SectionTitle>Time</SectionTitle>
           <ClockCard jobId={job.id} />
@@ -287,8 +295,22 @@ export function JobDetailScreen() {
         Add punch list item
       </Link>
 
-      <SectionTitle>This job</SectionTitle>
-      {partner ? (
+      <SectionTitle>{lead ? 'This lead' : 'This job'}</SectionTitle>
+      {lead ? (
+        <>
+          <Card>
+            <RowLink to={`/jobs/${job.id}/bill`} Icon={InvoiceIcon} title="Estimate" value={formatMoney(estimate)} />
+            <Divider />
+            <RowLink
+              to={`/jobs/${job.id}/parts`}
+              Icon={TagIcon}
+              title="Parts"
+              value={parts.length ? String(parts.length) : 'None'}
+            />
+          </Card>
+          <LeadActions lead={job} />
+        </>
+      ) : partner ? (
         <Card>
           {myShare?.share_bring && (
             <>

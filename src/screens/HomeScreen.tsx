@@ -1,17 +1,28 @@
 import { Link } from 'react-router-dom'
 import { JobCard } from '../components/JobCard'
-import { ChecklistIcon, OrdersIcon, PlusIcon } from '../components/Icons'
+import { ChecklistIcon, ChevronIcon, OrdersIcon, PlusIcon } from '../components/Icons'
 import { Screen } from '../components/Screen'
 import { Card, EmptyState, ErrorNote, Loading, SectionTitle } from '../components/ui'
-import { useJobs } from '../data/queries'
+import { useJobs, useLeads } from '../data/queries'
 import { sortJobs } from '../data/summary'
-import { friendlyDate, greeting, todayISO } from '../lib/dates'
+import { clockLabel, friendlyDate, greeting, localParts, todayISO } from '../lib/dates'
 import { useUser } from '../lib/auth'
 
 export function HomeScreen() {
   const user = useUser()
   const { data: jobs, isLoading, error } = useJobs()
   const today = todayISO()
+  const { data: leads = [] } = useLeads()
+  // Walkthroughs booked for today, in time order
+  const walkthroughs = leads
+    .filter(
+      (l) =>
+        l.from_company === null &&
+        l.lead_status !== 'lost' &&
+        l.walkthrough_at &&
+        localParts(l.walkthrough_at).date === today,
+    )
+    .sort((a, b) => a.walkthrough_at!.localeCompare(b.walkthrough_at!))
   const todays = (jobs ?? []).filter((j) => j.job_date === today)
   const upcoming = sortJobs(
     (jobs ?? []).filter((j) => j.job_date !== null && j.job_date > today),
@@ -58,6 +69,38 @@ export function HomeScreen() {
             </span>
           </span>
         </Link>
+      )}
+
+      {walkthroughs.length > 0 && (
+        <>
+          <SectionTitle
+            action={
+              <Link to="/schedule" className="pb-0.5 text-[15px] font-semibold text-brand">
+                Schedule
+              </Link>
+            }
+          >
+            Walkthroughs today
+          </SectionTitle>
+          <Card>
+            {walkthroughs.map((w, i) => (
+              <Link
+                key={w.id}
+                to={`/jobs/${w.id}`}
+                className={`flex items-center gap-3 px-4 py-3 active:bg-canvas ${i > 0 ? 'border-t border-hairline' : ''}`}
+              >
+                <span className="w-16 shrink-0 text-[14px] font-semibold text-[#8a4b00]">
+                  {clockLabel(localParts(w.walkthrough_at!).time)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[17px] font-semibold">{w.customer_name}</span>
+                  {w.address && <span className="block truncate text-[14px] text-muted">{w.address}</span>}
+                </span>
+                <ChevronIcon size={18} className="shrink-0 text-[#c7c7cc]" />
+              </Link>
+            ))}
+          </Card>
+        </>
       )}
 
       <SectionTitle>Today</SectionTitle>

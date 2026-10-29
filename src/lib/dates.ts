@@ -6,7 +6,8 @@ export function todayISO(now = new Date()): string {
   return `${y}-${m}-${d}`
 }
 
-function addDays(iso: string, days: number): string {
+/** The date `days` after (or before) a YYYY-MM-DD date */
+export function addDays(iso: string, days: number): string {
   const [y, m, d] = iso.split('-').map(Number)
   return todayISO(new Date(y, m - 1, d + days))
 }
@@ -33,4 +34,16 @@ export function greeting(now = new Date()): string {
   if (h < 12) return 'Good morning'
   if (h < 17) return 'Good afternoon'
   return 'Good evening'
+}
+
+/** "9:30 AM" from "09:30" or "09:30:00" */
+export function clockLabel(time: string): string {
+  const [h, m] = time.split(':').map(Number)
+  return new Date(2000, 0, 1, h, m).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+}
+
+/** Local date (YYYY-MM-DD) and time (HH:MM) of a moment */
+export function localParts(iso: string): { date: string; time: string } {
+  const d = new Date(iso)
+  return { date: todayISO(d), time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
 }

@@ -3,14 +3,15 @@ import { PartRow, partStatusLabels } from '../components/PartRow'
 import { Screen } from '../components/Screen'
 import { Card, Divider, EmptyState, ErrorNote, Loading, Segmented } from '../components/ui'
 import { formatMoney } from '../data/billing'
-import { useAllItems, useJobs, useParts } from '../data/queries'
+import { useAllItems, useParts, useSchedule } from '../data/queries'
 import type { PartStatus } from '../data/types'
 
 /** One combined list of parts across all jobs, so nothing is missed */
 export function OrdersScreen() {
   const [tab, setTab] = useState<PartStatus>('needed')
   const { data: parts, isLoading, error } = useParts()
-  const { data: jobs = [] } = useJobs()
+  // Jobs and leads (parts can be added at a walkthrough)
+  const { data: jobs = [] } = useSchedule()
   const { data: items = [] } = useAllItems()
 
   const count = (s: PartStatus) => (parts ?? []).filter((p) => p.status === s).length

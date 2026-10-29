@@ -8,6 +8,8 @@ The full plan is in [docs/BUILD_PLAN.md](docs/BUILD_PLAN.md).
 
 All five stages from the build plan are built:
 
+- **Leads.** The **Leads** tab holds people who asked for work, before it's a job. A new lead needs only a name, phone, address (with suggestions) and what they need. Each lead's status is **New**, **Walkthrough booked**, **Estimate sent**, **Won** or **Lost**. On the lead, **Book walkthrough** picks a date and time. At the walkthrough, add the punch list with photos, measurements and notes, just like on a job, and make an estimate from it. **Convert to job** turns the lead into a job and keeps everything (and adds the customer to your Clients). **Mark as lost** archives it under **Leads → Archived**, where you can reopen it.
+- **Schedule.** The **Schedule** tab shows walkthroughs and jobs by **day** or **week**. Tap one for **Call**, **Text** or **Directions**, or to open it. Jobs can have a start time (on the job's Edit screen); without one they show as "All day". The Home screen also lists today's walkthroughs. The schedule lives only in the app, and each company sees only its own leads and schedule. (**Orders** moved from the tab bar to the Home screen button.)
 - **Jobs and punch lists.** Create a job with the customer's details (the address box suggests real addresses as you type, from Google Maps once a key is added (see **Google address suggestions** below), nearest first: around where your phone is if you've allowed location, otherwise around Lakewood, NJ. The area is set by `HOME_AREA` in `src/lib/addresses.ts`). **Call**, **Text** and **Directions** (Google Maps) are one tap away. **Text** offers ready-made messages ("On my way, there in about 30 minutes", "Running late", "I'm here", or your own), which you can edit, then send by text or WhatsApp. (For WhatsApp, numbers typed without a country code are taken as US/Canada; type +44, +972 etc. for other countries.) Add each thing that needs fixing as a punch list item.
 - **Sign-up by approval only.** Nobody can create an account unless their email has been approved. Only the app's admin (super admin: the first person who signed up) can approve anyone, in **Me → Approve sign-ups**, choosing whether each person starts a new company or joins an existing one. Company owners can't approve people. Approved people tap **Sign up**, enter their email, then choose their own name and password. The database itself turns away everyone else.
 - **Companies.** Each approved new sign-up gets their own company with its business profile (name, email, phone, address). A company sees only its own jobs, prices, parts, time, estimates and invoices. The database itself enforces this.
@@ -152,6 +154,12 @@ On your worker's phone: approve their email in **Me → Approve sign-ups** (choo
 - [ ] Add a few vendors with categories, then search "plumbing" and tap a category chip
 - [ ] Switch to **Clients**, add a customer with their address, and search their town
 - [ ] Log in as your worker: they should not see your directory until you share it with their email
+
+**Leads and schedule**
+- [ ] On **Leads**, tap **+**, add a name, phone, address and what they need, then **Book walkthrough** for today
+- [ ] Open **Schedule**, tap the walkthrough, and try **Call**, **Text** and **Directions**
+- [ ] On the lead, add a punch list item with a photo, then **Convert to job** and set the job's date and time
+- [ ] Add another lead and **Mark as lost**; find it under **Leads → Archived**
 
 **Accounts and sharing**
 - [ ] Log out, tap **Forgot password?**, and check the reset email brings you back to choose a new password

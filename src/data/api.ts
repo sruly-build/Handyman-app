@@ -8,6 +8,8 @@ import type {
   Invoice,
   InvoiceLine,
   JobCharge,
+  LeadInput,
+  LeadStatus,
   ClientJob,
   Contact,
   ContactInput,
@@ -57,6 +59,9 @@ const fixInvoice = (i: Invoice): Invoice => ({
 })
 const newId = () => crypto.randomUUID()
 const byPosition = (a: PunchItem, b: PunchItem) => a.position - b.position || a.created_at.localeCompare(b.created_at)
+
+/** Still a lead (not converted into a job yet) */
+export const isLead = (job: Pick<Job, 'stage'>) => job.stage === 'lead'
 
 /** Is this job another company's, shared with us? (Old Demo jobs have no company: they're ours.) */
 export const isPartnerJob = (job: Pick<Job, 'company_id'>, user: Pick<AppUser, 'companyId'>) =>
@@ -216,7 +221,14 @@ export function createApi(db: Db, auth: Auth) {
     },
 
     // ---- Jobs ----
+    /** Jobs only (not leads) */
     async listJobs() {
+      return (await api.listJobsAndLeads()).filter((j) => !isLead(j))
+    },
+    async listLeads() {
+      return (await api.listJobsAndLeads()).filter(isLead)
+    },
+    async listJobsAndLeads() {
       const user = await me()
       const [jobs, items, visits, shares] = await Promise.all([
         db.select<Job>('jobs'),
@@ -258,12 +270,62 @@ export function createApi(db: Db, auth: Auth) {
       })
     },
     async updateJob(id: string, patch: Partial<JobInput>) {
-      // Saving the customer details (the job form) keeps the client in step
+      // Saving the customer details (the job form) keeps the client in step.
+      // Leads only become clients when they're converted into a job.
       if (patch.customer_name !== undefined) {
         const full = { ...(await api.getJob(id)), ...patch }
-        patch = { ...patch, client_id: await linkClient(full) }
+        if (!isLead(full)) patch = { ...patch, client_id: await linkClient(full) }
       }
       return db.update<Job>('jobs', id, patch)
+    },
+
+    // ---- Leads ----
+    async createLead(input: LeadInput) {
+      const user = await me()
+      return db.insert<Job>('jobs', {
+        customer_name: input.customer_name.trim(),
+        customer_phone: input.customer_phone.trim(),
+        customer_email: '',
+        address: input.address.trim(),
+        notes: input.notes.trim(),
+        client_id: input.client_id ?? null,
+        job_date: null,
+        bring_extras: [],
+        stage: 'lead',
+        lead_status: 'new',
+        id: newId(),
+        company_id: user.companyId,
+        created_by: user.id,
+        created_at: now(),
+      })
+    },
+    /** Book (or move) the walkthrough; null cancels it */
+    async bookWalkthrough(lead: Job, at: string | null) {
+      const status = lead.lead_status ?? 'new'
+      return db.update<Job>('jobs', lead.id, {
+        walkthrough_at: at,
+        lead_status: at && status === 'new' ? 'walkthrough_booked' : !at && status === 'walkthrough_booked' ? 'new' : status,
+      })
+    },
+    async setLeadStatus(lead: Job, status: LeadStatus) {
+      const closed = status === 'won' || status === 'lost'
+      return db.update<Job>('jobs', lead.id, { lead_status: status, lead_closed_at: closed ? now() : null })
+    },
+    /** Turns a lead into a job, keeping everything on it; the customer joins my clients */
+    async convertLead(lead: Job) {
+      return db.update<Job>('jobs', lead.id, {
+        stage: 'job',
+        lead_status: 'won',
+        lead_closed_at: now(),
+        client_id: await linkClient(lead),
+      })
+    },
+    /** A lost lead back in the open leads */
+    async reopenLead(lead: Job) {
+      return db.update<Job>('jobs', lead.id, {
+        lead_status: lead.walkthrough_at ? 'walkthrough_booked' : 'new',
+        lead_closed_at: null,
+      })
     },
     async deleteJob(id: string) {
       const items = await db.select<PunchItem>('punch_items', { job_id: id })

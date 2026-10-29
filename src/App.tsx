@@ -25,6 +25,9 @@ import { ReportScreen } from './screens/ReportScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { SketchScreen } from './screens/SketchScreen'
 import { TimeScreen } from './screens/TimeScreen'
+import { LeadsScreen } from './screens/LeadsScreen'
+import { LeadFormScreen } from './screens/LeadFormScreen'
+import { ScheduleScreen } from './screens/ScheduleScreen'
 import { DirectoryScreen } from './screens/DirectoryScreen'
 import { ContactFormScreen } from './screens/ContactFormScreen'
 import { DirectorySharingScreen } from './screens/DirectorySharingScreen'
@@ -59,6 +62,9 @@ export function App() {
         <Route path="/jobs/:jobId/bill" element={<BillScreen />} />
         <Route path="/jobs/:jobId/report" element={<ReportScreen />} />
         <Route path="/orders" element={<OrdersScreen />} />
+        <Route path="/leads" element={<LeadsScreen />} />
+        <Route path="/leads/new" element={<LeadFormScreen />} />
+        <Route path="/schedule" element={<ScheduleScreen />} />
         <Route path="/bring" element={<BringOverviewScreen />} />
         <Route path="/more" element={<MeScreen />} />
         <Route path="/settings" element={<SettingsScreen />} />

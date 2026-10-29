@@ -138,6 +138,12 @@ export const PinIcon = (p: IconProps) => (
     <circle cx="12" cy="9" r="2.5" />
   </Icon>
 )
+export const LeadIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 13h4l1.5 3h5l1.5-3h4" />
+    <path d="M6 5h12l2 8v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-5l2-8Z" />
+  </Icon>
+)
 export const CalendarIcon = (p: IconProps) => (
   <Icon {...p}>
     <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" />

@@ -67,7 +67,7 @@ export function BillScreen() {
     onSettled: () => refreshAll(qc),
   })
 
-  const back = { to: `/jobs/${jobId}`, label: 'Job' }
+  const back = { to: `/jobs/${jobId}`, label: job?.stage === 'lead' ? 'Lead' : 'Job' }
   if (error || !job || !items || !parts || !entries || !settings || !company || !charges || !payments || invoiceLoading) {
     return (
       <Screen title="Billing" back={back}>
@@ -76,7 +76,9 @@ export function BillScreen() {
     )
   }
 
-  const shown = tab ?? (invoice ? 'invoice' : 'estimate')
+  // A lead only has an estimate (the invoice comes once it's a job)
+  const lead = job.stage === 'lead'
+  const shown = lead ? 'estimate' : (tab ?? (invoice ? 'invoice' : 'estimate'))
   const input = { items, parts, entries, settings, job, charges, now: Date.now() }
   const { paid } = paymentSummary(0, payments)
   const estimate = buildBill(input, 'estimate')
@@ -93,15 +95,17 @@ export function BillScreen() {
   return (
     <Screen title="Billing" eyebrow={job.customer_name} back={back}>
       <div className="print:hidden">
-        <Segmented
-          label="Show"
-          value={shown}
-          onChange={setTab}
-          options={[
-            { value: 'estimate', label: 'Estimate' },
-            { value: 'invoice', label: invoice ? `Invoice #${invoice.number}` : 'Invoice' },
-          ]}
-        />
+        {!lead && (
+          <Segmented
+            label="Show"
+            value={shown}
+            onChange={setTab}
+            options={[
+              { value: 'estimate', label: 'Estimate' },
+              { value: 'invoice', label: invoice ? `Invoice #${invoice.number}` : 'Invoice' },
+            ]}
+          />
+        )}
         {!invoice && (
           <Card className="mt-3">
             <Toggle
