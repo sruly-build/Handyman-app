@@ -419,6 +419,44 @@ create table if not exists public.directory_shares (
 );
 create index if not exists directory_shares_viewer_id_idx on public.directory_shares (viewer_id);
 
+-- Each job's client (in the directory of whoever made the job)
+alter table public.jobs add column if not exists client_id uuid references public.contacts (id) on delete set null;
+create index if not exists jobs_client_id_idx on public.jobs (client_id);
+
+-- One-time upgrade steps (run once, never again, so a client you delete stays deleted)
+create table if not exists public.app_migrations (
+  name text primary key,
+  ran_at timestamptz not null default now()
+);
+alter table public.app_migrations enable row level security;
+
+do $$
+begin
+  if not exists (select 1 from public.app_migrations where name = 'clients_from_jobs') then
+    -- Every customer on an existing job becomes a client of the person who made the job
+    insert into public.contacts (owner_id, kind, name, phone, email, address)
+    select distinct on (j.created_by, lower(trim(j.customer_name)))
+           j.created_by, 'client', trim(j.customer_name), j.customer_phone, j.customer_email, j.address
+    from public.jobs j
+    where j.client_id is null and j.created_by is not null and trim(j.customer_name) <> ''
+      and not exists (
+        select 1 from public.contacts c
+        where c.owner_id = j.created_by and c.kind = 'client' and lower(c.name) = lower(trim(j.customer_name))
+      )
+    -- the job with the most details (phone, address, email) wins, then the newest
+    order by j.created_by, lower(trim(j.customer_name)),
+             (j.customer_phone <> '')::int + (j.address <> '')::int + (j.customer_email <> '')::int desc,
+             j.created_at desc;
+    update public.jobs j set client_id = (
+      select c.id from public.contacts c
+      where c.owner_id = j.created_by and c.kind = 'client' and lower(c.name) = lower(trim(j.customer_name))
+      order by c.created_at limit 1
+    )
+    where j.client_id is null and j.created_by is not null and trim(j.customer_name) <> '';
+    insert into public.app_migrations (name) values ('clients_from_jobs');
+  end if;
+end $$;
+
 -- ---------------------------------------------------------------
 -- Security helpers
 -- ---------------------------------------------------------------

@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
+  BookIcon,
   ChecklistIcon,
   ChevronIcon,
   ClockIcon,
@@ -44,6 +45,7 @@ import {
   useCharges,
   useSettings,
   useMyShare,
+  useContacts,
   useShares,
   useTime,
 } from '../data/queries'
@@ -73,6 +75,9 @@ export function JobDetailScreen() {
   const { data: payments = [] } = usePayments(jobId)
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const { data: contacts = [] } = useContacts()
+  // Only when the client is in my own directory (the job may have been made by someone else)
+  const client = contacts.find((c) => c.id === job?.client_id && c.owner_id === user.id)
   const [texting, setTexting] = useState(false)
   const { data: ownerCompany } = useCompany(job?.company_id, partner)
   const { data: shares = [] } = useShares(jobId, Boolean(job) && !partner)
@@ -199,6 +204,15 @@ export function JobDetailScreen() {
               ? `Shared with ${shares.map((s) => s.company_name).join(', ')}`
               : 'Share with another company'}
           </span>
+        </Link>
+      )}
+      {client && (
+        <Link
+          to={`/directory/${client.id}`}
+          className="flex min-h-8 items-center gap-1.5 px-1 text-[13px] text-muted active:opacity-50"
+        >
+          <BookIcon size={14} className="shrink-0" />
+          <span className="truncate">Client history: all of {client.name.split(/\s+/)[0]}'s jobs and payments</span>
         </Link>
       )}
       {leave.error && <ErrorNote error={leave.error} />}

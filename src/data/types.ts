@@ -74,6 +74,8 @@ export interface Job {
   bring_extras: string[]
   /** This job's own "markup on materials" switch (null = use the setting) */
   markup_parts?: boolean | null
+  /** The client in the directory (filled in automatically when the job is saved) */
+  client_id?: string | null
   created_at: string
 }
 
@@ -273,4 +275,12 @@ export interface DirectoryPerson {
   id: string
   name: string
   email?: string
+}
+
+/** One past or current job, for a client's history */
+export interface ClientJob {
+  job: Job
+  items: Pick<PunchItem, 'id' | 'title' | 'status'>[]
+  invoice: Invoice | null
+  paid: number
 }

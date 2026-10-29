@@ -8,6 +8,7 @@ import type {
   Invoice,
   InvoiceLine,
   JobCharge,
+  ClientJob,
   Contact,
   ContactInput,
   DirectoryPerson,
@@ -93,6 +94,53 @@ export function createApi(db: Db, auth: Auth) {
   async function endEntries(entries: TimeEntry[]) {
     const ended_at = now()
     for (const e of entries) await db.update<TimeEntry>('time_entries', e.id, { ended_at })
+  }
+
+  /**
+   * The job's client in my directory: the one picked on the form, else one with
+   * the same name (and phone, if both have one), else a new client. Blank
+   * details on the client are filled in from the job.
+   */
+  async function linkClient(job: Pick<Job, 'customer_name' | 'customer_phone' | 'customer_email' | 'address'> & { client_id?: string | null }) {
+    const name = job.customer_name.trim()
+    if (!name) return job.client_id ?? null
+    const user = await me()
+    const clients = (await db.select<Contact>('contacts', { owner_id: user.id, kind: 'client' })).map((c) => ({
+      ...c,
+      address: c.address ?? '',
+    }))
+    const digits = (p: string) => p.replace(/\D/g, '').slice(-10)
+    let client =
+      clients.find((c) => c.id === job.client_id) ??
+      clients.find(
+        (c) =>
+          c.name.trim().toLowerCase() === name.toLowerCase() &&
+          (!c.phone || !job.customer_phone || digits(c.phone) === digits(job.customer_phone)),
+      )
+    if (!client) {
+      if (job.client_id) return job.client_id // someone else's client (shared directory): leave it
+      return (
+        await db.insert<Contact>('contacts', {
+          id: newId(),
+          owner_id: user.id,
+          kind: 'client',
+          name,
+          business: '',
+          categories: [],
+          phone: job.customer_phone.trim(),
+          email: job.customer_email.trim(),
+          address: job.address.trim(),
+          notes: '',
+          created_at: now(),
+        })
+      ).id
+    }
+    const fill: Partial<Contact> = {}
+    if (!client.phone && job.customer_phone.trim()) fill.phone = job.customer_phone.trim()
+    if (!client.email && job.customer_email.trim()) fill.email = job.customer_email.trim()
+    if (!client.address && job.address.trim()) fill.address = job.address.trim()
+    if (Object.keys(fill).length) client = await db.update<Contact>('contacts', client.id, fill)
+    return client.id
   }
 
   const api = {
@@ -202,6 +250,7 @@ export function createApi(db: Db, auth: Auth) {
       const user = await me()
       return db.insert<Job>('jobs', {
         ...input,
+        client_id: await linkClient(input),
         id: newId(),
         company_id: user.companyId,
         created_by: user.id,
@@ -209,6 +258,11 @@ export function createApi(db: Db, auth: Auth) {
       })
     },
     async updateJob(id: string, patch: Partial<JobInput>) {
+      // Saving the customer details (the job form) keeps the client in step
+      if (patch.customer_name !== undefined) {
+        const full = { ...(await api.getJob(id)), ...patch }
+        patch = { ...patch, client_id: await linkClient(full) }
+      }
       return db.update<Job>('jobs', id, patch)
     },
     async deleteJob(id: string) {
@@ -553,6 +607,27 @@ export function createApi(db: Db, auth: Auth) {
     /** Stop seeing someone else's directory */
     async leaveDirectory(ownerId: string) {
       await db.remove('directory_shares', { owner_id: ownerId, viewer_id: (await me()).id })
+    },
+
+    /** Every job for a client, newest first, with what was done, billed and paid */
+    async listClientJobs(clientId: string): Promise<ClientJob[]> {
+      const jobs = await db.select<Job>('jobs', { client_id: clientId })
+      const rows = await Promise.all(
+        jobs.map(async (job) => {
+          const [items, invoices, payments] = await Promise.all([
+            db.select<PunchItem>('punch_items', { job_id: job.id }),
+            db.select<Invoice>('invoices', { job_id: job.id }),
+            db.select<Payment>('payments', { job_id: job.id }),
+          ])
+          return {
+            job,
+            items: items.sort(byPosition).map(({ id, title, status }) => ({ id, title, status })),
+            invoice: invoices[0] ? fixInvoice(invoices[0]) : null,
+            paid: payments.reduce((sum, p) => sum + (num(p.amount) ?? 0), 0),
+          }
+        }),
+      )
+      return rows.sort((a, b) => (b.job.job_date ?? b.job.created_at).localeCompare(a.job.job_date ?? a.job.created_at))
     },
 
     // ---- Invoices ----

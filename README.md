@@ -39,9 +39,9 @@ All five stages from the build plan are built:
   - **Payments:** record deposits and partial payments (amount, date, cash/check/card/transfer, note). The bill shows Paid and Balance due, and the invoice marks itself paid once the balance reaches $0.
   - Print or save invoices as a PDF, with before and after photos if you like.
 - **Before and after report** to show the client what was fixed.
-- **Directory** (Me → Directory), in two parts:
+- **Directory** (top of the **Me** tab: **Clients** and **Vendors**), in two parts:
   - **Vendors**: plumbers, electricians, sheetrock, shades, suppliers… Give each one or more categories, then search by category, name, business, notes or phone. Searching "plumber" also finds "Plumbing", and "electrician" finds "Electric". Tap a category chip to see everyone in it.
-  - **Clients**: your customers, with phone, email, address (with address suggestions) and notes like a gate code. Search by name, street or town.
+  - **Clients**: your customers, with phone, email, address (with address suggestions) and notes like a gate code. Search by name, street or town. **Clients fill in by themselves**: when you type a customer's name on a new job, your clients are suggested (pick one to fill in their phone and address), and a new name is added to Clients when the job is saved. Each client's page shows all their jobs, what was done, and what you billed, were paid and are owed, plus **New job for…**. Each job has a small "Client history" link. (Customers on jobs made before this update were added to Clients once, automatically.)
   - Call, text, WhatsApp or email in one tap. **It's private to you**: nobody else sees it, not even your own team, unless you add their email under **Directory → Private: only you can see your directory**. People you share it with can look and call, but can't change anything.
 - **Settings** (on the Me tab): a first-hour price (for example a $150 service call for the first hour, then $90 an hour; every job is charged at least the service call), the markup %, switches for adding the markup to materials and to labour, how labour is charged (per task timer, or arrival to finish), and the business details printed on estimates and invoices. Each job's Billing screen also has its own switch for the markup on materials.
 

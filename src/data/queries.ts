@@ -75,6 +75,8 @@ export const useCharges = (jobId: string) =>
 export const usePriceList = () => useQuery({ queryKey: ['priceList'], queryFn: () => backend.listPriceList() })
 export const usePayments = (jobId: string) =>
   useQuery({ queryKey: ['payments', jobId], queryFn: () => backend.listPayments(jobId) })
+export const useClientJobs = (clientId: string, enabled = true) =>
+  useQuery({ queryKey: ['clientJobs', clientId], queryFn: () => backend.listClientJobs(clientId), enabled })
 export const useContacts = () => useQuery({ queryKey: ['contacts'], queryFn: () => backend.listContacts() })
 export const useDirectoryShares = () =>
   useQuery({ queryKey: ['directoryShares'], queryFn: () => backend.listDirectoryShares() })

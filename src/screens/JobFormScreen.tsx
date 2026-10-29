@@ -1,12 +1,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState, type FormEvent } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { ClientNameField } from '../components/ClientNameField'
 import { AddressField } from '../components/AddressField'
 import { Screen } from '../components/Screen'
 import { Button, Card, Divider, ErrorNote, Field, Loading, TextArea } from '../components/ui'
 import { backend } from '../data/backend'
-import { keys, refreshAll, useJob } from '../data/queries'
-import type { JobInput } from '../data/types'
+import { keys, refreshAll, useContacts, useJob } from '../data/queries'
+import type { Contact, JobInput } from '../data/types'
+import { useUser } from '../lib/auth'
 import { todayISO } from '../lib/dates'
 
 const blank: JobInput = {
@@ -19,6 +21,18 @@ const blank: JobInput = {
   bring_extras: [],
 }
 
+/** The job's customer details from a client (keeping anything the client doesn't have) */
+function withClient(form: JobInput, client: Contact): JobInput {
+  return {
+    ...form,
+    client_id: client.id,
+    customer_name: client.name || client.business,
+    customer_phone: client.phone || form.customer_phone,
+    customer_email: client.email || form.customer_email,
+    address: client.address || form.address,
+  }
+}
+
 /** Used for both "New job" and "Edit job" */
 export function JobFormScreen() {
   const { jobId } = useParams()
@@ -27,6 +41,16 @@ export function JobFormScreen() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [form, setForm] = useState<JobInput | null>(editing ? null : blank)
+  const [params] = useSearchParams()
+  const user = useUser()
+  const { data: contacts = [] } = useContacts()
+  const clients = contacts.filter((c) => c.kind === 'client' && c.owner_id === user.id)
+
+  // "New job" from a client's page: start with their details
+  const fromClient = editing ? undefined : clients.find((c) => c.id === params.get('client'))
+  useEffect(() => {
+    if (fromClient && form && !form.client_id) setForm((f) => (f ? withClient(f, fromClient) : f))
+  }, [fromClient, form])
 
   useEffect(() => {
     if (existing && !form) {
@@ -67,6 +91,7 @@ export function JobFormScreen() {
   if (!form) return null
 
   const set = (patch: Partial<JobInput>) => setForm({ ...form, ...patch })
+  const linked = clients.find((c) => c.id === form.client_id)
 
   function submit(e: FormEvent) {
     e.preventDefault()
@@ -79,14 +104,16 @@ export function JobFormScreen() {
         <section>
           <h2 className="mb-1.5 px-4 text-[13px] font-semibold uppercase tracking-wide text-muted">Customer</h2>
           <Card>
-            <Field
-              label="Name"
-              required
-              autoFocus={!editing}
-              autoCapitalize="words"
+            <ClientNameField
               value={form.customer_name}
-              onChange={(e) => set({ customer_name: e.target.value })}
-              placeholder="e.g. Sarah Cohen"
+              clients={clients}
+              linked={linked}
+              autoFocus={!editing && !params.get('client')}
+              // Changing the name means a different client (matched or added on save)
+              onType={(customer_name) =>
+                set({ customer_name, client_id: linked && customer_name === linked.name ? linked.id : null })
+              }
+              onPick={(client) => setForm(withClient(form, client))}
             />
             <Divider />
             <Field

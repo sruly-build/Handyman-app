@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { BookIcon, CheckIcon, GearIcon, InvoiceIcon, PeopleIcon } from '../components/Icons'
 import { Screen } from '../components/Screen'
 import { Button, Card, Divider, ErrorNote, Field, RowLink, SectionTitle } from '../components/ui'
@@ -43,6 +44,12 @@ export function MeScreen() {
 
   return (
     <Screen title="Me">
+      <h2 className="mb-2 px-1 text-[13px] font-semibold uppercase tracking-wide text-muted">Directory</h2>
+      <div className="mb-6 grid grid-cols-2 gap-3">
+        <DirectoryLink to="/directory?show=clients" label="Clients" hint="Jobs and history" Icon={PeopleIcon} />
+        <DirectoryLink to="/directory" label="Vendors" hint="Subs and suppliers" Icon={BookIcon} />
+      </div>
+
       <div className="mb-6 grid grid-cols-2 gap-3">
         <Card className="p-4">
           <p className="text-[13px] font-semibold uppercase tracking-wide text-muted">This week on site</p>
@@ -85,11 +92,6 @@ export function MeScreen() {
         <RowLink to="/team" Icon={PeopleIcon} title="Team" />
       </Card>
 
-      <SectionTitle>Just you</SectionTitle>
-      <Card>
-        <RowLink to="/directory" Icon={BookIcon} title="Directory" value="Clients and vendors" />
-      </Card>
-
       {user.isAdmin && (
         <>
           <SectionTitle>App admin</SectionTitle>
@@ -108,5 +110,31 @@ export function MeScreen() {
         </Button>
       </div>
     </Screen>
+  )
+}
+
+function DirectoryLink({
+  to,
+  label,
+  hint,
+  Icon,
+}: {
+  to: string
+  label: string
+  hint: string
+  Icon: (p: { size?: number }) => React.ReactNode
+}) {
+  return (
+    <Link to={to} className="transition active:scale-[0.97]">
+      <Card className="flex min-h-[96px] flex-col justify-between gap-2 p-4">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-soft text-brand">
+          <Icon size={22} />
+        </span>
+        <span>
+          <span className="block text-[17px] font-semibold">{label}</span>
+          <span className="block truncate text-[13px] text-muted">{hint}</span>
+        </span>
+      </Card>
+    </Link>
   )
 }
