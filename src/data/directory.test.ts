@@ -5,6 +5,8 @@ import type { Contact } from './types'
 const contact = (patch: Partial<Contact>): Contact => ({
   id: '1',
   owner_id: 'me',
+  kind: 'vendor',
+  address: '',
   name: '',
   business: '',
   categories: [],
@@ -34,6 +36,9 @@ describe('directory search', () => {
     expect(matchesSearch(sam, 'panel')).toBe(true)
     expect(matchesSearch(joe, '555')).toBe(true)
     expect(matchesSearch(sam, '555')).toBe(false)
+  })
+  it('finds clients by address', () => {
+    expect(matchesSearch(contact({ kind: 'client', name: 'Sarah', address: '120 Clifton Ave, Lakewood' }), 'lakewood')).toBe(true)
   })
   it('needs every word to match', () => {
     expect(matchesSearch(joe, 'plumbing joe')).toBe(true)

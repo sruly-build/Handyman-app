@@ -15,7 +15,7 @@
 --     sees that job's punch list and photos, plus (if chosen) the parts to
 --     buy, the bring list and time. Never prices, estimates, invoices or
 --     payments.
---   * Each person's directory (vendors and contacts) is private to them,
+--   * Each person's directory (clients and vendors) is private to them,
 --     unless they share it with specific people, who can then only look.
 
 -- ---------------------------------------------------------------
@@ -404,6 +404,11 @@ create table if not exists public.contacts (
   created_at timestamptz not null default now()
 );
 create index if not exists contacts_owner_id_idx on public.contacts (owner_id);
+-- Two parts: clients (customers) and vendors (subs, suppliers…)
+alter table public.contacts add column if not exists kind text not null default 'vendor';
+alter table public.contacts drop constraint if exists contacts_kind_check;
+alter table public.contacts add constraint contacts_kind_check check (kind in ('client', 'vendor'));
+alter table public.contacts add column if not exists address text not null default '';
 
 -- Whose directory each person may see (read only)
 create table if not exists public.directory_shares (

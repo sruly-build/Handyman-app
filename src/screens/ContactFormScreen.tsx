@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState, type FormEvent } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { AddressField } from '../components/AddressField'
 import { CloseIcon, MailIcon, MessageIcon, PhoneIcon, PlusIcon, WhatsAppIcon } from '../components/Icons'
 import { Screen } from '../components/Screen'
 import { Button, Card, Divider, ErrorNote, Field, GroupLabel, Loading, TextArea } from '../components/ui'
@@ -11,11 +12,21 @@ import type { ContactInput } from '../data/types'
 import { useUser } from '../lib/auth'
 import { phoneLink, textLink, whatsappLink } from '../lib/links'
 
-const empty: ContactInput = { name: '', business: '', categories: [], phone: '', email: '', notes: '' }
+const empty: ContactInput = {
+  kind: 'vendor',
+  name: '',
+  business: '',
+  categories: [],
+  phone: '',
+  email: '',
+  notes: '',
+  address: '',
+}
 
-/** Add a contact (/directory/new) or open one (/directory/:contactId) */
+/** Add a client or vendor (/directory/new?kind=client) or open one (/directory/:contactId) */
 export function ContactFormScreen() {
   const { contactId } = useParams()
+  const [params] = useSearchParams()
   const editing = Boolean(contactId)
   const user = useUser()
   const { data: contacts, isLoading, error } = useContacts()
@@ -23,13 +34,15 @@ export function ContactFormScreen() {
   const contact = contacts?.find((c) => c.id === contactId)
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const [form, setForm] = useState<ContactInput | null>(editing ? null : empty)
+  const [form, setForm] = useState<ContactInput | null>(
+    editing ? null : { ...empty, kind: params.get('kind') === 'client' ? 'client' : 'vendor' },
+  )
   const [newCategory, setNewCategory] = useState('')
 
   useEffect(() => {
     if (contact && !form) {
-      const { name, business, categories, phone, email, notes } = contact
-      setForm({ name, business, categories, phone, email, notes })
+      const { kind, name, business, categories, phone, email, notes, address } = contact
+      setForm({ kind, name, business, categories, phone, email, notes, address })
     }
   }, [contact, form])
 
@@ -43,6 +56,7 @@ export function ContactFormScreen() {
           phone: f.phone.trim(),
           email: f.email.trim(),
           notes: f.notes.trim(),
+          address: f.address.trim(),
           // A category typed but not added yet still counts
           categories: addCategory(f.categories, newCategory),
         },
@@ -61,7 +75,10 @@ export function ContactFormScreen() {
     },
   })
 
-  const back = { to: '/directory', label: 'Directory' }
+  const back = {
+    to: (contact?.kind ?? form?.kind) === 'client' ? '/directory?show=clients' : '/directory',
+    label: 'Directory',
+  }
   if (editing && (isLoading || error || !contact || !form)) {
     return (
       <Screen title="Contact" back={back}>
@@ -86,6 +103,8 @@ export function ContactFormScreen() {
       all.findIndex((x) => x.toLowerCase() === c.toLowerCase()) === i,
   )
 
+  const client = form.kind === 'client'
+
   function submit(e: FormEvent) {
     e.preventDefault()
     save.mutate(form!)
@@ -97,7 +116,7 @@ export function ContactFormScreen() {
 
   return (
     <Screen
-      title={readOnly || editing ? form.name || form.business || 'Contact' : 'New contact'}
+      title={readOnly || editing ? form.name || form.business || 'Contact' : client ? 'New client' : 'New vendor'}
       eyebrow={editing && form.name && form.business ? form.business : undefined}
       back={back}
     >
@@ -145,14 +164,14 @@ export function ContactFormScreen() {
               autoFocus={!editing}
               value={form.name}
               onChange={(e) => set({ name: e.target.value })}
-              placeholder="e.g. Joe Katz"
+              placeholder={client ? 'e.g. Sarah Cohen' : 'e.g. Joe Katz'}
             />
             <Divider />
             <Field
-              label="Business (optional)"
+              label={client ? 'Company (optional)' : 'Business (optional)'}
               value={form.business}
               onChange={(e) => set({ business: e.target.value })}
-              placeholder="e.g. JK Plumbing"
+              placeholder={client ? '' : 'e.g. JK Plumbing'}
             />
             <Divider />
             <Field
@@ -172,81 +191,93 @@ export function ContactFormScreen() {
               value={form.email}
               onChange={(e) => set({ email: e.target.value })}
             />
+            {client && (
+              <>
+                <Divider />
+                {readOnly ? (
+                  <Field label="Address" value={form.address} readOnly />
+                ) : (
+                  <AddressField value={form.address} onChange={(address) => set({ address })} />
+                )}
+              </>
+            )}
           </Card>
 
-          <section>
-            <GroupLabel>Categories (what they do)</GroupLabel>
-            <Card className="p-3">
-              {form.categories.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {form.categories.map((c) => (
-                    <span
-                      key={c}
-                      className="flex min-h-10 items-center gap-1 rounded-full bg-brand pl-4 pr-1 text-[15px] font-semibold text-white"
-                    >
-                      {c}
-                      {!readOnly && (
-                        <button
-                          type="button"
-                          onClick={() => set({ categories: form.categories.filter((x) => x !== c) })}
-                          className="flex h-9 w-9 items-center justify-center rounded-full active:bg-brand-dark"
-                          aria-label={`Remove ${c}`}
-                        >
-                          <CloseIcon size={16} />
-                        </button>
-                      )}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="px-1 text-[15px] text-muted">None yet. Tap one below or type your own.</p>
-              )}
-              {!readOnly && (
-                <>
-                  <div className="mt-3 flex items-center gap-2 rounded-xl bg-canvas pl-3">
-                    <input
-                      value={newCategory}
-                      onChange={(e) => setNewCategory(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          set({ categories: addCategory(form.categories, newCategory) })
-                          setNewCategory('')
-                        }
-                      }}
-                      placeholder="Type a category, e.g. Garage doors"
-                      aria-label="New category"
-                      className="min-h-11 flex-1 bg-transparent text-[16px] outline-none placeholder:text-[#8e8e93]"
-                    />
-                    <button
-                      type="button"
-                      disabled={!newCategory.trim()}
-                      onClick={() => {
-                        set({ categories: addCategory(form.categories, newCategory) })
-                        setNewCategory('')
-                      }}
-                      className="flex h-11 w-11 items-center justify-center text-brand disabled:opacity-30"
-                      aria-label="Add category"
-                    >
-                      <PlusIcon size={22} />
-                    </button>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {suggestions.map((c) => (
-                      <button
+          {!client && (
+            <section>
+              <GroupLabel>Categories (what they do)</GroupLabel>
+              <Card className="p-3">
+                {form.categories.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {form.categories.map((c) => (
+                      <span
                         key={c}
-                        type="button"
-                        onClick={() => set({ categories: addCategory(form.categories, c) })}
-                        className="min-h-10 rounded-full bg-canvas px-3 text-[15px] font-medium active:opacity-60"
+                        className="flex min-h-10 items-center gap-1 rounded-full bg-brand pl-4 pr-1 text-[15px] font-semibold text-white"
                       >
-                        + {c}
-                      </button>
+                        {c}
+                        {!readOnly && (
+                          <button
+                            type="button"
+                            onClick={() => set({ categories: form.categories.filter((x) => x !== c) })}
+                            className="flex h-9 w-9 items-center justify-center rounded-full active:bg-brand-dark"
+                            aria-label={`Remove ${c}`}
+                          >
+                            <CloseIcon size={16} />
+                          </button>
+                        )}
+                      </span>
                     ))}
                   </div>
-                </>
-              )}
-            </Card>
-          </section>
+                ) : (
+                  <p className="px-1 text-[15px] text-muted">None yet. Tap one below or type your own.</p>
+                )}
+                {!readOnly && (
+                  <>
+                    <div className="mt-3 flex items-center gap-2 rounded-xl bg-canvas pl-3">
+                      <input
+                        value={newCategory}
+                        onChange={(e) => setNewCategory(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            set({ categories: addCategory(form.categories, newCategory) })
+                            setNewCategory('')
+                          }
+                        }}
+                        placeholder="Type a category, e.g. Garage doors"
+                        aria-label="New category"
+                        className="min-h-11 flex-1 bg-transparent text-[16px] outline-none placeholder:text-[#8e8e93]"
+                      />
+                      <button
+                        type="button"
+                        disabled={!newCategory.trim()}
+                        onClick={() => {
+                          set({ categories: addCategory(form.categories, newCategory) })
+                          setNewCategory('')
+                        }}
+                        className="flex h-11 w-11 items-center justify-center text-brand disabled:opacity-30"
+                        aria-label="Add category"
+                      >
+                        <PlusIcon size={22} />
+                      </button>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {suggestions.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => set({ categories: addCategory(form.categories, c) })}
+                          className="min-h-10 rounded-full bg-canvas px-3 text-[15px] font-medium active:opacity-60"
+                        >
+                          + {c}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </Card>
+            </section>
+          )}
 
           <Card>
             <TextArea
@@ -254,7 +285,7 @@ export function ContactFormScreen() {
               rows={3}
               value={form.notes}
               onChange={(e) => set({ notes: e.target.value })}
-              placeholder="e.g. Fast, fair prices. Ask for Moshe."
+              placeholder={client ? 'e.g. Gate code 1234. Prefers texts.' : 'e.g. Fast, fair prices. Ask for Moshe.'}
             />
           </Card>
         </fieldset>
@@ -262,7 +293,7 @@ export function ContactFormScreen() {
         {save.error && <ErrorNote error={save.error} />}
         {!readOnly && (
           <Button type="submit" disabled={save.isPending || !(form.name.trim() || form.business.trim())}>
-            {save.isPending ? 'Saving…' : editing ? 'Save contact' : 'Add contact'}
+            {save.isPending ? 'Saving…' : editing ? 'Save' : client ? 'Add client' : 'Add vendor'}
           </Button>
         )}
         {editing && !readOnly && (
@@ -270,9 +301,9 @@ export function ContactFormScreen() {
             type="button"
             variant="danger"
             disabled={remove.isPending}
-            onClick={() => confirm('Delete this contact?') && remove.mutate()}
+            onClick={() => confirm(`Delete this ${client ? 'client' : 'vendor'}?`) && remove.mutate()}
           >
-            Delete contact
+            Delete {client ? 'client' : 'vendor'}
           </Button>
         )}
         {remove.error && <ErrorNote error={remove.error} />}

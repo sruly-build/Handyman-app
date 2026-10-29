@@ -34,7 +34,7 @@ const words = (text: string) => text.split(/[^A-Za-z0-9]+/).filter(Boolean)
 export function matchesSearch(contact: Contact, query: string): boolean {
   const typed = words(query)
   if (typed.length === 0) return true
-  const fields = [contact.name, contact.business, contact.categories.join(' '), contact.notes, contact.email]
+  const fields = [contact.name, contact.business, contact.categories.join(' '), contact.notes, contact.email, contact.address]
   const haystack = fields.join(' ').toLowerCase()
   const stems = new Set(words(fields.join(' ')).map(stem))
   const digits = contact.phone.replace(/\D/g, '')

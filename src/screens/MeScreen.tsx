@@ -87,7 +87,7 @@ export function MeScreen() {
 
       <SectionTitle>Just you</SectionTitle>
       <Card>
-        <RowLink to="/directory" Icon={BookIcon} title="Directory" />
+        <RowLink to="/directory" Icon={BookIcon} title="Directory" value="Clients and vendors" />
       </Card>
 
       {user.isAdmin && (

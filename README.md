@@ -39,7 +39,10 @@ All five stages from the build plan are built:
   - **Payments:** record deposits and partial payments (amount, date, cash/check/card/transfer, note). The bill shows Paid and Balance due, and the invoice marks itself paid once the balance reaches $0.
   - Print or save invoices as a PDF, with before and after photos if you like.
 - **Before and after report** to show the client what was fixed.
-- **Directory** (Home → Directory, or Me → Directory): your own list of vendors and contacts (plumbers, electricians, sheetrock, shades, suppliers…). Give each one or more categories, then search by category, name, business, notes or phone. Searching "plumber" also finds "Plumbing", and "electrician" finds "Electric". Call, text, WhatsApp or email in one tap. **It's private to you**: nobody else sees it, not even your own team, unless you add their email under **Directory → Private: only you can see your directory**. People you share it with can look and call, but can't change anything.
+- **Directory** (Me → Directory), in two parts:
+  - **Vendors**: plumbers, electricians, sheetrock, shades, suppliers… Give each one or more categories, then search by category, name, business, notes or phone. Searching "plumber" also finds "Plumbing", and "electrician" finds "Electric". Tap a category chip to see everyone in it.
+  - **Clients**: your customers, with phone, email, address (with address suggestions) and notes like a gate code. Search by name, street or town.
+  - Call, text, WhatsApp or email in one tap. **It's private to you**: nobody else sees it, not even your own team, unless you add their email under **Directory → Private: only you can see your directory**. People you share it with can look and call, but can't change anything.
 - **Settings** (on the Me tab): a first-hour price (for example a $150 service call for the first hour, then $90 an hour; every job is charged at least the service call), the markup %, switches for adding the markup to materials and to labour, how labour is charged (per task timer, or arrival to finish), and the business details printed on estimates and invoices. Each job's Billing screen also has its own switch for the markup on materials.
 
 ---
@@ -146,7 +149,8 @@ On your worker's phone: approve their email in **Me → Approve sign-ups** (choo
 - [ ] Take an **after photo** and open the **Before and after report**
 
 **Directory**
-- [ ] Add a few contacts with categories, then search "plumbing" and tap a category chip
+- [ ] Add a few vendors with categories, then search "plumbing" and tap a category chip
+- [ ] Switch to **Clients**, add a customer with their address, and search their town
 - [ ] Log in as your worker: they should not see your directory until you share it with their email
 
 **Accounts and sharing**

@@ -517,7 +517,7 @@ export function createApi(db: Db, auth: Auth) {
     async listContacts(): Promise<Contact[]> {
       const rows = await db.select<Contact>('contacts')
       return rows
-        .map((c) => ({ ...c, categories: c.categories ?? [] }))
+        .map((c) => ({ ...c, kind: c.kind ?? 'vendor', address: c.address ?? '', categories: c.categories ?? [] }))
         .sort((a, b) => (a.name || a.business).localeCompare(b.name || b.business))
     },
     async saveContact(input: ContactInput, id?: string) {

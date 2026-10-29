@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { JobCard } from '../components/JobCard'
-import { BookIcon, ChecklistIcon, OrdersIcon, PlusIcon } from '../components/Icons'
+import { ChecklistIcon, OrdersIcon, PlusIcon } from '../components/Icons'
 import { Screen } from '../components/Screen'
 import { Card, EmptyState, ErrorNote, Loading, SectionTitle } from '../components/ui'
 import { useJobs } from '../data/queries'
@@ -38,10 +38,9 @@ export function HomeScreen() {
         New job
       </Link>
 
-      <div className="mt-4 grid grid-cols-3 gap-3">
+      <div className="mt-4 grid grid-cols-2 gap-3">
         <QuickLink to="/orders" label="Orders" Icon={OrdersIcon} />
         <QuickLink to="/bring" label="Bring list" Icon={ChecklistIcon} />
-        <QuickLink to="/directory" label="Directory" Icon={BookIcon} />
       </div>
 
       {evening && tomorrow.length > 0 && (

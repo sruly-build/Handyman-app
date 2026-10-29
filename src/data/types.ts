@@ -243,11 +243,14 @@ export type ItemPatch = Partial<
 >
 export type PartInput = Omit<Part, 'id' | 'created_at' | 'ordered_at' | 'received_at'>
 
-/** Someone in my directory: a vendor, sub, supplier or anyone else I call */
+export type ContactKind = 'client' | 'vendor'
+
+/** Someone in my directory: a client, or a vendor (sub, supplier…) */
 export interface Contact {
   id: string
   /** Whose directory it's in (only they can change it) */
   owner_id: string
+  kind: ContactKind
   name: string
   business: string
   /** e.g. ["Plumbing", "Heating"] */
@@ -255,10 +258,15 @@ export interface Contact {
   phone: string
   email: string
   notes: string
+  /** Mostly for clients */
+  address: string
   created_at: string
 }
 
-export type ContactInput = Pick<Contact, 'name' | 'business' | 'categories' | 'phone' | 'email' | 'notes'>
+export type ContactInput = Pick<
+  Contact,
+  'kind' | 'name' | 'business' | 'categories' | 'phone' | 'email' | 'notes' | 'address'
+>
 
 /** A person who can see my directory, or whose directory I can see */
 export interface DirectoryPerson {
