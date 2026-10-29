@@ -8,6 +8,9 @@ import type {
   Invoice,
   InvoiceLine,
   JobCharge,
+  Contact,
+  ContactInput,
+  DirectoryPerson,
   Payment,
   PriceItem,
   ItemPatch,
@@ -507,6 +510,49 @@ export function createApi(db: Db, auth: Auth) {
     },
     async deletePayment(id: string) {
       await db.remove('payments', { id })
+    },
+
+    // ---- Directory (my contacts; private unless I share it) ----
+    /** My contacts, plus those in directories shared with me */
+    async listContacts(): Promise<Contact[]> {
+      const rows = await db.select<Contact>('contacts')
+      return rows
+        .map((c) => ({ ...c, categories: c.categories ?? [] }))
+        .sort((a, b) => (a.name || a.business).localeCompare(b.name || b.business))
+    },
+    async saveContact(input: ContactInput, id?: string) {
+      if (id) return db.update<Contact>('contacts', id, input)
+      return db.insert<Contact>('contacts', {
+        ...input,
+        id: newId(),
+        owner_id: (await me()).id,
+        created_at: now(),
+      })
+    },
+    async deleteContact(id: string) {
+      await db.remove('contacts', { id })
+    },
+    /** People I let see my directory */
+    async listDirectoryShares(): Promise<DirectoryPerson[]> {
+      const rows = await db.rpc<{ viewer_id: string; name: string; email: string }[]>('my_directory_shares', {})
+      return rows.map((r) => ({ id: r.viewer_id, name: r.name, email: r.email }))
+    },
+    /** People whose directory I can see (Demo mode has nobody else) */
+    async listSharedDirectories(): Promise<DirectoryPerson[]> {
+      if (db.mode === 'demo') return []
+      const rows = await db.rpc<{ owner_id: string; name: string }[]>('directories_shared_with_me', {})
+      return rows.map((r) => ({ id: r.owner_id, name: r.name }))
+    },
+    /** Returns their name */
+    async shareDirectory(email: string): Promise<string> {
+      return db.rpc<string>('share_directory', { with_email: email.trim() })
+    },
+    async unshareDirectory(viewerId: string) {
+      await db.remove('directory_shares', { owner_id: (await me()).id, viewer_id: viewerId })
+    },
+    /** Stop seeing someone else's directory */
+    async leaveDirectory(ownerId: string) {
+      await db.remove('directory_shares', { owner_id: ownerId, viewer_id: (await me()).id })
     },
 
     // ---- Invoices ----

@@ -25,6 +25,9 @@ import { ReportScreen } from './screens/ReportScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { SketchScreen } from './screens/SketchScreen'
 import { TimeScreen } from './screens/TimeScreen'
+import { DirectoryScreen } from './screens/DirectoryScreen'
+import { ContactFormScreen } from './screens/ContactFormScreen'
+import { DirectorySharingScreen } from './screens/DirectorySharingScreen'
 import { TimeEntryFormScreen } from './screens/TimeEntryFormScreen'
 import { PriceListScreen } from './screens/PriceListScreen'
 
@@ -60,6 +63,10 @@ export function App() {
         <Route path="/more" element={<MeScreen />} />
         <Route path="/settings" element={<SettingsScreen />} />
         <Route path="/price-list" element={<PriceListScreen />} />
+        <Route path="/directory" element={<DirectoryScreen />} />
+        <Route path="/directory/new" element={<ContactFormScreen key="new" />} />
+        <Route path="/directory/sharing" element={<DirectorySharingScreen />} />
+        <Route path="/directory/:contactId" element={<Keyed param="contactId" Component={ContactFormScreen} />} />
         <Route path="/business" element={<BusinessProfileScreen />} />
         <Route path="/team" element={<TeamScreen />} />
         <Route path="/approvals" element={<ApprovalsScreen />} />

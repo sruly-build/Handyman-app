@@ -3,6 +3,11 @@ export function phoneLink(phone: string): string {
   return `tel:${phone.replace(/[^\d+]/g, '')}`
 }
 
+/** Link that opens the Messages app to text this number */
+export function textLink(phone: string): string {
+  return `sms:${phone.replace(/[^\d+]/g, '')}`
+}
+
 /**
  * Link that opens the Messages app with a text ready to send.
  * "?&body=" works on both iPhone and Android.

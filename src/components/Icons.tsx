@@ -81,6 +81,25 @@ export const WhatsAppIcon = (p: IconProps) => (
     <path d="M9.5 9.5c0 2.5 2.5 5 5 5l1-1.2-1.6-.8-.7.7a3.5 3.5 0 0 1-2.4-2.4l.7-.7-.8-1.6-1.2 1Z" />
   </Icon>
 )
+export const BookIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2V4Z" />
+    <path d="M5 18a2 2 0 0 1 2-2h12" />
+    <circle cx="12" cy="9" r="2" />
+  </Icon>
+)
+export const SearchIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="11" cy="11" r="6.5" />
+    <path d="m16 16 4.5 4.5" />
+  </Icon>
+)
+export const MailIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="m4 7 8 6 8-6" />
+  </Icon>
+)
 export const DirectionsIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M3 11 21 3l-8 18-2-8-8-2Z" />

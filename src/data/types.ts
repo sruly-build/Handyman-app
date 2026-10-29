@@ -242,3 +242,27 @@ export type ItemPatch = Partial<
   Pick<PunchItem, 'title' | 'location' | 'notes' | 'status' | 'measurements' | 'tools' | 'estimated_hours'>
 >
 export type PartInput = Omit<Part, 'id' | 'created_at' | 'ordered_at' | 'received_at'>
+
+/** Someone in my directory: a vendor, sub, supplier or anyone else I call */
+export interface Contact {
+  id: string
+  /** Whose directory it's in (only they can change it) */
+  owner_id: string
+  name: string
+  business: string
+  /** e.g. ["Plumbing", "Heating"] */
+  categories: string[]
+  phone: string
+  email: string
+  notes: string
+  created_at: string
+}
+
+export type ContactInput = Pick<Contact, 'name' | 'business' | 'categories' | 'phone' | 'email' | 'notes'>
+
+/** A person who can see my directory, or whose directory I can see */
+export interface DirectoryPerson {
+  id: string
+  name: string
+  email?: string
+}

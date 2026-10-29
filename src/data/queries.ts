@@ -75,6 +75,11 @@ export const useCharges = (jobId: string) =>
 export const usePriceList = () => useQuery({ queryKey: ['priceList'], queryFn: () => backend.listPriceList() })
 export const usePayments = (jobId: string) =>
   useQuery({ queryKey: ['payments', jobId], queryFn: () => backend.listPayments(jobId) })
+export const useContacts = () => useQuery({ queryKey: ['contacts'], queryFn: () => backend.listContacts() })
+export const useDirectoryShares = () =>
+  useQuery({ queryKey: ['directoryShares'], queryFn: () => backend.listDirectoryShares() })
+export const useSharedDirectories = () =>
+  useQuery({ queryKey: ['sharedDirectories'], queryFn: () => backend.listSharedDirectories() })
 export const useInvoice = (jobId: string) =>
   useQuery({ queryKey: keys.invoice(jobId), queryFn: () => backend.getInvoice(jobId) })
 

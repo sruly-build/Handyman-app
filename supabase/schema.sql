@@ -15,6 +15,8 @@
 --     sees that job's punch list and photos, plus (if chosen) the parts to
 --     buy, the bring list and time. Never prices, estimates, invoices or
 --     payments.
+--   * Each person's directory (vendors and contacts) is private to them,
+--     unless they share it with specific people, who can then only look.
 
 -- ---------------------------------------------------------------
 -- Companies (the business profile shown on estimates and invoices)
@@ -387,6 +389,32 @@ create table if not exists public.price_list (
 create index if not exists price_list_company_id_idx on public.price_list (company_id);
 
 -- ---------------------------------------------------------------
+-- Directory: each person's own contacts (vendors, subs, suppliers), private
+-- to them unless they share their directory with specific people
+-- ---------------------------------------------------------------
+create table if not exists public.contacts (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users (id) on delete cascade default auth.uid(),
+  name text not null default '',
+  business text not null default '',
+  categories text[] not null default '{}',
+  phone text not null default '',
+  email text not null default '',
+  notes text not null default '',
+  created_at timestamptz not null default now()
+);
+create index if not exists contacts_owner_id_idx on public.contacts (owner_id);
+
+-- Whose directory each person may see (read only)
+create table if not exists public.directory_shares (
+  owner_id uuid not null references auth.users (id) on delete cascade default auth.uid(),
+  viewer_id uuid not null references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (owner_id, viewer_id)
+);
+create index if not exists directory_shares_viewer_id_idx on public.directory_shares (viewer_id);
+
+-- ---------------------------------------------------------------
 -- Security helpers
 -- ---------------------------------------------------------------
 create or replace function public.my_company()
@@ -568,6 +596,66 @@ begin
 end;
 $$;
 
+-- Directory: has this person shared their directory with me?
+create or replace function public.directory_shared_with_me(owner uuid)
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select exists (select 1 from public.directory_shares where owner_id = owner and viewer_id = auth.uid())
+$$;
+
+-- Let the person who logs in with this email see my directory (read only)
+create or replace function public.share_directory(with_email text)
+returns text
+language plpgsql security definer set search_path = public
+as $$
+declare
+  target uuid;
+  target_name text;
+begin
+  if auth.uid() is null then
+    raise exception 'Please log in first.';
+  end if;
+  select u.id, coalesce(nullif(p.full_name, ''), u.email) into target, target_name
+  from auth.users u left join public.profiles p on p.id = u.id
+  where lower(u.email) = lower(trim(with_email));
+  if target is null then
+    raise exception 'No one has signed up with %. Ask them to sign up first.', trim(with_email);
+  end if;
+  if target = auth.uid() then
+    raise exception 'That''s you.';
+  end if;
+  insert into public.directory_shares (owner_id, viewer_id) values (auth.uid(), target) on conflict do nothing;
+  return target_name;
+end;
+$$;
+
+-- The people I share my directory with
+create or replace function public.my_directory_shares()
+returns table (viewer_id uuid, name text, email text)
+language sql stable security definer set search_path = public
+as $$
+  select d.viewer_id, coalesce(nullif(p.full_name, ''), u.email), u.email
+  from public.directory_shares d
+  join auth.users u on u.id = d.viewer_id
+  left join public.profiles p on p.id = d.viewer_id
+  where d.owner_id = auth.uid()
+  order by 2
+$$;
+
+-- The people who share their directory with me
+create or replace function public.directories_shared_with_me()
+returns table (owner_id uuid, name text)
+language sql stable security definer set search_path = public
+as $$
+  select d.owner_id, coalesce(nullif(p.full_name, ''), u.email)
+  from public.directory_shares d
+  join auth.users u on u.id = d.owner_id
+  left join public.profiles p on p.id = d.owner_id
+  where d.viewer_id = auth.uid()
+  order by 2
+$$;
+
 -- Earlier versions let company owners invite their own team; now only the
 -- app's admin approves anyone (see approve_signup)
 drop function if exists public.invite_member(text);
@@ -642,7 +730,7 @@ declare t text;
 begin
   foreach t in array array['companies', 'profiles', 'settings', 'company_invites', 'jobs', 'job_shares',
                            'punch_items', 'photos', 'parts', 'bring_checks', 'time_entries', 'invoices',
-                           'job_charges', 'price_list', 'payments']
+                           'job_charges', 'price_list', 'payments', 'contacts', 'directory_shares']
   loop
     execute format('alter table public.%I enable row level security', t);
   end loop;
@@ -809,6 +897,29 @@ create policy "fix my company's time" on public.time_entries for update to authe
 drop policy if exists "delete my company's time" on public.time_entries;
 create policy "delete my company's time" on public.time_entries for delete to authenticated
   using (public.is_my_job(job_id) or (public.shared_with_me_for(job_id, 'time') and public.in_my_company(user_id)));
+
+-- Directory: only you see and change your contacts. People you shared your
+-- directory with can see (never change) them. Not even your own company sees
+-- them otherwise.
+drop policy if exists "see own and shared contacts" on public.contacts;
+create policy "see own and shared contacts" on public.contacts for select to authenticated
+  using (owner_id = auth.uid() or public.directory_shared_with_me(owner_id));
+drop policy if exists "add own contacts" on public.contacts;
+create policy "add own contacts" on public.contacts for insert to authenticated
+  with check (owner_id = auth.uid());
+drop policy if exists "change own contacts" on public.contacts;
+create policy "change own contacts" on public.contacts for update to authenticated
+  using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+drop policy if exists "delete own contacts" on public.contacts;
+create policy "delete own contacts" on public.contacts for delete to authenticated
+  using (owner_id = auth.uid());
+-- Shares: new ones only through share_directory; either side can end one
+drop policy if exists "see directory shares" on public.directory_shares;
+create policy "see directory shares" on public.directory_shares for select to authenticated
+  using (owner_id = auth.uid() or viewer_id = auth.uid());
+drop policy if exists "end directory shares" on public.directory_shares;
+create policy "end directory shares" on public.directory_shares for delete to authenticated
+  using (owner_id = auth.uid() or viewer_id = auth.uid());
 
 -- ---------------------------------------------------------------
 -- Photo storage bucket (private: photos are only shown to logged-in users

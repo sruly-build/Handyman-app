@@ -39,6 +39,7 @@ All five stages from the build plan are built:
   - **Payments:** record deposits and partial payments (amount, date, cash/check/card/transfer, note). The bill shows Paid and Balance due, and the invoice marks itself paid once the balance reaches $0.
   - Print or save invoices as a PDF, with before and after photos if you like.
 - **Before and after report** to show the client what was fixed.
+- **Directory** (Home → Directory, or Me → Directory): your own list of vendors and contacts (plumbers, electricians, sheetrock, shades, suppliers…). Give each one or more categories, then search by category, name, business, notes or phone. Searching "plumber" also finds "Plumbing", and "electrician" finds "Electric". Call, text, WhatsApp or email in one tap. **It's private to you**: nobody else sees it, not even your own team, unless you add their email under **Directory → Private: only you can see your directory**. People you share it with can look and call, but can't change anything.
 - **Settings** (on the Me tab): a first-hour price (for example a $150 service call for the first hour, then $90 an hour; every job is charged at least the service call), the markup %, switches for adding the markup to materials and to labour, how labour is charged (per task timer, or arrival to finish), and the business details printed on estimates and invoices. Each job's Billing screen also has its own switch for the markup on materials.
 
 ---
@@ -130,6 +131,10 @@ On your worker's phone: approve their email in **Me → Approve sign-ups** (choo
 - [ ] Open **Estimate**, then **Invoice → Create invoice**. Try **Print or save as PDF**.
 - [ ] Record the rest with **Full balance**: the invoice should show PAID
 - [ ] Take an **after photo** and open the **Before and after report**
+
+**Directory**
+- [ ] Add a few contacts with categories, then search "plumbing" and tap a category chip
+- [ ] Log in as your worker: they should not see your directory until you share it with their email
 
 **Accounts and sharing**
 - [ ] Log out, tap **Forgot password?**, and check the reset email brings you back to choose a new password

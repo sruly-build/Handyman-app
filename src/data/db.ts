@@ -1,6 +1,8 @@
 import type { AppUser } from './types'
 
 export type Table =
+  | 'contacts'
+  | 'directory_shares'
   | 'companies'
   | 'company_invites'
   | 'job_shares'
