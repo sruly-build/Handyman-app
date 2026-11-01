@@ -58,3 +58,7 @@ export function addCategory(list: string[], category: string): string[] {
   if (!clean || list.some((c) => c.toLowerCase() === clean.toLowerCase())) return list
   return [...list, clean.charAt(0).toUpperCase() + clean.slice(1)]
 }
+
+/** A contact I can work with as my own: mine, or a customer shared with my company */
+export const isMine = (c: Pick<Contact, 'owner_id' | 'company_id'>, user: { id: string; companyId: string }) =>
+  c.owner_id === user.id || (Boolean(c.company_id) && c.company_id === user.companyId)

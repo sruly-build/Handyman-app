@@ -10,14 +10,16 @@ interface ScreenProps {
   back?: { to: string; label: string }
   /** Button shown at the top right, e.g. "Edit" */
   action?: ReactNode
+  /** Wider on big screens (sales tables and pipeline); phones look the same */
+  wide?: boolean
   children: ReactNode
 }
 
 /** Standard page: Apple-style large bold title, then content. */
-export function Screen({ title, eyebrow, back, action, children }: ScreenProps) {
+export function Screen({ title, eyebrow, back, action, wide, children }: ScreenProps) {
   const navigate = useNavigate()
   return (
-    <div className="animate-screen-in mx-auto min-h-dvh max-w-2xl px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] print:max-w-none print:p-0 pt-[calc(0.5rem+env(safe-area-inset-top))]">
+    <div className={`animate-screen-in mx-auto min-h-dvh max-w-2xl ${wide ? 'lg:max-w-6xl' : ''} px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] print:max-w-none print:p-0 pt-[calc(0.5rem+env(safe-area-inset-top))]`}>
       <div className="flex min-h-11 items-center justify-between print:hidden">
         {back ? (
           <button

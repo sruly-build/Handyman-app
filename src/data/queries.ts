@@ -84,6 +84,15 @@ export const useAssignments = (jobId: string, enabled = true) =>
   useQuery({ queryKey: ['assignments', jobId], queryFn: () => backend.listAssignments(jobId), enabled })
 export const useVendorWork = (contactId: string, enabled = true) =>
   useQuery({ queryKey: ['vendorWork', contactId], queryFn: () => backend.listVendorWork(contactId), enabled })
+export const useProspects = () => useQuery({ queryKey: ['prospects'], queryFn: () => backend.listProspects() })
+export const useSalesOrgs = () => useQuery({ queryKey: ['salesOrgs'], queryFn: () => backend.listSalesOrgs() })
+export const useActivities = (prospectId: string) =>
+  useQuery({ queryKey: ['activities', prospectId], queryFn: () => backend.listActivities(prospectId) })
+export const useProperties = (prospectId: string) =>
+  useQuery({ queryKey: ['properties', prospectId], queryFn: () => backend.listProperties(prospectId) })
+export const useOpportunities = (prospectId: string) =>
+  useQuery({ queryKey: ['opportunities', prospectId], queryFn: () => backend.listOpportunities(prospectId) })
+export const useMeetings = () => useQuery({ queryKey: ['meetings'], queryFn: () => backend.listMeetings() })
 export const useContacts = () => useQuery({ queryKey: ['contacts'], queryFn: () => backend.listContacts() })
 export const useDirectoryShares = () =>
   useQuery({ queryKey: ['directoryShares'], queryFn: () => backend.listDirectoryShares() })

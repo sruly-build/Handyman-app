@@ -86,6 +86,12 @@ export interface Job {
   lead_closed_at?: string | null
   /** Optional start time on job_date, "HH:MM" (the database may add ":SS") */
   job_time?: string | null
+  /** Turnover opportunities: the sales lead, property and unit, and the dates */
+  prospect_id?: string | null
+  property_id?: string | null
+  unit_id?: string | null
+  move_out_date?: string | null
+  ready_by_date?: string | null
   created_at: string
 }
 
@@ -321,6 +327,8 @@ export interface Contact {
   notes: string
   /** Mostly for clients */
   address: string
+  /** Set on customers shared with the whole company (converted from sales); null = private */
+  company_id?: string | null
   created_at: string
 }
 
@@ -342,4 +350,129 @@ export interface ClientJob {
   items: Pick<PunchItem, 'id' | 'title' | 'status'>[]
   invoice: Invoice | null
   paid: number
+}
+
+// ---- Sales & Leads ----
+
+export type ProspectStage =
+  | 'new'
+  | 'contacted'
+  | 'follow_up'
+  | 'interested'
+  | 'meeting'
+  | 'proposal'
+  | 'converted'
+  | 'not_interested'
+export type OrgType = 'landlord' | 'property_manager' | 'investor' | 'apartment_owner' | 'other'
+export type Interest = 'unknown' | 'low' | 'medium' | 'high'
+export type CallOutcome = 'no_answer' | 'voicemail' | 'call_back' | 'interested' | 'meeting' | 'not_interested'
+
+/** A landlord or management company (one company, many contacts) */
+export interface SalesOrg {
+  id: string
+  company_id: string
+  name: string
+  org_type: OrgType
+  service_area: string
+  units_estimate: number | null
+  created_at: string
+}
+
+/** A sales lead: a person we're contacting about turnover work */
+export interface Prospect {
+  id: string
+  company_id: string
+  org_id: string | null
+  name: string
+  phone: string
+  email: string
+  /** Partners (people in my company) who know them */
+  known_by: string[]
+  mutual: boolean
+  cold: boolean
+  how_known: string
+  assigned_to: string | null
+  stage: ProspectStage
+  interest: Interest
+  notes: string
+  project_notes: string
+  last_contacted_at: string | null
+  last_contacted_by: string | null
+  archived_at: string | null
+  /** The directory client, once converted */
+  client_id: string | null
+  source: string
+  created_by: string | null
+  created_at: string
+}
+
+/** The next call or meeting with a lead (only one open at a time) */
+export interface FollowUp {
+  id: string
+  company_id: string
+  prospect_id: string
+  kind: 'call' | 'meeting'
+  due_at: string
+  note: string
+  location: string
+  done_at: string | null
+  done_by: string | null
+  created_by: string | null
+  created_at: string
+}
+
+/** A lead with its company and its open follow-up */
+export interface ProspectView extends Prospect {
+  org: SalesOrg | null
+  follow_up: FollowUp | null
+}
+
+export interface SalesActivity {
+  id: string
+  company_id: string
+  prospect_id: string
+  kind: 'created' | 'call' | 'note' | 'stage' | 'follow_up' | 'converted'
+  outcome: CallOutcome | null
+  channel: string
+  note: string
+  by_user: string | null
+  created_at: string
+}
+
+export interface Property {
+  id: string
+  company_id: string
+  org_id: string | null
+  prospect_id: string | null
+  client_id: string | null
+  address: string
+  notes: string
+  created_at: string
+}
+
+export interface Unit {
+  id: string
+  company_id: string
+  property_id: string
+  label: string
+  created_at: string
+}
+
+/** What the lead form edits (the company details go to its sales_org) */
+export type ProspectInput = Pick<
+  Prospect,
+  'name' | 'phone' | 'email' | 'known_by' | 'mutual' | 'cold' | 'how_known' | 'assigned_to' | 'stage' | 'interest' | 'notes' | 'project_notes'
+> & {
+  org_name: string
+  org_type: OrgType
+  service_area: string
+  units_estimate: number | null
+}
+
+/** A new follow-up: when, and what to remember */
+export interface FollowUpInput {
+  kind: 'call' | 'meeting'
+  due_at: string
+  note: string
+  location?: string
 }

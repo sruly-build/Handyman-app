@@ -1,5 +1,6 @@
 import type { Auth, Db, SignUpInput } from './db'
 import { summarize } from './summary'
+import { stageAfterCall, stageLabels } from './sales'
 import type {
   AppUser,
   BringCheck,
@@ -8,6 +9,17 @@ import type {
   Invoice,
   InvoiceLine,
   JobCharge,
+  CallOutcome,
+  FollowUp,
+  FollowUpInput,
+  Property,
+  Prospect,
+  ProspectInput,
+  ProspectStage,
+  ProspectView,
+  SalesActivity,
+  SalesOrg,
+  Unit,
   AssignmentInput,
   ItemAssignment,
   VendorWork,
@@ -111,6 +123,21 @@ export function createApi(db: Db, auth: Auth) {
     for (const e of entries) await db.update<TimeEntry>('time_entries', e.id, { ended_at })
   }
 
+  async function logActivity(prospectId: string, a: Pick<SalesActivity, 'kind' | 'note'> & { outcome?: CallOutcome }) {
+    const user = await me()
+    return db.insert<SalesActivity>('sales_activities', {
+      id: newId(),
+      company_id: user.companyId,
+      prospect_id: prospectId,
+      kind: a.kind,
+      outcome: a.outcome ?? null,
+      channel: 'phone',
+      note: a.note,
+      by_user: user.id,
+      created_at: now(),
+    })
+  }
+
   /**
    * The job's client in my directory: the one picked on the form, else one with
    * the same name (and phone, if both have one), else a new client. Blank
@@ -120,7 +147,10 @@ export function createApi(db: Db, auth: Auth) {
     const name = job.customer_name.trim()
     if (!name) return job.client_id ?? null
     const user = await me()
-    const clients = (await db.select<Contact>('contacts', { owner_id: user.id, kind: 'client' })).map((c) => ({
+    // My own clients and the ones shared with my company
+    const clients = (await db.select<Contact>('contacts', { kind: 'client' }))
+      .filter((c) => c.owner_id === user.id || (c.company_id && c.company_id === user.companyId))
+      .map((c) => ({
       ...c,
       address: c.address ?? '',
     }))
@@ -770,6 +800,262 @@ export function createApi(db: Db, auth: Auth) {
       return work.sort((a, b) =>
         (b.job?.job_date ?? b.assignment.created_at).localeCompare(a.job?.job_date ?? a.assignment.created_at),
       )
+    },
+
+    // ---- Sales & Leads (company-wide: both partners see everything) ----
+    async listProspects(): Promise<ProspectView[]> {
+      const [rows, orgs, followUps] = await Promise.all([
+        db.select<Prospect>('prospects'),
+        db.select<SalesOrg>('sales_orgs'),
+        db.select<FollowUp>('follow_ups', {}, { isNull: 'done_at' }),
+      ])
+      return rows
+        .map((p) => ({
+          ...p,
+          known_by: p.known_by ?? [],
+          org: orgs.find((o) => o.id === p.org_id) ?? null,
+          follow_up: followUps.find((f) => f.prospect_id === p.id && !f.done_at) ?? null,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    },
+    async listSalesOrgs(): Promise<SalesOrg[]> {
+      return (await db.select<SalesOrg>('sales_orgs')).sort((a, b) => a.name.localeCompare(b.name))
+    },
+    /** Add or change a lead. The company name finds (or adds) its sales company. */
+    async saveProspect(input: ProspectInput, id?: string): Promise<Prospect> {
+      const user = await me()
+      const { org_name, org_type, service_area, units_estimate } = input
+      // Only the lead's own fields (callers may pass a whole lead)
+      const fields = {
+        name: input.name,
+        phone: input.phone,
+        email: input.email,
+        known_by: input.known_by,
+        mutual: input.mutual,
+        cold: input.cold,
+        how_known: input.how_known,
+        assigned_to: input.assigned_to,
+        stage: input.stage,
+        interest: input.interest,
+        notes: input.notes,
+        project_notes: input.project_notes,
+      }
+      let orgId: string | null = null
+      if (org_name.trim()) {
+        const orgs = await db.select<SalesOrg>('sales_orgs')
+        const found = orgs.find((o) => o.name.trim().toLowerCase() === org_name.trim().toLowerCase())
+        const orgFields = { name: org_name.trim(), org_type, service_area: service_area.trim(), units_estimate }
+        orgId = found
+          ? (await db.update<SalesOrg>('sales_orgs', found.id, orgFields)).id
+          : (await db.insert<SalesOrg>('sales_orgs', { ...orgFields, id: newId(), company_id: user.companyId, created_at: now() }))
+              .id
+      }
+      const clean = {
+        ...fields,
+        name: fields.name.trim(),
+        phone: fields.phone.trim(),
+        email: fields.email.trim(),
+        how_known: fields.how_known.trim(),
+        org_id: orgId,
+      }
+      if (id) return db.update<Prospect>('prospects', id, clean)
+      const created = await db.insert<Prospect>('prospects', {
+        ...clean,
+        id: newId(),
+        company_id: user.companyId,
+        last_contacted_at: null,
+        last_contacted_by: null,
+        archived_at: null,
+        client_id: null,
+        source: 'personal',
+        created_by: user.id,
+        created_at: now(),
+      })
+      await logActivity(created.id, { kind: 'created', note: '' })
+      return created
+    },
+    async archiveProspect(id: string, archived: boolean) {
+      return db.update<Prospect>('prospects', id, { archived_at: archived ? now() : null })
+    },
+    async setProspectStage(lead: Prospect, stage: ProspectStage) {
+      if (lead.stage === stage) return lead
+      const updated = await db.update<Prospect>('prospects', lead.id, { stage })
+      await logActivity(lead.id, { kind: 'stage', note: stageLabels[stage] })
+      return updated
+    },
+    async listActivities(prospectId: string): Promise<SalesActivity[]> {
+      const rows = await db.select<SalesActivity>('sales_activities', { prospect_id: prospectId })
+      return rows.sort((a, b) => b.created_at.localeCompare(a.created_at))
+    },
+    async addSalesNote(prospectId: string, note: string) {
+      await logActivity(prospectId, { kind: 'note', note: note.trim() })
+    },
+    /**
+     * After a call: log the result and note, move the stage along, mark who
+     * called, and finish the open follow-up, replacing it with the next one if given.
+     */
+    async logCall(lead: ProspectView, outcome: CallOutcome, note: string, next: FollowUpInput | null) {
+      const user = await me()
+      await logActivity(lead.id, { kind: 'call', outcome, note: note.trim() })
+      if (lead.follow_up && !next) await api.completeFollowUp(lead.follow_up.id)
+      if (next) await api.setFollowUp(lead.id, next)
+      return db.update<Prospect>('prospects', lead.id, {
+        stage: stageAfterCall(lead.stage, outcome, Boolean(next)),
+        last_contacted_at: now(),
+        last_contacted_by: user.id,
+      })
+    },
+    /** Set (or move) a lead's one open follow-up */
+    async setFollowUp(prospectId: string, input: FollowUpInput) {
+      const user = await me()
+      const [open] = await db.select<FollowUp>('follow_ups', { prospect_id: prospectId }, { isNull: 'done_at' })
+      const fields = { kind: input.kind, due_at: input.due_at, note: input.note.trim(), location: (input.location ?? '').trim() }
+      const saved = open
+        ? await db.update<FollowUp>('follow_ups', open.id, fields)
+        : await db.insert<FollowUp>('follow_ups', {
+            ...fields,
+            id: newId(),
+            company_id: user.companyId,
+            prospect_id: prospectId,
+            done_at: null,
+            done_by: null,
+            created_by: user.id,
+            created_at: now(),
+          })
+      const when = new Date(input.due_at).toLocaleString(undefined, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      })
+      await logActivity(prospectId, {
+        kind: 'follow_up',
+        note: `${input.kind === 'meeting' ? 'Meeting' : 'Follow-up call'} ${open ? 'moved to' : 'set for'} ${when}${fields.note ? `: ${fields.note}` : ''}`,
+      })
+      return saved
+    },
+    async completeFollowUp(id: string) {
+      const user = await me()
+      return db.update<FollowUp>('follow_ups', id, { done_at: now(), done_by: user.id })
+    },
+    /** Open sales meetings, for the schedule */
+    async listMeetings(): Promise<FollowUp[]> {
+      return (await db.select<FollowUp>('follow_ups', { kind: 'meeting' }, { isNull: 'done_at' })).filter((f) => !f.done_at)
+    },
+    async listProperties(prospectId: string): Promise<{ property: Property; units: Unit[] }[]> {
+      const properties = await db.select<Property>('properties', { prospect_id: prospectId })
+      return Promise.all(
+        properties.map(async (property) => ({
+          property,
+          units: (await db.select<Unit>('units', { property_id: property.id })).sort((a, b) => a.label.localeCompare(b.label)),
+        })),
+      )
+    },
+    /** Turnover opportunities for a lead (lead jobs, and the jobs they became) */
+    async listOpportunities(prospectId: string): Promise<Job[]> {
+      const jobs = await db.select<Job>('jobs', { prospect_id: prospectId })
+      return jobs.sort((a, b) => (a.move_out_date ?? '9').localeCompare(b.move_out_date ?? '9'))
+    },
+    /**
+     * Record an upcoming turnover: finds or adds the property and unit, then
+     * makes a turnover (a lead job) that works like any other.
+     */
+    async addOpportunity(
+      lead: ProspectView,
+      input: {
+        address: string
+        unit: string
+        move_out_date: string | null
+        ready_by_date: string | null
+        scope: string
+        walkthrough_at: string | null
+      },
+    ) {
+      const user = await me()
+      const props = await db.select<Property>('properties', { prospect_id: lead.id })
+      let property = props.find((p) => p.address.trim().toLowerCase() === input.address.trim().toLowerCase())
+      property ??= await db.insert<Property>('properties', {
+        id: newId(),
+        company_id: user.companyId,
+        org_id: lead.org_id,
+        prospect_id: lead.id,
+        client_id: lead.client_id,
+        address: input.address.trim(),
+        notes: '',
+        created_at: now(),
+      })
+      let unit: Unit | undefined
+      if (input.unit.trim()) {
+        const units = await db.select<Unit>('units', { property_id: property.id })
+        unit =
+          units.find((u) => u.label.trim().toLowerCase() === input.unit.trim().toLowerCase()) ??
+          (await db.insert<Unit>('units', {
+            id: newId(),
+            company_id: user.companyId,
+            property_id: property.id,
+            label: input.unit.trim(),
+            created_at: now(),
+          }))
+      }
+      const job = await api.createLead({
+        customer_name: lead.org?.name || lead.name,
+        customer_phone: lead.phone,
+        address: unit ? `${property.address}, Unit ${unit.label}` : property.address,
+        notes: input.scope,
+        client_id: lead.client_id,
+      })
+      const updated = await db.update<Job>('jobs', job.id, {
+        prospect_id: lead.id,
+        property_id: property.id,
+        unit_id: unit?.id ?? null,
+        move_out_date: input.move_out_date,
+        ready_by_date: input.ready_by_date,
+      })
+      if (input.walkthrough_at) await api.bookWalkthrough(updated, input.walkthrough_at)
+      return updated
+    },
+    /**
+     * Make a lead a customer: link a matching client (same phone, email or name)
+     * or add one shared with the whole company, then carry over its properties
+     * and turnovers. The lead and its history stay.
+     */
+    async convertProspect(lead: ProspectView) {
+      const user = await me()
+      const digits = (p: string) => p.replace(/\D/g, '').slice(-10)
+      const clients = (await db.select<Contact>('contacts', { kind: 'client' })).filter(
+        (c) => c.owner_id === user.id || c.company_id === user.companyId,
+      )
+      const props = await db.select<Property>('properties', { prospect_id: lead.id })
+      let client =
+        clients.find((c) => lead.phone && digits(c.phone).length >= 7 && digits(c.phone) === digits(lead.phone)) ??
+        clients.find((c) => lead.email && c.email.trim().toLowerCase() === lead.email.trim().toLowerCase()) ??
+        clients.find((c) => c.name.trim().toLowerCase() === lead.name.trim().toLowerCase())
+      if (client && !client.company_id && client.owner_id === user.id) {
+        // My private client becomes shared, so my partner sees them too
+        client = await db.update<Contact>('contacts', client.id, { company_id: user.companyId })
+      }
+      client ??= await db.insert<Contact>('contacts', {
+        id: newId(),
+        owner_id: user.id,
+        company_id: user.companyId,
+        kind: 'client',
+        name: lead.name,
+        business: lead.org?.name ?? '',
+        categories: [],
+        phone: lead.phone,
+        email: lead.email,
+        address: props[0]?.address ?? '',
+        notes: lead.notes,
+        created_at: now(),
+      })
+      for (const p of props) await db.update<Property>('properties', p.id, { client_id: client.id })
+      for (const j of await db.select<Job>('jobs', { prospect_id: lead.id })) {
+        if (!j.client_id) await db.update<Job>('jobs', j.id, { client_id: client.id })
+      }
+      await logActivity(lead.id, { kind: 'converted', note: 'Converted to customer' })
+      if (lead.follow_up) await api.completeFollowUp(lead.follow_up.id)
+      return db.update<Prospect>('prospects', lead.id, { stage: 'converted', client_id: client.id })
     },
 
     // ---- Invoices ----

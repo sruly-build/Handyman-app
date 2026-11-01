@@ -9,6 +9,7 @@ import { backend } from '../data/backend'
 import { keys, refreshAll, useContacts, useJob } from '../data/queries'
 import type { Contact, JobInput } from '../data/types'
 import { useUser } from '../lib/auth'
+import { isMine } from '../data/directory'
 import { todayISO } from '../lib/dates'
 
 const blank: JobInput = {
@@ -44,7 +45,7 @@ export function JobFormScreen() {
   const [params] = useSearchParams()
   const user = useUser()
   const { data: contacts = [] } = useContacts()
-  const clients = contacts.filter((c) => c.kind === 'client' && c.owner_id === user.id)
+  const clients = contacts.filter((c) => c.kind === 'client' && isMine(c, user))
 
   // "New job" from a client's page: start with their details
   const fromClient = editing ? undefined : clients.find((c) => c.id === params.get('client'))
@@ -160,6 +161,26 @@ export function JobFormScreen() {
                     type="time"
                     value={form.job_time?.slice(0, 5) ?? ''}
                     onChange={(e) => set({ job_time: e.target.value || null })}
+                    className="border-l border-hairline"
+                  />
+                </div>
+                <Divider />
+              </>
+            )}
+            {lead && (
+              <>
+                <div className="grid grid-cols-2">
+                  <Field
+                    label="Tenant moves out"
+                    type="date"
+                    value={form.move_out_date ?? ''}
+                    onChange={(e) => set({ move_out_date: e.target.value || null })}
+                  />
+                  <Field
+                    label="Ready by"
+                    type="date"
+                    value={form.ready_by_date ?? ''}
+                    onChange={(e) => set({ ready_by_date: e.target.value || null })}
                     className="border-l border-hairline"
                   />
                 </div>

@@ -55,6 +55,7 @@ import {
 import { formatDuration, totalMs } from '../data/time'
 import type { ItemStatus, PunchItem } from '../data/types'
 import { isLead, isPartnerJob } from '../data/api'
+import { isMine } from '../data/directory'
 import { LeadActions, LeadPanel } from '../components/LeadPanel'
 import { useUser } from '../lib/auth'
 import { clockLabel, friendlyDate } from '../lib/dates'
@@ -81,7 +82,7 @@ export function JobDetailScreen() {
   const qc = useQueryClient()
   const { data: contacts = [] } = useContacts()
   // Only when the client is in my own directory (the job may have been made by someone else)
-  const client = contacts.find((c) => c.id === job?.client_id && c.owner_id === user.id)
+  const client = contacts.find((c) => c.id === job?.client_id && isMine(c, user))
   const [texting, setTexting] = useState(false)
   const [assigning, setAssigning] = useState<PunchItem | null>(null)
   // Items given to vendors (my company only; never for a shared job)
@@ -111,7 +112,7 @@ export function JobDetailScreen() {
   })
 
   const lead = job ? isLead(job) : false
-  const back = lead ? { to: '/leads', label: 'Leads' } : { to: '/jobs', label: 'Jobs' }
+  const back = lead ? { to: '/leads', label: 'Turnovers' } : { to: '/jobs', label: 'Jobs' }
   if (isLoading || error || !job) {
     return (
       <Screen title="Job" back={back}>
@@ -195,6 +196,18 @@ export function JobDetailScreen() {
           {job.customer_email && job.notes && <Divider />}
           {job.notes && <InfoRow label={lead ? 'What they need' : 'Notes'} value={job.notes} />}
         </Card>
+      )}
+
+      {(job.move_out_date || job.ready_by_date || job.prospect_id) && (
+        <p className="mt-3 flex flex-wrap gap-x-3 px-1 text-[14px] text-muted">
+          {job.move_out_date && <span>Tenant moves out {friendlyDate(job.move_out_date)}</span>}
+          {job.ready_by_date && <span>Ready by {friendlyDate(job.ready_by_date)}</span>}
+          {job.prospect_id && (
+            <Link to={`/sales/leads/${job.prospect_id}`} className="text-brand">
+              Sales lead
+            </Link>
+          )}
+        </p>
       )}
 
       {lead && <LeadPanel lead={job} />}

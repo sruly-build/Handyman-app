@@ -9,12 +9,13 @@ import { backend } from '../data/backend'
 import { refreshAll, useContacts } from '../data/queries'
 import type { LeadInput } from '../data/types'
 import { useUser } from '../lib/auth'
+import { isMine } from '../data/directory'
 
 /** A new lead: just the basics. The full details come at the walkthrough. */
 export function LeadFormScreen() {
   const user = useUser()
   const { data: contacts = [] } = useContacts()
-  const clients = contacts.filter((c) => c.kind === 'client' && c.owner_id === user.id)
+  const clients = contacts.filter((c) => c.kind === 'client' && isMine(c, user))
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [form, setForm] = useState<LeadInput>({
@@ -47,7 +48,7 @@ export function LeadFormScreen() {
   }
 
   return (
-    <Screen title="New lead" back={{ to: '/leads', label: 'Leads' }}>
+    <Screen title="New turnover" back={{ to: '/leads', label: 'Turnovers' }}>
       <form onSubmit={submit} className="space-y-6">
         <Card>
           <ClientNameField

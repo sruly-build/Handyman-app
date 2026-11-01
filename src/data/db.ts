@@ -1,6 +1,12 @@
 import type { AppUser } from './types'
 
 export type Table =
+  | 'sales_orgs'
+  | 'prospects'
+  | 'sales_activities'
+  | 'follow_ups'
+  | 'properties'
+  | 'units'
   | 'item_assignments'
   | 'contacts'
   | 'directory_shares'

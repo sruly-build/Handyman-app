@@ -3,12 +3,13 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AddressField } from '../components/AddressField'
 import { ClientHistory } from '../components/ClientHistory'
+import { SalesHistory } from '../components/SalesHistory'
 import { VendorHistory } from '../components/VendorHistory'
 import { CloseIcon, MailIcon, MessageIcon, PhoneIcon, PlusIcon, WhatsAppIcon } from '../components/Icons'
 import { Screen } from '../components/Screen'
 import { Button, Card, Divider, ErrorNote, Field, GroupLabel, Loading, TextArea } from '../components/ui'
 import { backend } from '../data/backend'
-import { addCategory, categoriesInUse, commonCategories } from '../data/directory'
+import { addCategory, categoriesInUse, commonCategories, isMine } from '../data/directory'
 import { refreshAll, useContacts, useSharedDirectories } from '../data/queries'
 import type { ContactInput } from '../data/types'
 import { useUser } from '../lib/auth'
@@ -97,7 +98,7 @@ export function ContactFormScreen() {
   if (!form) return null
 
   // Someone else's directory, shared with me: look only
-  const readOnly = Boolean(contact && contact.owner_id !== user.id)
+  const readOnly = Boolean(contact && !isMine(contact, user))
   const set = (patch: Partial<ContactInput>) => setForm({ ...form, ...patch })
   const suggestions = [...categoriesInUse(contacts ?? []), ...commonCategories].filter(
     (c, i, all) =>
@@ -159,6 +160,7 @@ export function ContactFormScreen() {
       )}
 
       {client && contact && !readOnly && <ClientHistory client={contact} />}
+      {client && contact && !readOnly && <SalesHistory client={contact} />}
       {!client && contact && !readOnly && <VendorHistory vendor={contact} />}
 
       {client && contact && !readOnly && <GroupLabel>Details</GroupLabel>}

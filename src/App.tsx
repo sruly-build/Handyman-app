@@ -28,6 +28,14 @@ import { TimeScreen } from './screens/TimeScreen'
 import { LeadsScreen } from './screens/LeadsScreen'
 import { LeadFormScreen } from './screens/LeadFormScreen'
 import { ScheduleScreen } from './screens/ScheduleScreen'
+import { SalesDashboardScreen } from './screens/SalesDashboardScreen'
+import { ProspectsScreen } from './screens/ProspectsScreen'
+import { ProspectFormScreen } from './screens/ProspectFormScreen'
+import { ProspectScreen } from './screens/ProspectScreen'
+import { CallListScreen } from './screens/CallListScreen'
+import { FollowUpsScreen } from './screens/FollowUpsScreen'
+import { PipelineScreen } from './screens/PipelineScreen'
+import { OpportunityFormScreen } from './screens/OpportunityFormScreen'
 import { DirectoryScreen } from './screens/DirectoryScreen'
 import { ContactFormScreen } from './screens/ContactFormScreen'
 import { DirectorySharingScreen } from './screens/DirectorySharingScreen'
@@ -65,6 +73,15 @@ export function App() {
         <Route path="/leads" element={<LeadsScreen />} />
         <Route path="/leads/new" element={<LeadFormScreen />} />
         <Route path="/schedule" element={<ScheduleScreen />} />
+        <Route path="/sales" element={<SalesDashboardScreen />} />
+        <Route path="/sales/leads" element={<ProspectsScreen />} />
+        <Route path="/sales/leads/new" element={<ProspectFormScreen key="new" />} />
+        <Route path="/sales/leads/:leadId" element={<Keyed param="leadId" Component={ProspectScreen} />} />
+        <Route path="/sales/leads/:leadId/edit" element={<Keyed param="leadId" Component={ProspectFormScreen} />} />
+        <Route path="/sales/leads/:leadId/turnover" element={<OpportunityFormScreen />} />
+        <Route path="/sales/calls" element={<CallListScreen />} />
+        <Route path="/sales/follow-ups" element={<FollowUpsScreen />} />
+        <Route path="/sales/pipeline" element={<PipelineScreen />} />
         <Route path="/bring" element={<BringOverviewScreen />} />
         <Route path="/more" element={<MeScreen />} />
         <Route path="/settings" element={<SettingsScreen />} />

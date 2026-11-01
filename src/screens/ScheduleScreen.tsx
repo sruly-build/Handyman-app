@@ -6,7 +6,7 @@ import { Screen } from '../components/Screen'
 import { TextClientSheet } from '../components/TextClient'
 import { Card, ErrorNote, Loading, Segmented } from '../components/ui'
 import { scheduleEvents, weekOf, type ScheduleEvent } from '../data/schedule'
-import { useSchedule } from '../data/queries'
+import { useProspects, useSchedule } from '../data/queries'
 import { addDays, clockLabel, todayISO } from '../lib/dates'
 import { directionsLink, phoneLink } from '../lib/links'
 
@@ -18,6 +18,10 @@ const shortDay = (iso: string) => {
   const [y, m, d] = iso.split('-').map(Number)
   return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
 }
+
+const kindLabel = { walkthrough: 'Walkthrough', job: 'Job', meeting: 'Sales meeting' }
+const kindColor = { walkthrough: 'bg-progress', job: 'bg-brand', meeting: 'bg-[#7c4dcc]' }
+const kindText = { walkthrough: 'text-[#8a4b00]', job: 'text-brand-dark', meeting: 'text-[#5b2bb5]' }
 
 /** Walkthroughs and jobs by day or week. Lives only in the app. */
 export function ScheduleScreen() {
@@ -32,15 +36,19 @@ export function ScheduleScreen() {
   const [open, setOpen] = useState<ScheduleEvent | null>(null)
 
   // Only our own leads and jobs (not jobs other companies shared with us)
-  const events = scheduleEvents((data ?? []).filter((j) => j.from_company === null))
+  // Sales meetings with leads show here too
+  const { data: leads = [] } = useProspects()
+  const meetings = leads
+    .filter((l) => l.follow_up?.kind === 'meeting' && !l.archived_at)
+    .map((l) => ({ meeting: l.follow_up!, lead: l }))
+  const events = scheduleEvents(
+    (data ?? []).filter((j) => j.from_company === null),
+    meetings,
+  )
   const week = weekOf(date)
   const step = view === 'day' ? 1 : 7
   const title =
-    view === 'day'
-      ? date === today
-        ? 'Today'
-        : longDay(date)
-      : `${shortDay(week[0])} – ${shortDay(week[6])}`
+    view === 'day' ? (date === today ? 'Today' : longDay(date)) : `${shortDay(week[0])} – ${shortDay(week[6])}`
 
   return (
     <Screen title="Schedule">
@@ -129,14 +137,11 @@ function EventCards({ events, onOpen }: { events: ScheduleEvent[]; onOpen: (e: S
           className={`flex w-full items-center gap-3 px-4 py-3 text-left active:bg-canvas ${i > 0 ? 'border-t border-hairline' : ''}`}
         >
           <span className="w-16 shrink-0 text-[14px] font-semibold">{e.time ? clockLabel(e.time) : 'All day'}</span>
-          <span
-            className={`h-10 w-1 shrink-0 rounded-full ${e.kind === 'walkthrough' ? 'bg-progress' : 'bg-brand'}`}
-            aria-hidden="true"
-          />
+          <span className={`h-10 w-1 shrink-0 rounded-full ${kindColor[e.kind]}`} aria-hidden="true" />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[17px] font-semibold">{e.job.customer_name}</span>
             <span className="block truncate text-[14px] text-muted">
-              {e.kind === 'walkthrough' ? 'Walkthrough' : 'Job'}
+              {kindLabel[e.kind]}
               {e.job.address ? ` · ${e.job.address}` : ''}
             </span>
           </span>
@@ -167,14 +172,18 @@ function EventSheet({ event, onClose }: { event: ScheduleEvent; onClose: () => v
       >
         <div className="flex items-start">
           <div className="min-w-0 flex-1">
-            <p className={`text-[13px] font-semibold uppercase tracking-wide ${event.kind === 'walkthrough' ? 'text-[#8a4b00]' : 'text-brand-dark'}`}>
-              {event.kind === 'walkthrough' ? 'Walkthrough' : 'Job'} · {shortDay(event.date)}
+            <p className={`text-[13px] font-semibold uppercase tracking-wide ${kindText[event.kind]}`}>
+              {kindLabel[event.kind]} · {shortDay(event.date)}
               {event.time ? ` · ${clockLabel(event.time)}` : ''}
             </p>
             <h2 className="text-[22px] font-bold">{job.customer_name}</h2>
             {job.address && <p className="text-[15px] text-muted">{job.address}</p>}
           </div>
-          <button onClick={onClose} className="flex h-11 w-11 items-center justify-center text-muted" aria-label="Close">
+          <button
+            onClick={onClose}
+            className="flex h-11 w-11 items-center justify-center text-muted"
+            aria-label="Close"
+          >
             <CloseIcon size={22} />
           </button>
         </div>
@@ -214,10 +223,10 @@ function EventSheet({ event, onClose }: { event: ScheduleEvent; onClose: () => v
           )}
         </div>
         <Link
-          to={`/jobs/${job.id}`}
+          to={event.link}
           className="mt-3 flex min-h-14 items-center justify-center rounded-2xl bg-brand text-[17px] font-semibold text-white active:bg-brand-dark"
         >
-          {event.kind === 'walkthrough' ? 'Open lead' : 'Open job'}
+          {event.kind === 'job' ? 'Open job' : event.kind === 'walkthrough' ? 'Open turnover' : 'Open lead'}
         </Link>
       </div>
     </div>,

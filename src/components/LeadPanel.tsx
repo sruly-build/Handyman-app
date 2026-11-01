@@ -65,7 +65,7 @@ export function LeadPanel({ lead }: { lead: Job }) {
         <p className="text-[15px] text-muted">
           This lead was marked as lost
           {lead.lead_closed_at ? ` on ${friendlyDate(todayISO(new Date(lead.lead_closed_at)))}` : ''}. It's kept under
-          Leads → Archived.
+          Turnovers → Archived.
         </p>
         {error && <ErrorNote error={error} />}
         <Button variant="secondary" className="mt-3" disabled={reopen.isPending} onClick={() => reopen.mutate()}>
@@ -196,7 +196,7 @@ export function LeadActions({ lead }: { lead: Job }) {
         variant="danger"
         disabled={lose.isPending}
         onClick={() =>
-          confirm('Mark this lead as lost? It moves to Leads → Archived, where you can reopen it.') && lose.mutate()
+          confirm('Mark this lead as lost? It moves to Turnovers → Archived, where you can reopen it.') && lose.mutate()
         }
       >
         Mark as lost

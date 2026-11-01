@@ -5,6 +5,8 @@ import { LeadStatusPill, walkthroughLabel } from '../components/LeadPanel'
 import { Screen } from '../components/Screen'
 import { Card, EmptyState, ErrorNote, GroupLabel, Loading, Segmented } from '../components/ui'
 import { useLeads } from '../data/queries'
+import { SalesNav } from '../components/Sales'
+import { friendlyDate } from '../lib/dates'
 import type { JobSummary, LeadStatus } from '../data/types'
 
 const openGroups: { status: LeadStatus; title: string }[] = [
@@ -26,17 +28,18 @@ export function LeadsScreen() {
 
   return (
     <Screen
-      title="Leads"
+      title="Turnovers"
       action={
         <Link
           to="/leads/new"
           className="flex h-11 w-11 items-center justify-center rounded-full bg-brand text-white active:bg-brand-dark"
-          aria-label="New lead"
+          aria-label="New turnover"
         >
           <PlusIcon size={24} strokeWidth={2.6} />
         </Link>
       }
     >
+      <SalesNav />
       <Segmented
         label="Show"
         value={show}
@@ -51,7 +54,7 @@ export function LeadsScreen() {
         {error && <ErrorNote error={error} />}
 
         {leads && show === 'open' && open.length === 0 && (
-          <EmptyState title="No open leads">
+          <EmptyState title="No open turnovers">
             When someone calls about work, tap + to save their name, phone, address and what they need.
           </EmptyState>
         )}
@@ -103,6 +106,9 @@ function LeadCard({ lead }: { lead: JobSummary }) {
           <LeadStatusPill status={lead.lead_status ?? 'new'} />
         </div>
         {lead.address && <p className="truncate text-[15px] text-muted">{lead.address}</p>}
+        {lead.move_out_date && (
+          <p className="text-[14px] text-muted">Tenant moves out {friendlyDate(lead.move_out_date)}</p>
+        )}
         {lead.notes && <p className="mt-0.5 line-clamp-2 text-[15px]">{lead.notes}</p>}
         {lead.walkthrough_at && lead.lead_status !== 'lost' && (
           <p className="mt-1.5 flex items-center gap-1.5 text-[14px] font-semibold text-[#8a4b00]">

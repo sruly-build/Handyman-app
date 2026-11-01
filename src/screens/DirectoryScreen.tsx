@@ -127,8 +127,12 @@ export function DirectoryScreen() {
                         ))}
                       </p>
                     )}
-                    {c.owner_id !== user.id && (
-                      <p className="mt-0.5 text-[13px] text-muted">From {ownerName(c)}'s directory</p>
+                    {c.company_id && c.company_id === user.companyId ? (
+                      <p className="mt-0.5 text-[13px] text-muted">Shared with your company</p>
+                    ) : (
+                      c.owner_id !== user.id && (
+                        <p className="mt-0.5 text-[13px] text-muted">From {ownerName(c)}'s directory</p>
+                      )
                     )}
                   </Link>
                   {c.phone && (
