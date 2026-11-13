@@ -12,6 +12,7 @@ import { geocode } from '../lib/addresses'
 import { t, quickPicks, weekdays, type Lang } from '../lib/i18n'
 import { shrinkPhoto } from '../lib/images'
 import { phoneLink } from '../lib/links'
+import { GuideSheet } from './GuideSheet'
 import { PublicShell, useLang } from './PublicShell'
 
 interface Photo {
@@ -88,6 +89,10 @@ function RequestForm({ slug, lang, page }: { slug: string; lang: Lang; page: Pag
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState<unknown>(null)
   const [done, setDone] = useState<SubmitResult | null>(null)
+  // "Try this first" guides (published by the owner)
+  const [guideKey, setGuideKey] = useState<string | null>(null)
+  const [fixedNote, setFixedNote] = useState(false)
+  const guideFor = (key: string) => page.guides.find((g) => g.issue_key === key && g.steps.length > 0)
 
   async function checkAddress(addr = address) {
     if (addr.trim().length < 5) {
@@ -131,6 +136,9 @@ function RequestForm({ slug, lang, page }: { slug: string; lang: Lang; page: Pag
   })
 
   function togglePick(key: string) {
+    setFixedNote(false)
+    // A guide opens first, so they can try the safe checks before sending
+    if (!picked.some((p) => p.key === key) && guideFor(key)) setGuideKey(key)
     setPicked((list) =>
       list.some((p) => p.key === key)
         ? list.filter((p) => p.key !== key)
@@ -294,6 +302,15 @@ function RequestForm({ slug, lang, page }: { slug: string; lang: Lang; page: Pag
                         <CloseIcon size={20} />
                       </button>
                     </div>
+                    {guideFor(p.key) && (
+                      p.tried.length ? (
+                        <p className="px-4 pt-1 text-[14px] text-brand-dark">{tr('triedNote')}</p>
+                      ) : (
+                        <button type="button" onClick={() => setGuideKey(p.key)} className="mx-4 mt-2 min-h-10 rounded-xl bg-canvas px-3 text-[15px] font-semibold text-brand">
+                          {tr('tryThisFirst')}
+                        </button>
+                      )
+                    )}
                     {p.key === 'other' && (
                       <TextArea
                         label={tr('describeOther')}
@@ -324,6 +341,7 @@ function RequestForm({ slug, lang, page }: { slug: string; lang: Lang; page: Pag
                 )
               })}
             </div>
+            {fixedNote && <p className="mt-3 rounded-2xl bg-brand-soft px-4 py-3 text-[15px] text-brand-dark">{tr('glad')}</p>}
             <Card className="mt-3">
               <TextArea label={tr('moreDetails')} rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
             </Card>
@@ -456,6 +474,24 @@ function RequestForm({ slug, lang, page }: { slug: string; lang: Lang; page: Pag
         </>
       )}
       {!check && Boolean(sendError) && <ErrorNote error={sendError} />}
+      {guideKey && guideFor(guideKey) && (
+        <GuideSheet
+          guide={guideFor(guideKey)!}
+          lang={lang}
+          phone={page.phone}
+          whatsapp={page.whatsapp}
+          onClose={() => setGuideKey(null)}
+          onFixed={() => {
+            setPicked((list) => list.filter((p) => p.key !== guideKey))
+            setFixedNote(true)
+            setGuideKey(null)
+          }}
+          onStill={(tried) => {
+            setPick(guideKey, (p) => ({ ...p, tried }))
+            setGuideKey(null)
+          }}
+        />
+      )}
       {!check && problem && <p className="px-1 text-[15px] text-[#8a4b00]">{problem}</p>}
     </div>
   )

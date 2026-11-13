@@ -2,6 +2,7 @@ import type { Auth, Db } from './db'
 import { addressKey, cleanSlug, defaultServiceSettings, splitList } from './requests'
 import type {
   AppUser,
+  Guide,
   HourCredit,
   Job,
   JobInput,
@@ -296,6 +297,21 @@ export function createRequestsApi(db: Db, me: () => Promise<AppUser>, base: Base
     },
     async deleteTenant(id: string) {
       await db.remove('tenants', { id })
+    },
+
+    // ---- Troubleshooting guides ----
+    async listGuides(): Promise<Guide[]> {
+      const user = await me()
+      return db.select<Guide>('guides', { company_id: user.companyId })
+    },
+    async saveGuide(g: Pick<Guide, 'issue_key' | 'title' | 'steps' | 'published'> & { id?: string }) {
+      const user = await me()
+      const row = { title: g.title, steps: g.steps, published: g.published, updated_at: now() }
+      if (g.id) return db.update<Guide>('guides', g.id, row)
+      return db.insert<Guide>('guides', { ...row, id: newId(), company_id: user.companyId, issue_key: g.issue_key })
+    },
+    async deleteGuide(id: string) {
+      await db.remove('guides', { id })
     },
 
     // ---- Emergency alerts (web push) ----

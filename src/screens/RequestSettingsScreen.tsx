@@ -2,9 +2,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import QRCode from 'qrcode'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { PrintIcon } from '../components/Icons'
+import { BookIcon, PrintIcon } from '../components/Icons'
 import { Screen } from '../components/Screen'
-import { Button, Card, Divider, ErrorNote, Field, GroupLabel, Loading, TextArea, Toggle } from '../components/ui'
+import { Button, Card, Divider, ErrorNote, Field, GroupLabel, Loading, RowLink, TextArea, Toggle } from '../components/ui'
 import { backend } from '../data/backend'
 import { refreshAll, useServiceSettings } from '../data/queries'
 import { cleanSlug, defaultSeasonal, defaultTurnoverChecklist } from '../data/requests'
@@ -119,6 +119,10 @@ export function RequestSettingsScreen() {
       ) : (
         <p className="px-1 text-[15px] text-muted">Pick a page address below and save to get your link.</p>
       )}
+
+      <Card className="mt-4">
+        <RowLink to="/request-page/guides" Icon={BookIcon} title="Troubleshooting guides" />
+      </Card>
 
       <form
         className="mt-6 space-y-6"

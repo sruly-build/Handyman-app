@@ -47,6 +47,7 @@ import { RequestsScreen } from './screens/RequestsScreen'
 import { RequestScreen } from './screens/RequestScreen'
 import { NewRequestScreen } from './screens/NewRequestScreen'
 import { HouseScreen, HousesScreen } from './screens/HousesScreen'
+import { GuideEditScreen, GuidesScreen } from './screens/GuidesScreen'
 
 export function App() {
   const { user, loading, recovering, finishRecovery } = useAuth()
@@ -107,6 +108,8 @@ export function App() {
         <Route path="/houses" element={<HousesScreen />} />
         <Route path="/houses/:houseId" element={<Keyed param="houseId" Component={HouseScreen} />} />
         <Route path="/request-page/poster" element={<RequestPosterScreen />} />
+        <Route path="/request-page/guides" element={<GuidesScreen />} />
+        <Route path="/request-page/guides/:issueKey" element={<Keyed param="issueKey" Component={GuideEditScreen} />} />
         <Route path="/team" element={<TeamScreen />} />
         <Route path="/approvals" element={<ApprovalsScreen />} />
         <Route path="/jobs/:jobId/share" element={<ShareJobScreen />} />

@@ -125,3 +125,4 @@ export const useRequestPhotos = (id: string) =>
   useQuery({ queryKey: ['photos', 'request', id], queryFn: () => backend.requestPhotos(id) })
 export const useHouses = () => useQuery({ queryKey: ['houses'], queryFn: () => backend.listHouses() })
 export const useHouse = (id: string) => useQuery({ queryKey: ['house', id], queryFn: () => backend.getHouse(id) })
+export const useGuides = () => useQuery({ queryKey: ['guides'], queryFn: () => backend.listGuides() })

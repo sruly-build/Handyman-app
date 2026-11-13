@@ -111,6 +111,11 @@ const words = {
   videoCall: { en: 'Video call', he: 'שיחת וידאו' },
   skipGuide: { en: 'Skip, just send the request', he: 'דלגו, רק לשלוח בקשה' },
   triedSteps: { en: 'Tried the guide', he: 'ניסו את המדריך' },
+  didntHelp: { en: "Didn't help", he: 'לא עזר' },
+  stepOf: { en: 'Step {n} of {total}', he: 'שלב {n} מתוך {total}' },
+  stillTitle: { en: 'Still not working?', he: 'עדיין לא עובד?' },
+  stillBody: { en: "No problem. Send the request and we'll know what you already tried.", he: 'אין בעיה. שלחו את הבקשה ונדע מה כבר ניסיתם.' },
+  triedNote: { en: 'You tried the guide. We will see what you tried.', he: 'ניסיתם את המדריך. נראה מה ניסיתם.' },
 } satisfies Record<string, Record<'en', string> & Partial<Record<Lang, string>>>
 
 export type WordKey = keyof typeof words
