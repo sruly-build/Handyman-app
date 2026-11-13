@@ -1,4 +1,4 @@
-import type { Db } from './db'
+import type { Auth, Db } from './db'
 import { addressKey, cleanSlug, defaultServiceSettings, splitList } from './requests'
 import type {
   AppUser,
@@ -47,7 +47,20 @@ export interface HouseView extends Property {
  * Request Inbox & Landlord Maintenance Plan: what the owner's screens can do.
  * (Merged into the main api in api.ts.)
  */
-export function createRequestsApi(db: Db, me: () => Promise<AppUser>, base: BaseApi) {
+export function createRequestsApi(db: Db, me: () => Promise<AppUser>, base: BaseApi, auth: Auth) {
+  /** Call the app's own server (Vercel functions) as the logged-in person */
+  async function server<T>(route: string, body: unknown = {}): Promise<T> {
+    if (db.mode === 'demo') throw new Error('This needs the real app (with Supabase and the server set up). It does not work in Demo mode.')
+    const res = await fetch(`/api/${route}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await auth.accessToken()}` },
+      body: JSON.stringify(body),
+    })
+    const data = (await res.json().catch(() => ({}))) as T & { error?: string }
+    if (!res.ok) throw new Error(data.error || `The server said no (${res.status}).`)
+    return data
+  }
+
   async function houseView(p: Property): Promise<HouseView> {
     const [units, tenants, plans, credits, landlords] = await Promise.all([
       db.select<Unit>('units', { property_id: p.id }),
@@ -284,6 +297,21 @@ export function createRequestsApi(db: Db, me: () => Promise<AppUser>, base: Base
     async deleteTenant(id: string) {
       await db.remove('tenants', { id })
     },
+
+    // ---- Emergency alerts (web push) ----
+    async savePushSubscription(sub: { endpoint: string; p256dh: string; auth: string }) {
+      const user = await me()
+      const existing = await db.select<{ id: string }>('push_subscriptions', { endpoint: sub.endpoint })
+      if (existing[0]) return
+      await db.insert('push_subscriptions', { id: newId(), user_id: user.id, company_id: user.companyId, ...sub, created_at: now() })
+    },
+    async removePushSubscription(endpoint: string) {
+      await db.remove('push_subscriptions', { endpoint })
+    },
+    async sendTestAlert() {
+      return server<{ sent: number }>('test-alert')
+    },
+    server,
   }
   return api
 }

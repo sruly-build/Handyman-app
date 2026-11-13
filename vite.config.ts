@@ -30,6 +30,10 @@ export default defineConfig({
         // Remove files from old versions so they can't be served again
         cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // The app's server answers these itself
+        navigateFallbackDenylist: [/^\/api\//],
+        // Emergency alerts (web push)
+        importScripts: ['push-sw.js'],
       },
     }),
   ],

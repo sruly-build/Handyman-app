@@ -151,6 +151,10 @@ export function createSupabase(url: string, anonKey: string): { db: Db; auth: Au
       const { error } = await sb.auth.updateUser({ password })
       if (error) throw new Error(friendly(error.message))
     },
+    async accessToken() {
+      const { data } = await sb.auth.getSession()
+      return data.session?.access_token ?? ''
+    },
     async signOut() {
       await sb.auth.signOut()
     },

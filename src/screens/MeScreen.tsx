@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { BookIcon, CheckIcon, GearIcon, InvoiceIcon, LinkIcon, PeopleIcon } from '../components/Icons'
+import { EmergencyAlerts } from '../components/EmergencyAlerts'
 import { Screen } from '../components/Screen'
 import { Button, Card, Divider, ErrorNote, Field, RowLink, SectionTitle } from '../components/ui'
 import { backend } from '../data/backend'
@@ -82,6 +83,9 @@ export function MeScreen() {
           {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : 'Save name'}
         </Button>
       </form>
+
+      <SectionTitle>Alerts</SectionTitle>
+      <EmergencyAlerts />
 
       <SectionTitle>{company?.name || 'Business'}</SectionTitle>
       <Card>

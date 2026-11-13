@@ -93,4 +93,6 @@ export interface Auth {
   sendPasswordReset(email: string): Promise<void>
   updatePassword(password: string): Promise<void>
   signOut(): Promise<void>
+  /** The login token, for calls to the app's own server (empty in Demo mode) */
+  accessToken(): Promise<string>
 }

@@ -192,6 +192,9 @@ export function createDemo(): { db: Db; auth: Auth } {
       throw new Error('Demo mode has no passwords: type any email and tap Log in.')
     },
     async updatePassword() {},
+    async accessToken() {
+      return ''
+    },
     async signOut() {
       localStorage.removeItem(USER_KEY)
       await auth.refresh()
