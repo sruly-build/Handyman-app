@@ -3,7 +3,7 @@ export type PhotoKind = 'before' | 'after' | 'sketch'
 export type PartStatus = 'needed' | 'ordered' | 'received'
 export type LabourMode = 'task' | 'visit'
 
-export type Role = 'owner' | 'member'
+export type Role = 'owner' | 'member' | 'landlord'
 
 export interface AppUser {
   id: string
@@ -448,6 +448,20 @@ export interface Property {
   address: string
   notes: string
   created_at: string
+  // House profile and plan (Request Inbox)
+  address_key?: string | null
+  lat?: number | null
+  lng?: number | null
+  landlord_id?: string | null
+  source?: 'owner' | 'request' | 'landlord'
+  water_shutoff?: string
+  breaker_panel?: string
+  paint_colors?: string
+  filter_type?: string
+  filter_size?: string
+  filter_months?: number | null
+  last_filter_at?: string | null
+  intake_done_at?: string | null
 }
 
 export interface Unit {
@@ -455,6 +469,7 @@ export interface Unit {
   company_id: string
   property_id: string
   label: string
+  notes?: string
   created_at: string
 }
 
@@ -475,4 +490,291 @@ export interface FollowUpInput {
   due_at: string
   note: string
   location?: string
+}
+
+// ---------------------------------------------------------------
+// Request Inbox & Landlord Maintenance Plan
+// ---------------------------------------------------------------
+export type Urgency = 'emergency' | 'soon' | 'whenever'
+export type RequestStatus = 'new' | 'scheduled' | 'done' | 'closed'
+export type RequestSource = 'web' | 'text' | 'owner' | 'landlord'
+
+export interface PlanTier {
+  id: string
+  name: string
+  price: number | null
+  hours: number
+  every_months: number
+  cap: number
+  expire_months: number
+  active: boolean
+  services: string[]
+}
+
+export interface ServiceSettings {
+  company_id: string
+  public_slug: string | null
+  emergency_fee: number
+  filter_months: number
+  repeat_threshold: number
+  nearby_miles: number
+  parts_auto_approve: number
+  review_url: string
+  whatsapp: string
+  emergency_phone: string
+  plan_tiers: PlanTier[]
+  addons: { name: string; price: number | null }[]
+  turnover_checklist: string[]
+  seasonal_checklists: { winter: string[]; spring: string[] }
+  updated_at: string
+}
+
+export interface Landlord {
+  id: string
+  company_id: string
+  user_id: string | null
+  client_id: string | null
+  name: string
+  email: string
+  phone: string
+  auto_approve_limit: number | null
+  notify_new_request: boolean
+  notify_done: boolean
+  stripe_customer_id: string | null
+  referral_code: string
+  referred_by: string | null
+  referral_rewarded_at: string | null
+  created_at: string
+}
+
+export interface Tenant {
+  id: string
+  company_id: string
+  property_id: string
+  unit_id: string | null
+  name: string
+  phone: string
+  phone_key?: string
+  email: string
+  active: boolean
+  created_at: string
+}
+
+export interface PropertyClaim {
+  id: string
+  company_id: string
+  landlord_id: string
+  property_id: string
+  status: 'pending' | 'approved' | 'declined'
+  decided_at: string | null
+  created_at: string
+}
+
+export interface Membership {
+  id: string
+  company_id: string
+  property_id: string
+  landlord_id: string | null
+  tier: string
+  price: number
+  hours_each: number
+  every_months: number
+  hour_cap: number
+  expire_months: number
+  status: 'pending' | 'active' | 'past_due' | 'cancelled'
+  stripe_subscription_id: string | null
+  started_at: string | null
+  next_hour_at: string | null
+  current_period_end: string | null
+  cancelled_at: string | null
+  created_at: string
+}
+
+export interface HourCredit {
+  id: string
+  company_id: string
+  membership_id: string | null
+  property_id: string
+  kind: 'plan' | 'referral' | 'manual'
+  added_at: string
+  expires_at: string
+  used_at: string | null
+  job_id: string | null
+  request_id: string | null
+  note: string
+}
+
+export interface RequestIssue {
+  /** A quick pick (e.g. "unclog") or "other" for a custom issue */
+  key: string
+  label: string
+  /** The custom issue, in their words */
+  text: string
+  /** What they already tried in the troubleshooting guide */
+  tried: string[]
+}
+
+export interface ServiceRequest {
+  id: string
+  company_id: string
+  property_id: string | null
+  unit_id: string | null
+  address: string
+  unit_label: string
+  lat: number | null
+  lng: number | null
+  source: RequestSource
+  is_member: boolean
+  requester_name: string
+  requester_phone: string
+  requester_email: string
+  requester_kind: 'tenant' | 'landlord' | 'other'
+  tenant_id: string | null
+  verified: boolean
+  issues: RequestIssue[]
+  description: string
+  original_text: string
+  language: string
+  urgency: Urgency
+  tenant_urgency: Urgency
+  best_days: string[]
+  best_hours: string
+  punch_list: string
+  status: RequestStatus
+  scheduled_at: string | null
+  done_at: string | null
+  job_id: string | null
+  needs_approval: boolean
+  photo_needed: boolean
+  address_needed: boolean
+  over_hour: boolean
+  status_token: string
+  notified_at: string | null
+  feedback: 'up' | 'down' | null
+  feedback_note: string
+  feedback_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface RequestPhoto {
+  id: string
+  company_id: string
+  request_id: string
+  path: string
+  kind: 'issue' | 'sticker' | 'list'
+  issue_index: number | null
+  created_at: string
+}
+
+export interface Approval {
+  id: string
+  company_id: string
+  request_id: string | null
+  job_id: string | null
+  property_id: string | null
+  landlord_id: string | null
+  kind: 'repair' | 'parts'
+  title: string
+  details: string
+  estimate_hours: number | null
+  estimate_amount: number | null
+  parts: { name: string; qty: number; price: number }[]
+  token: string
+  status: 'pending' | 'approved' | 'declined' | 'cancelled'
+  auto: boolean
+  decided_at: string | null
+  decision_note: string
+  charge_status: 'none' | 'pending' | 'charged' | 'failed'
+  stripe_payment_intent: string | null
+  charged_at: string | null
+  expires_at: string
+  created_by: string | null
+  created_at: string
+}
+
+export type Condition = 'good' | 'fair' | 'worn'
+
+export interface PropertyItem {
+  id: string
+  company_id: string
+  property_id: string
+  unit_id: string | null
+  room: string
+  kind: 'appliance' | 'fixture' | 'filter' | 'system' | 'other'
+  name: string
+  brand: string
+  model: string
+  serial: string
+  notes: string
+  condition: Condition | null
+  replace_soon: boolean
+  worn_note: string
+  created_at: string
+  updated_at: string
+}
+
+export interface InspectionResult {
+  room: string
+  label: string
+  rating: Condition | null
+  note: string
+  item_id: string | null
+}
+
+export interface Inspection {
+  id: string
+  company_id: string
+  property_id: string
+  unit_id: string | null
+  kind: 'intake' | 'inspection' | 'winter' | 'spring'
+  results: InspectionResult[]
+  summary: string
+  done_at: string | null
+  shared: boolean
+  by_user: string | null
+  created_at: string
+}
+
+export interface PropertyPhoto {
+  id: string
+  company_id: string
+  property_id: string
+  item_id: string | null
+  inspection_id: string | null
+  room: string
+  path: string
+  kind: 'room' | 'sticker' | 'worn' | 'inspection'
+  created_at: string
+}
+
+export type Localized = { en: string; he?: string }
+
+export interface GuideStep {
+  /** A safe check to try, e.g. "Is the breaker for the stove on?" */
+  q: Localized
+  /** Optional extra help shown under the question */
+  tip?: Localized
+}
+
+export interface Guide {
+  id: string
+  company_id: string
+  issue_key: string
+  title: Localized
+  steps: GuideStep[]
+  published: boolean
+  updated_at: string
+}
+
+export interface InboundMessage {
+  id: string
+  company_id: string
+  from_phone: string
+  body: string
+  photo_count: number
+  verdict: 'new' | 'request' | 'ignored' | 'error'
+  reason: string
+  request_id: string | null
+  received_at: string
 }

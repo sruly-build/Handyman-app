@@ -1,8 +1,8 @@
 import { createClient, type User } from '@supabase/supabase-js'
-import type { Auth, Db } from './db'
+import type { Auth, Bucket, Db } from './db'
 import type { AppUser, Role } from './types'
 
-const BUCKET = 'photos'
+const BUCKET: Bucket = 'photos'
 
 /** Turn Supabase's English error messages into plainer ones */
 function friendly(message: string): string {
@@ -36,7 +36,7 @@ export function createSupabase(url: string, anonKey: string): { db: Db; auth: Au
       id: user.id,
       email,
       name: data?.full_name || email.split('@')[0],
-      companyId: data?.company_id ?? user.id,
+      companyId: data?.role === 'landlord' ? '' : (data?.company_id ?? user.id),
       role: (data?.role as Role) ?? 'owner',
       isAdmin: Boolean(admin),
     }
@@ -74,17 +74,17 @@ export function createSupabase(url: string, anonKey: string): { db: Db; auth: Au
       return data as T
     },
 
-    async upload(path, file) {
-      check(await sb.storage.from(BUCKET).upload(path, file, { contentType: file.type || 'image/jpeg' }))
+    async upload(path, file, bucket = BUCKET) {
+      check(await sb.storage.from(bucket).upload(path, file, { contentType: file.type || 'image/jpeg' }))
     },
-    async fileUrls(paths) {
+    async fileUrls(paths, bucket = BUCKET) {
       if (paths.length === 0) return []
       // Links stay valid for 6 hours; screens fetch fresh ones each time they open
-      const signed = check(await sb.storage.from(BUCKET).createSignedUrls(paths, 60 * 60 * 6))
+      const signed = check(await sb.storage.from(bucket).createSignedUrls(paths, 60 * 60 * 6))
       return paths.map((_, i) => signed[i]?.signedUrl ?? '')
     },
-    async removeFiles(paths) {
-      if (paths.length) await sb.storage.from(BUCKET).remove(paths)
+    async removeFiles(paths, bucket = BUCKET) {
+      if (paths.length) await sb.storage.from(bucket).remove(paths)
     },
   }
 

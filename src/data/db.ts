@@ -7,6 +7,21 @@ export type Table =
   | 'follow_ups'
   | 'properties'
   | 'units'
+  | 'service_settings'
+  | 'landlords'
+  | 'tenants'
+  | 'property_claims'
+  | 'memberships'
+  | 'hour_credits'
+  | 'service_requests'
+  | 'request_photos'
+  | 'approvals'
+  | 'property_items'
+  | 'inspections'
+  | 'property_photos'
+  | 'guides'
+  | 'push_subscriptions'
+  | 'inbound_messages'
   | 'item_assignments'
   | 'contacts'
   | 'directory_shares'
@@ -25,6 +40,8 @@ export type Table =
   | 'job_charges'
   | 'price_list'
   | 'payments'
+
+export type Bucket = 'photos' | 'requests' | 'house'
 
 export type Where = Record<string, string | number | boolean>
 
@@ -48,9 +65,10 @@ export interface Db {
   /** Run one of the database's own functions (e.g. share_job) */
   rpc<T>(fn: string, args: Record<string, unknown>): Promise<T>
 
-  upload(path: string, file: Blob): Promise<void>
-  fileUrls(paths: string[]): Promise<string[]>
-  removeFiles(paths: string[]): Promise<void>
+  /** Files go in the 'photos' bucket unless another is named ('requests', 'house') */
+  upload(path: string, file: Blob, bucket?: Bucket): Promise<void>
+  fileUrls(paths: string[], bucket?: Bucket): Promise<string[]>
+  removeFiles(paths: string[], bucket?: Bucket): Promise<void>
 }
 
 export interface SignUpInput {
