@@ -158,3 +158,34 @@ export function issueSummary(r: Pick<ServiceRequest, 'issues' | 'punch_list'>): 
   if (parts.length) return parts.join(', ')
   return r.punch_list ? r.punch_list.split('\n')[0] : 'Repair request'
 }
+
+/** Ready-to-send texts for the owner (sent from their own phone) */
+export function readyReply(
+  kind: 'photo' | 'address' | 'scheduled' | 'received',
+  r: Pick<ServiceRequest, 'requester_name' | 'scheduled_at' | 'status_token'>,
+  business: string,
+  origin = typeof window === 'undefined' ? '' : window.location.origin,
+): string {
+  const first = r.requester_name.trim().split(/\s+/)[0]
+  const hi = first ? `Hi ${first}, ` : 'Hi, '
+  const from = business ? ` – ${business}` : ''
+  const status = r.status_token ? `\nStatus: ${origin}/s/${r.status_token}` : ''
+  if (kind === 'photo') return `${hi}thanks for your repair request. Could you send a photo of the problem? It helps us bring the right parts.${from}`
+  if (kind === 'address') return `${hi}thanks for your repair request. What's the address (and apartment, if any)?${from}`
+  if (kind === 'scheduled' && r.scheduled_at) {
+    const when = new Date(r.scheduled_at)
+    const day = when.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+    const time = when.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    return `${hi}we're scheduled to come ${day} at ${time} for your repair request.${status}${from}`
+  }
+  return `${hi}we got your repair request and will be in touch to set a time.${status}${from}`
+}
+
+/** A pasted list ("1. Paint hall\n- Fix sink") as separate items */
+export function splitList(text: string): string[] {
+  return text
+    .split(/\n|;/)
+    .map((l) => l.replace(/^\s*(?:[-*•▪◦]|\d+[.)]|\[[ x]?\])\s*/i, '').trim())
+    .filter((l) => l.length > 1)
+    .slice(0, 60)
+}

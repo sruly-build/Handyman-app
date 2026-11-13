@@ -120,3 +120,8 @@ export function useNow(ms = 1000): number {
 // Request Inbox & Landlord Maintenance Plan
 export const useServiceSettings = () =>
   useQuery({ queryKey: ['serviceSettings'], queryFn: () => backend.getServiceSettings() })
+export const useRequests = () => useQuery({ queryKey: ['requests'], queryFn: () => backend.listRequests() })
+export const useRequestPhotos = (id: string) =>
+  useQuery({ queryKey: ['photos', 'request', id], queryFn: () => backend.requestPhotos(id) })
+export const useHouses = () => useQuery({ queryKey: ['houses'], queryFn: () => backend.listHouses() })
+export const useHouse = (id: string) => useQuery({ queryKey: ['house', id], queryFn: () => backend.getHouse(id) })

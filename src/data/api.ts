@@ -1091,7 +1091,7 @@ export function createApi(db: Db, auth: Auth) {
       await db.remove('invoices', { id })
     },
   }
-  return { ...api, ...createRequestsApi(db, me) }
+  return { ...api, ...createRequestsApi(db, me, api as never) }
 }
 
 export type Api = ReturnType<typeof createApi>

@@ -43,6 +43,10 @@ import { DirectorySharingScreen } from './screens/DirectorySharingScreen'
 import { TimeEntryFormScreen } from './screens/TimeEntryFormScreen'
 import { PriceListScreen } from './screens/PriceListScreen'
 import { RequestPosterScreen, RequestSettingsScreen } from './screens/RequestSettingsScreen'
+import { RequestsScreen } from './screens/RequestsScreen'
+import { RequestScreen } from './screens/RequestScreen'
+import { NewRequestScreen } from './screens/NewRequestScreen'
+import { HouseScreen, HousesScreen } from './screens/HousesScreen'
 
 export function App() {
   const { user, loading, recovering, finishRecovery } = useAuth()
@@ -97,6 +101,11 @@ export function App() {
         <Route path="/directory/:contactId" element={<Keyed param="contactId" Component={ContactFormScreen} />} />
         <Route path="/business" element={<BusinessProfileScreen />} />
         <Route path="/request-page" element={<RequestSettingsScreen />} />
+        <Route path="/requests" element={<RequestsScreen />} />
+        <Route path="/requests/new" element={<NewRequestScreen />} />
+        <Route path="/requests/:requestId" element={<Keyed param="requestId" Component={RequestScreen} />} />
+        <Route path="/houses" element={<HousesScreen />} />
+        <Route path="/houses/:houseId" element={<Keyed param="houseId" Component={HouseScreen} />} />
         <Route path="/request-page/poster" element={<RequestPosterScreen />} />
         <Route path="/team" element={<TeamScreen />} />
         <Route path="/approvals" element={<ApprovalsScreen />} />

@@ -239,8 +239,7 @@ export const LinkIcon = (p: IconProps) => (
 )
 export const InboxIcon = (p: IconProps) => (
   <Icon {...p}>
-    <path d="M3 13l2.5-8h13L21 13v6H3z" />
-    <path d="M3 13h5l1.5 2.5h5L16 13h5" />
+    <path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3.6 17.2a1.9 1.9 0 0 0 2.7 2.7l5.7-5.7a4 4 0 0 0 5.2-5.4l-2.5 2.5-2.4-.6-.6-2.4 3-2Z" />
   </Icon>
 )
 export const HouseIcon = (p: IconProps) => (

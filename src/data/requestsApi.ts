@@ -1,15 +1,74 @@
 import type { Db } from './db'
-import { cleanSlug, defaultServiceSettings } from './requests'
-import type { AppUser, ServiceSettings } from './types'
+import { addressKey, cleanSlug, defaultServiceSettings, splitList } from './requests'
+import type {
+  AppUser,
+  HourCredit,
+  Job,
+  JobInput,
+  Landlord,
+  Membership,
+  PhotoKind,
+  Property,
+  PunchItem,
+  RequestPhoto,
+  ServiceRequest,
+  ServiceSettings,
+  Tenant,
+  Unit,
+} from './types'
 
 const now = () => new Date().toISOString()
+const newId = () => crypto.randomUUID()
+
+/** What the request inbox needs from the main api (jobs, items, photos) */
+export interface BaseApi {
+  createJob(input: JobInput): Promise<Job>
+  createLead(input: { customer_name: string; customer_phone: string; address: string; notes: string; client_id?: string | null }): Promise<Job>
+  updateJob(id: string, patch: Partial<JobInput>): Promise<Job>
+  createItem(jobId: string, title: string, location: string): Promise<PunchItem>
+  updateItem(id: string, patch: Partial<PunchItem>): Promise<PunchItem>
+  addPhoto(itemId: string, kind: PhotoKind, image: Blob): Promise<unknown>
+}
+
+export interface RequestPhotoView extends RequestPhoto {
+  url: string
+}
+
+export interface HouseView extends Property {
+  units: Unit[]
+  tenants: Tenant[]
+  landlord: Landlord | null
+  plan: Membership | null
+  hours_left: number
+  next_expiry: string | null
+}
 
 /**
  * Request Inbox & Landlord Maintenance Plan: what the owner's screens can do.
  * (Merged into the main api in api.ts.)
  */
-export function createRequestsApi(db: Db, me: () => Promise<AppUser>) {
-  return {
+export function createRequestsApi(db: Db, me: () => Promise<AppUser>, base: BaseApi) {
+  async function houseView(p: Property): Promise<HouseView> {
+    const [units, tenants, plans, credits, landlords] = await Promise.all([
+      db.select<Unit>('units', { property_id: p.id }),
+      db.select<Tenant>('tenants', { property_id: p.id }),
+      db.select<Membership>('memberships', { property_id: p.id }),
+      db.select<HourCredit>('hour_credits', { property_id: p.id }),
+      p.landlord_id ? db.select<Landlord>('landlords', { id: p.landlord_id }) : Promise.resolve([]),
+    ])
+    const live = credits.filter((c) => !c.used_at && Date.parse(c.expires_at) > Date.now())
+    return {
+      ...p,
+      units: units.sort((a, b) => a.label.localeCompare(b.label)),
+      tenants: tenants.sort((a, b) => a.name.localeCompare(b.name)),
+      landlord: landlords[0] ?? null,
+      plan: plans.find((m) => m.status !== 'cancelled') ?? null,
+      hours_left: live.length,
+      next_expiry: live.map((c) => c.expires_at).sort()[0] ?? null,
+    }
+  }
+
+  const api = {
     /** The request page and plan settings (made with defaults the first time) */
     async getServiceSettings(): Promise<ServiceSettings> {
       const user = await me()
@@ -40,7 +99,193 @@ export function createRequestsApi(db: Db, me: () => Promise<AppUser>) {
         throw e
       }
     },
+
+    // ---- Requests inbox ----
+    async listRequests(): Promise<ServiceRequest[]> {
+      const user = await me()
+      const rows = await db.select<ServiceRequest>('service_requests', { company_id: user.companyId })
+      return rows.sort((a, b) => b.created_at.localeCompare(a.created_at))
+    },
+    async getRequest(id: string): Promise<ServiceRequest> {
+      const [r] = await db.select<ServiceRequest>('service_requests', { id })
+      if (!r) throw new Error('This request was not found. It may have been deleted.')
+      return r
+    },
+    async requestPhotos(requestId: string): Promise<RequestPhotoView[]> {
+      const rows = (await db.select<RequestPhoto>('request_photos', { request_id: requestId })).sort((a, b) =>
+        a.created_at.localeCompare(b.created_at),
+      )
+      const urls = await db.fileUrls(rows.map((r) => r.path), 'requests')
+      return rows.map((r, i) => ({ ...r, url: urls[i] }))
+    },
+    async updateRequest(id: string, patch: Partial<ServiceRequest>) {
+      return db.update<ServiceRequest>('service_requests', id, { ...patch, updated_at: now() })
+    },
+    /** Set (or clear) the visit time. The job, if there is one, moves with it. */
+    async scheduleRequest(r: ServiceRequest, at: string | null) {
+      const saved = await api.updateRequest(r.id, {
+        scheduled_at: at,
+        status: at ? 'scheduled' : r.status === 'scheduled' ? 'new' : r.status,
+      })
+      if (r.job_id && at) {
+        const d = new Date(at)
+        const pad = (n: number) => String(n).padStart(2, '0')
+        await base.updateJob(r.job_id, {
+          job_date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+          job_time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+        } as Partial<JobInput>)
+      }
+      return saved
+    },
+    async setRequestDone(r: ServiceRequest, done: boolean) {
+      return api.updateRequest(r.id, { status: done ? 'done' : r.scheduled_at ? 'scheduled' : 'new', done_at: done ? now() : null })
+    },
+    async closeRequest(r: ServiceRequest, closed: boolean) {
+      return api.updateRequest(r.id, { status: closed ? 'closed' : 'new' })
+    },
+    async deleteRequest(r: ServiceRequest) {
+      const photos = await db.select<RequestPhoto>('request_photos', { request_id: r.id })
+      await db.removeFiles(photos.map((p) => p.path), 'requests')
+      await db.remove('request_photos', { request_id: r.id })
+      await db.remove('service_requests', { id: r.id })
+    },
+    /** A request we typed in ourselves (e.g. from a phone call) */
+    async addRequest(input: Pick<ServiceRequest, 'address' | 'unit_label' | 'requester_name' | 'requester_phone' | 'description' | 'urgency'> & { issues: ServiceRequest['issues'] }) {
+      const user = await me()
+      const house = await api.findOrAddHouse(input.address)
+      const plans = house ? await db.select<Membership>('memberships', { property_id: house.id }) : []
+      const id = newId()
+      return db.insert<ServiceRequest>('service_requests', {
+        id, company_id: user.companyId, property_id: house?.id ?? null, unit_id: null, address: input.address.trim(),
+        unit_label: input.unit_label.trim(), lat: house?.lat ?? null, lng: house?.lng ?? null, source: 'owner',
+        is_member: plans.some((m) => m.status === 'active' || m.status === 'past_due'), requester_name: input.requester_name.trim(),
+        requester_phone: input.requester_phone.trim(), requester_email: '', requester_kind: 'other', tenant_id: null, verified: true,
+        issues: input.issues, description: input.description.trim(), original_text: '', language: 'en', urgency: input.urgency,
+        tenant_urgency: input.urgency, best_days: [], best_hours: '', punch_list: '', status: 'new', scheduled_at: null, done_at: null,
+        job_id: null, needs_approval: false, photo_needed: false, address_needed: !input.address.trim(), over_hour: false,
+        status_token: (newId() + newId()).replace(/-/g, ''), notified_at: null, feedback: null, feedback_note: '', feedback_at: null,
+        created_at: now(), updated_at: now(),
+      })
+    },
+
+    /**
+     * Turn a request into a job (plan members) or a lead (everyone else, so it
+     * goes through the lead-to-job flow). Address, issues (as punch list items)
+     * and photos come along.
+     */
+    async convertRequest(r: ServiceRequest): Promise<Job> {
+      if (r.job_id) throw new Error('This request already has a job.')
+      const house = r.property_id ? (await db.select<Property>('properties', { id: r.property_id }))[0] : undefined
+      const landlord = house?.landlord_id ? (await db.select<Landlord>('landlords', { id: house.landlord_id }))[0] : undefined
+      // Plan houses are billed to the landlord; others to whoever asked
+      const customer = r.is_member && landlord
+        ? { name: landlord.name || landlord.email, phone: landlord.phone, client_id: landlord.client_id }
+        : { name: r.requester_name || 'Repair request', phone: r.requester_phone, client_id: null }
+      const address = r.unit_label ? `${r.address}, ${r.unit_label}` : r.address
+      const notes = [
+        `From a repair request (${r.source === 'text' ? 'text' : r.source === 'owner' ? 'typed in' : 'request page'}) by ${r.requester_name || 'unknown'}${r.requester_phone ? `, ${r.requester_phone}` : ''}.`,
+        r.description,
+        r.original_text && r.original_text !== r.description ? `Original: ${r.original_text}` : '',
+        r.best_days.length || r.best_hours ? `Best: ${[r.best_days.join(', '), r.best_hours].filter(Boolean).join(' · ')}` : '',
+      ].filter(Boolean).join('\n')
+      let job: Job
+      if (r.is_member) {
+        const d = r.scheduled_at ? new Date(r.scheduled_at) : null
+        const pad = (n: number) => String(n).padStart(2, '0')
+        job = await base.createJob({
+          customer_name: customer.name, customer_phone: customer.phone, customer_email: '', address, notes,
+          job_date: d ? `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` : null,
+          job_time: d ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : null,
+          bring_extras: [], client_id: customer.client_id,
+        } as JobInput)
+      } else {
+        job = await base.createLead({ customer_name: customer.name, customer_phone: customer.phone, address, notes })
+      }
+      job = await base.updateJob(job.id, { property_id: r.property_id, unit_id: r.unit_id } as Partial<JobInput>)
+
+      // Issues → punch list items, with their photos
+      const photos = await api.requestPhotos(r.id)
+      const items: PunchItem[] = []
+      for (const [i, issue] of r.issues.entries()) {
+        const title = issue.key === 'other' ? issue.text || 'Other repair' : issue.label || issue.text
+        const item = await base.createItem(job.id, title, r.unit_label)
+        const extra = [issue.key !== 'other' && issue.text ? issue.text : '', issue.tried.length ? `Tenant already tried: ${issue.tried.join('; ')}` : '']
+          .filter(Boolean).join('\n')
+        if (extra) await base.updateItem(item.id, { notes: extra })
+        items.push(item)
+        for (const ph of photos.filter((p) => p.issue_index === i && p.kind !== 'list')) {
+          try {
+            const blob = await (await fetch(ph.url)).blob()
+            await base.addPhoto(item.id, 'before', blob)
+          } catch {
+            // a photo that can't be copied stays on the request
+          }
+        }
+      }
+      // A pasted list (non-members) becomes items too
+      for (const line of splitList(r.punch_list)) items.push(await base.createItem(job.id, line, ''))
+      if (items.length === 0) await base.createItem(job.id, r.description.split('\n')[0] || 'Repair', r.unit_label)
+      await api.updateRequest(r.id, { job_id: job.id })
+      return job
+    },
+
+    // ---- Houses ----
+    async listHouses(): Promise<HouseView[]> {
+      const user = await me()
+      const houses = await db.select<Property>('properties', { company_id: user.companyId })
+      return Promise.all(houses.sort((a, b) => a.address.localeCompare(b.address)).map(houseView))
+    },
+    async getHouse(id: string): Promise<HouseView> {
+      const [p] = await db.select<Property>('properties', { id })
+      if (!p) throw new Error('This house was not found.')
+      return houseView(p)
+    },
+    /** The company's house at this address, or a new one */
+    async findOrAddHouse(address: string): Promise<Property | null> {
+      if (!address.trim()) return null
+      const user = await me()
+      const key = addressKey(address)
+      const houses = await db.select<Property>('properties', { company_id: user.companyId })
+      const found = houses.find((h) => (h.address_key ?? addressKey(h.address)) === key)
+      if (found) return found
+      return db.insert<Property>('properties', {
+        id: newId(), company_id: user.companyId, org_id: null, prospect_id: null, client_id: null, address: address.trim(),
+        address_key: key, notes: '', source: 'owner', created_at: now(),
+      })
+    },
+    async updateHouse(id: string, patch: Partial<Property>) {
+      const clean = { ...patch }
+      if (clean.address !== undefined && db.mode === 'demo') clean.address_key = addressKey(clean.address)
+      return db.update<Property>('properties', id, clean)
+    },
+    async addUnit(propertyId: string, label: string) {
+      const user = await me()
+      return db.insert<Unit>('units', { id: newId(), company_id: user.companyId, property_id: propertyId, label: label.trim(), created_at: now() })
+    },
+    async renameUnit(id: string, label: string) {
+      return db.update<Unit>('units', id, { label: label.trim() })
+    },
+    async deleteUnit(id: string) {
+      await db.remove('units', { id })
+    },
+    async saveTenant(t: Partial<Tenant> & { property_id: string }) {
+      const user = await me()
+      const row = {
+        name: (t.name ?? '').trim(), phone: (t.phone ?? '').trim(), email: (t.email ?? '').trim(),
+        unit_id: t.unit_id ?? null, active: t.active ?? true,
+      }
+      if (t.id) return db.update<Tenant>('tenants', t.id, row)
+      return db.insert<Tenant>('tenants', {
+        ...row, id: newId(), company_id: user.companyId, property_id: t.property_id, created_at: now(),
+        // Demo mode has no database to work this out
+        ...(db.mode === 'demo' ? { phone_key: row.phone.replace(/\D/g, '').slice(-10) } : {}),
+      } as Tenant)
+    },
+    async deleteTenant(id: string) {
+      await db.remove('tenants', { id })
+    },
   }
+  return api
 }
 
 export type RequestsApi = ReturnType<typeof createRequestsApi>
