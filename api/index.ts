@@ -1,5 +1,6 @@
 import { cron } from './_lib/cron.js'
-import { approvalPhotos, requestReceived, testAlert } from './_lib/requests.js'
+import { inboundEmail } from './_lib/inbound.js'
+import { approvalPhotos, readListRoute, readStickerRoute, requestReceived, testAlert } from './_lib/requests.js'
 import { approvalDecided, billingPortal, chargeParts, planCheckout, stripeWebhook } from './_lib/stripe.js'
 import { HttpError, query, send, type Req, type Res } from './_lib/server.js'
 
@@ -19,6 +20,9 @@ const routes: Record<string, { method: 'GET' | 'POST'; handler: Handler }> = {
   'charge-parts': { method: 'POST', handler: chargeParts },
   'approval-decided': { method: 'POST', handler: approvalDecided },
   cron: { method: 'GET', handler: cron },
+  'inbound-email': { method: 'POST', handler: inboundEmail },
+  'read-sticker': { method: 'POST', handler: readStickerRoute },
+  'read-list': { method: 'POST', handler: readListRoute },
 }
 
 export default async function handler(req: Req, res: Res) {

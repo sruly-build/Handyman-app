@@ -147,3 +147,4 @@ export const useLandlordSummary = (landlordId: string | undefined) =>
 export const useHouseHistory = (houseId: string) =>
   useQuery({ queryKey: ['houseHistory', houseId], queryFn: () => backend.houseHistory(houseId) })
 export const useReminders = () => useQuery({ queryKey: ['reminders'], queryFn: () => backend.listReminders() })
+export const useTexts = () => useQuery({ queryKey: ['texts'], queryFn: () => backend.listTexts() })

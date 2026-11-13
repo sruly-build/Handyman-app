@@ -1,3 +1,4 @@
+import { aiReady, readList, readSticker, toEnglish } from './ai.js'
 import { alertCompany } from './push.js'
 import { admin, caller, HttpError, jsonBody, origin, query, send, type Req, type Res } from './server.js'
 
@@ -17,6 +18,8 @@ export async function requestReceived(req: Req, res: Res) {
     .eq('status_token', token)
     .maybeSingle()
   if (!r) throw new HttpError(404, 'Not found.')
+  // Requests written in Hebrew (or another language) get an English version
+  await translateRequest(r.id).catch((e) => console.error('translate failed', e))
   if (r.urgency !== 'emergency' || r.notified_at) return send(res, 200, { alerted: 0 })
   // Mark first, so two calls can't both alert
   const { data: claimed } = await db
@@ -63,4 +66,54 @@ export async function approvalPhotos(req: Req, res: Res) {
   if (!paths.length) return send(res, 200, { urls: [] })
   const { data: signed } = await db.storage.from('requests').createSignedUrls(paths, 60 * 60)
   send(res, 200, { urls: (signed ?? []).map((s) => s.signedUrl).filter(Boolean) })
+}
+
+/** POST /api/read-sticker {image, mediaType} — AI reads an appliance sticker (company only) */
+export async function readStickerRoute(req: Req, res: Res) {
+  const me = await caller(req)
+  if (!me.companyId) throw new HttpError(403, 'Not allowed.')
+  const { image, mediaType } = await jsonBody<{ image?: string; mediaType?: string }>(req)
+  if (!image || image.length > 7_000_000) throw new HttpError(400, 'Send one photo (under 5 MB).')
+  const out = await readSticker(image, mediaType || 'image/jpeg')
+  if (!out) throw new HttpError(422, "Couldn't read that sticker. Try a sharper, closer photo.")
+  send(res, 200, out)
+}
+
+/** POST /api/read-list {requestId} — AI turns a pasted list or screenshot into punch list items */
+export async function readListRoute(req: Req, res: Res) {
+  const me = await caller(req)
+  const { requestId } = await jsonBody<{ requestId?: string }>(req)
+  const db = admin()
+  const { data: r } = await db.from('service_requests').select('id, company_id, punch_list').eq('id', requestId ?? '').maybeSingle()
+  if (!r || r.company_id !== me.companyId) throw new HttpError(403, 'Not allowed.')
+  const { data: photos } = await db.from('request_photos').select('path').eq('request_id', r.id).eq('kind', 'list')
+  const images: { data: string; mediaType: string }[] = []
+  for (const p of (photos ?? []).slice(0, 4)) {
+    const { data } = await db.storage.from('requests').download(p.path)
+    if (data) images.push({ data: Buffer.from(await data.arrayBuffer()).toString('base64'), mediaType: data.type || 'image/jpeg' })
+  }
+  if (!r.punch_list && !images.length) return send(res, 200, { items: [] })
+  const items = await readList(r.punch_list ?? '', images)
+  send(res, 200, { items: items ?? [] })
+}
+
+/** Hebrew (or other) requests from the request page: keep the original, add English */
+export async function translateRequest(id: string) {
+  if (!aiReady()) return
+  const db = admin()
+  const { data: r } = await db.from('service_requests').select('id, language, description, issues, original_text').eq('id', id).single()
+  if (!r || r.language === 'en' || r.original_text) return
+  const issues = r.issues as { key: string; label: string; text: string; tried: string[] }[]
+  const texts = [r.description ?? '', ...issues.map((i) => i.text ?? '')]
+  if (!texts.some((t) => t.trim())) return
+  const english = await toEnglish(texts)
+  if (!english) return
+  await db
+    .from('service_requests')
+    .update({
+      original_text: [r.description, ...issues.map((i) => i.text)].filter(Boolean).join('\n'),
+      description: english[0],
+      issues: issues.map((i, n) => ({ ...i, text: i.text ? english[n + 1] : i.text })),
+    })
+    .eq('id', r.id)
 }

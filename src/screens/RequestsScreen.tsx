@@ -45,6 +45,9 @@ export function RequestsScreen() {
       title="Requests"
       action={
         <div className="flex items-center gap-1">
+          <Link to="/requests/texts" className="flex min-h-11 items-center px-2 text-[17px] text-brand">
+            Texts
+          </Link>
           <Link to="/houses" className="flex min-h-11 items-center gap-1 px-2 text-[17px] text-brand" aria-label="Houses">
             <HouseIcon size={22} /> Houses
           </Link>

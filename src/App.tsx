@@ -47,6 +47,7 @@ import { RequestPosterScreen, RequestSettingsScreen } from './screens/RequestSet
 import { RequestsScreen } from './screens/RequestsScreen'
 import { RequestScreen } from './screens/RequestScreen'
 import { NewRequestScreen } from './screens/NewRequestScreen'
+import { TextsScreen } from './screens/TextsScreen'
 import { HouseScreen, HousesScreen } from './screens/HousesScreen'
 import { GuideEditScreen, GuidesScreen } from './screens/GuidesScreen'
 import { InspectionReportScreen, InspectionScreen } from './screens/InspectionScreen'
@@ -109,6 +110,7 @@ export function App() {
         <Route path="/request-page" element={<RequestSettingsScreen />} />
         <Route path="/requests" element={<RequestsScreen />} />
         <Route path="/requests/new" element={<NewRequestScreen />} />
+        <Route path="/requests/texts" element={<TextsScreen />} />
         <Route path="/requests/:requestId" element={<Keyed param="requestId" Component={RequestScreen} />} />
         <Route path="/houses" element={<HousesScreen />} />
         <Route path="/houses/:houseId" element={<Keyed param="houseId" Component={HouseScreen} />} />

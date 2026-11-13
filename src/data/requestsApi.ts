@@ -6,6 +6,7 @@ import type {
   AppUser,
   Approval,
   Guide,
+  InboundMessage,
   Inspection,
   PropertyItem,
   PropertyPhoto,
@@ -227,6 +228,7 @@ export function createRequestsApi(db: Db, me: () => Promise<AppUser>, base: Base
       // Issues → punch list items, with their photos
       const photos = await api.requestPhotos(r.id)
       const items: PunchItem[] = []
+      const bring: string[] = []
       for (const [i, issue] of r.issues.entries()) {
         const title = issue.key === 'other' ? issue.text || 'Other repair' : issue.label || issue.text
         const item = await base.createItem(job.id, title, r.unit_label)
@@ -238,13 +240,28 @@ export function createRequestsApi(db: Db, me: () => Promise<AppUser>, base: Base
           try {
             const blob = await (await fetch(ph.url)).blob()
             await base.addPhoto(item.id, 'before', blob)
+            // A model sticker: AI reads the model, and the part goes on the pre-job (bring) list
+            if (ph.kind === 'sticker' && db.mode === 'supabase') {
+              const s = await api.readSticker(blob).catch(() => null)
+              if (s && (s.brand || s.model)) {
+                const model = [s.brand, s.model].filter(Boolean).join(' ')
+                bring.push(`${title}: part for ${model}`)
+                await base.updateItem(item.id, { notes: [extra, `Model sticker: ${model}${s.serial ? ` (serial ${s.serial})` : ''}`].filter(Boolean).join('\n') })
+              }
+            }
           } catch {
             // a photo that can't be copied stays on the request
           }
         }
       }
-      // A pasted list (non-members) becomes items too
-      for (const line of splitList(r.punch_list)) items.push(await base.createItem(job.id, line, ''))
+      if (bring.length) await base.updateJob(job.id, { bring_extras: bring } as Partial<JobInput>)
+      // A pasted list or a screenshot of one (non-members) becomes items too: AI reads it when it's on
+      const hasList = r.punch_list.trim() || photos.some((p) => p.kind === 'list')
+      const fromAi = hasList && db.mode === 'supabase'
+        ? await server<{ items: { title: string; location: string }[] }>('read-list', { requestId: r.id }).then((x) => x.items).catch(() => null)
+        : null
+      if (fromAi?.length) for (const it of fromAi) items.push(await base.createItem(job.id, it.title, it.location))
+      else for (const line of splitList(r.punch_list)) items.push(await base.createItem(job.id, line, ''))
       if (items.length === 0) await base.createItem(job.id, r.description.split('\n')[0] || 'Repair', r.unit_label)
       await api.updateRequest(r.id, { job_id: job.id })
       return job
@@ -567,6 +584,22 @@ export function createRequestsApi(db: Db, me: () => Promise<AppUser>, base: Base
         spring: settings.seasonal_checklists.spring.some((x) => x.trim()),
       })
       return list.map((r) => ({ ...r, landlord: houses.find((h) => h.id === r.houseId)?.landlord ?? null }))
+    },
+
+    // ---- Texts (forwarded from Google Voice) ----
+    async listTexts(): Promise<InboundMessage[]> {
+      const user = await me()
+      return (await db.select<InboundMessage>('inbound_messages', { company_id: user.companyId })).sort((a, b) => b.received_at.localeCompare(a.received_at))
+    },
+    /** A text the sorter skipped, made into a request by hand */
+    async textToRequest(m: InboundMessage) {
+      const r = await api.addRequest({
+        address: '', unit_label: '', requester_name: '', requester_phone: m.from_phone, description: m.body, urgency: 'soon',
+        issues: [{ key: 'other', label: '', text: m.body.slice(0, 300), tried: [] }],
+      })
+      await api.updateRequest(r.id, { source: 'text', original_text: m.body, verified: false, address_needed: true })
+      await db.update<InboundMessage>('inbound_messages', m.id, { verdict: 'request', request_id: r.id })
+      return r
     },
 
     // ---- Troubleshooting guides ----
