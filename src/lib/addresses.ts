@@ -170,3 +170,20 @@ export async function searchAddresses(query: string, signal?: AbortSignal): Prom
   const data = (await res.json()) as PhotonResponse
   return toSuggestions(data.features ?? [], query)
 }
+
+/**
+ * Where an address is on the map (free, from Photon/OpenStreetMap). Used to
+ * suggest "Whenever" requests close to each other. Null when not found.
+ */
+export async function geocode(address: string, signal?: AbortSignal): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const params = new URLSearchParams({ q: address, limit: '1', lat: String(HOME_AREA.lat), lon: String(HOME_AREA.lon) })
+    const res = await fetch(`https://photon.komoot.io/api/?${params}`, { signal })
+    if (!res.ok) return null
+    const data = (await res.json()) as { features?: { geometry?: { coordinates?: [number, number] } }[] }
+    const c = data.features?.[0]?.geometry?.coordinates
+    return c ? { lat: c[1], lng: c[0] } : null
+  } catch {
+    return null
+  }
+}

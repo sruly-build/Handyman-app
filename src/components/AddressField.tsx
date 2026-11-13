@@ -6,7 +6,20 @@ import { PinIcon } from './Icons'
  * Address box that suggests real addresses as you type. Tap one to fill it in,
  * or just keep typing: any address is accepted.
  */
-export function AddressField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+export function AddressField({
+  value,
+  onChange,
+  label = 'Address',
+  placeholder = 'Start typing, e.g. 12 Oak Street',
+  onPick,
+}: {
+  value: string
+  onChange: (v: string) => void
+  label?: string
+  placeholder?: string
+  /** Called when a suggestion is tapped */
+  onPick?: (address: string) => void
+}) {
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [open, setOpen] = useState(false)
   const typed = useRef(false)
@@ -36,6 +49,7 @@ export function AddressField({ value, onChange }: { value: string; onChange: (v:
     setSuggestions([])
     setOpen(false)
     onChange(address)
+    onPick?.(address)
   }
 
   const showList = open && suggestions.length > 0
@@ -43,7 +57,7 @@ export function AddressField({ value, onChange }: { value: string; onChange: (v:
   return (
     <div>
       <label className="block px-4 py-2.5">
-        <span className="block text-[13px] font-medium text-muted">Address</span>
+        <span className="block text-[13px] font-medium text-muted">{label}</span>
         <input
           className="w-full bg-transparent py-1 outline-none placeholder:text-[#c7c7cc]"
           value={value}
@@ -56,7 +70,7 @@ export function AddressField({ value, onChange }: { value: string; onChange: (v:
           // Delay so a tap on a suggestion lands before the list closes
           onBlur={() => window.setTimeout(() => setOpen(false), 200)}
           autoComplete="street-address"
-          placeholder="Start typing, e.g. 12 Oak Street"
+          placeholder={placeholder}
           role="combobox"
           aria-expanded={showList}
           aria-autocomplete="list"

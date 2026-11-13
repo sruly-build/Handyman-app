@@ -61,6 +61,8 @@ export interface Db {
   insert<T extends { id: string }>(table: Table, row: T): Promise<T>
   update<T>(table: Table, id: string, patch: Partial<T>): Promise<T>
   upsert<T extends { id: string }>(table: Table, row: T): Promise<T>
+  /** Change the one row matching `where` (for tables keyed by something other than id) */
+  updateWhere<T>(table: Table, where: Where, patch: Partial<T>): Promise<T>
   remove(table: Table, where: Where): Promise<void>
   /** Run one of the database's own functions (e.g. share_job) */
   rpc<T>(fn: string, args: Record<string, unknown>): Promise<T>

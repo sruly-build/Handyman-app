@@ -116,3 +116,7 @@ export function useNow(ms = 1000): number {
   }, [ms])
   return now
 }
+
+// Request Inbox & Landlord Maintenance Plan
+export const useServiceSettings = () =>
+  useQuery({ queryKey: ['serviceSettings'], queryFn: () => backend.getServiceSettings() })

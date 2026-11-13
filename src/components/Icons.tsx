@@ -231,3 +231,27 @@ export const PeopleIcon = (p: IconProps) => (
     <path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5" />
   </Icon>
 )
+export const LinkIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1" />
+    <path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1" />
+  </Icon>
+)
+export const InboxIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M3 13l2.5-8h13L21 13v6H3z" />
+    <path d="M3 13h5l1.5 2.5h5L16 13h5" />
+  </Icon>
+)
+export const HouseIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M3 11 12 4l9 7" />
+    <path d="M5 10v10h14V10M10 20v-5h4v5" />
+  </Icon>
+)
+export const AlertIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 3 2 20h20L12 3Z" />
+    <path d="M12 10v4M12 17v.5" />
+  </Icon>
+)

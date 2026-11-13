@@ -83,6 +83,14 @@ export function createDemo(): { db: Db; auth: Auth } {
       save(data)
       return (existing ?? row) as typeof row
     },
+    async updateWhere(table, where, patch) {
+      const data = load()
+      const row = (data[table] ?? []).find((r) => matches(r, where))
+      if (!row) throw new Error('Not found.')
+      Object.assign(row, patch)
+      save(data)
+      return row as never
+    },
     async remove(table, where) {
       const data = load()
       data[table] = (data[table] ?? []).filter((r) => !matches(r, where))

@@ -61,6 +61,9 @@ export function createSupabase(url: string, anonKey: string): { db: Db; auth: Au
     async update(table, id, patch) {
       return check(await sb.from(table).update(patch as never).eq('id', id).select().single())
     },
+    async updateWhere(table, where, patch) {
+      return check(await sb.from(table).update(patch as never).match(where).select().single())
+    },
     async upsert(table, row) {
       return check(await sb.from(table).upsert(row).select().single())
     },

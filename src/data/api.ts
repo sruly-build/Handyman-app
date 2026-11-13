@@ -1,3 +1,4 @@
+import { createRequestsApi } from './requestsApi'
 import type { Auth, Db, SignUpInput } from './db'
 import { summarize } from './summary'
 import { stageAfterCall, stageLabels } from './sales'
@@ -1090,7 +1091,7 @@ export function createApi(db: Db, auth: Auth) {
       await db.remove('invoices', { id })
     },
   }
-  return api
+  return { ...api, ...createRequestsApi(db, me) }
 }
 
 export type Api = ReturnType<typeof createApi>

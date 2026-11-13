@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes, useParams } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
+import { PublicApp, isPublicPath } from './public/PublicApp'
 import { TabBar } from './components/TabBar'
 import { Loading } from './components/ui'
 import { useAuth } from './lib/auth'
@@ -41,10 +42,14 @@ import { ContactFormScreen } from './screens/ContactFormScreen'
 import { DirectorySharingScreen } from './screens/DirectorySharingScreen'
 import { TimeEntryFormScreen } from './screens/TimeEntryFormScreen'
 import { PriceListScreen } from './screens/PriceListScreen'
+import { RequestPosterScreen, RequestSettingsScreen } from './screens/RequestSettingsScreen'
 
 export function App() {
   const { user, loading, recovering, finishRecovery } = useAuth()
+  const { pathname } = useLocation()
 
+  // The request page, status links and approval links need no login
+  if (isPublicPath(pathname)) return <PublicApp />
   if (loading) return <Loading />
   if (recovering) return <SetPasswordScreen onDone={finishRecovery} />
   if (!user) return <LoginScreen />
@@ -91,6 +96,8 @@ export function App() {
         <Route path="/directory/sharing" element={<DirectorySharingScreen />} />
         <Route path="/directory/:contactId" element={<Keyed param="contactId" Component={ContactFormScreen} />} />
         <Route path="/business" element={<BusinessProfileScreen />} />
+        <Route path="/request-page" element={<RequestSettingsScreen />} />
+        <Route path="/request-page/poster" element={<RequestPosterScreen />} />
         <Route path="/team" element={<TeamScreen />} />
         <Route path="/approvals" element={<ApprovalsScreen />} />
         <Route path="/jobs/:jobId/share" element={<ShareJobScreen />} />
