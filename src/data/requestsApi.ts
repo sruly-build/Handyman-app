@@ -2,6 +2,7 @@ import type { Auth, Db } from './db'
 import { addressKey, cleanSlug, defaultServiceSettings, splitList } from './requests'
 import type {
   AppUser,
+  Approval,
   Guide,
   HourCredit,
   Job,
@@ -297,6 +298,42 @@ export function createRequestsApi(db: Db, me: () => Promise<AppUser>, base: Base
     },
     async deleteTenant(id: string) {
       await db.remove('tenants', { id })
+    },
+
+    // ---- Landlord approvals (secure link, no login) ----
+    async listRequestApprovals(requestId: string): Promise<Approval[]> {
+      return (await db.select<Approval>('approvals', { request_id: requestId })).sort((a, b) => b.created_at.localeCompare(a.created_at))
+    },
+    async listJobApprovals(jobId: string): Promise<Approval[]> {
+      return (await db.select<Approval>('approvals', { job_id: jobId })).sort((a, b) => b.created_at.localeCompare(a.created_at))
+    },
+    async createApproval(input: Pick<Approval, 'kind' | 'title' | 'details' | 'estimate_hours' | 'estimate_amount' | 'parts'> & {
+      request?: ServiceRequest | null
+      jobId?: string | null
+      propertyId?: string | null
+    }): Promise<Approval> {
+      const user = await me()
+      const propertyId = input.request?.property_id ?? input.propertyId ?? null
+      const house = propertyId ? (await db.select<Property>('properties', { id: propertyId }))[0] : undefined
+      const created = now()
+      return db.insert<Approval>('approvals', {
+        id: newId(), company_id: user.companyId, request_id: input.request?.id ?? null, job_id: input.jobId ?? input.request?.job_id ?? null,
+        property_id: propertyId, landlord_id: house?.landlord_id ?? null, kind: input.kind, title: input.title.trim(),
+        details: input.details.trim(), estimate_hours: input.estimate_hours, estimate_amount: input.estimate_amount, parts: input.parts,
+        token: (newId() + newId()).replace(/-/g, ''), status: 'pending', auto: false, decided_at: null, decision_note: '',
+        charge_status: 'none', stripe_payment_intent: null, charged_at: null,
+        expires_at: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(), created_by: user.id, created_at: created,
+      })
+    },
+    async cancelApproval(id: string) {
+      return db.update<Approval>('approvals', id, { status: 'cancelled' })
+    },
+    /** The landlord of a house (for their phone number) */
+    async houseLandlord(propertyId: string | null): Promise<Landlord | null> {
+      if (!propertyId) return null
+      const [house] = await db.select<Property>('properties', { id: propertyId })
+      if (!house?.landlord_id) return null
+      return (await db.select<Landlord>('landlords', { id: house.landlord_id }))[0] ?? null
     },
 
     // ---- Troubleshooting guides ----

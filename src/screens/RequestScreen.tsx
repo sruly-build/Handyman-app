@@ -2,11 +2,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { DirectionsIcon, HouseIcon, MessageIcon, PhoneIcon } from '../components/Icons'
+import { ApprovalSheet } from '../components/ApprovalSheet'
 import { ReadyTextSheet } from '../components/ReadyText'
 import { Screen } from '../components/Screen'
 import { Button, Card, Divider, ErrorNote, GroupLabel, Loading, Segmented, Toggle } from '../components/ui'
 import { backend } from '../data/backend'
-import { refreshAll, useCompany, useRequestPhotos, useRequests, useServiceSettings } from '../data/queries'
+import { refreshAll, useCompany, useHouseLandlord, useRequestApprovals, useRequestPhotos, useRequests, useServiceSettings } from '../data/queries'
 import {
   issueSummary,
   nearbyWhenever,
@@ -41,6 +42,9 @@ function RequestDetail({ r, all }: { r: ServiceRequest; all: ServiceRequest[] })
   const { data: company } = useCompany()
   const { data: photos = [] } = useRequestPhotos(r.id)
   const [texting, setTexting] = useState(false)
+  const [asking, setAsking] = useState(false)
+  const { data: approvals = [] } = useRequestApprovals(r.id)
+  const { data: landlord } = useHouseLandlord(r.property_id)
   const initial = r.scheduled_at ? localParts(r.scheduled_at) : { date: '', time: '' }
   const [date, setDate] = useState(initial.date)
   const [time, setTime] = useState(initial.time || '09:00')
@@ -125,6 +129,13 @@ function RequestDetail({ r, all }: { r: ServiceRequest; all: ServiceRequest[] })
           </span>
         )}
       </div>
+
+      {r.feedback && (
+        <div className={`mt-4 rounded-2xl px-4 py-3 text-[15px] ${r.feedback === 'up' ? 'bg-brand-soft text-brand-dark' : 'bg-problem-soft text-problem'}`}>
+          <p className="font-semibold">{r.feedback === 'up' ? '👍 They were happy (sent to your Google review link)' : '👎 They were not happy (only you see this)'}</p>
+          {r.feedback_note && <p className="mt-1 whitespace-pre-wrap">“{r.feedback_note}”</p>}
+        </div>
+      )}
 
       <Section title="From">
         <Card>
@@ -292,6 +303,43 @@ function RequestDetail({ r, all }: { r: ServiceRequest; all: ServiceRequest[] })
         </Card>
       </Section>
 
+      {(r.is_member || r.needs_approval || approvals.length > 0) && (
+        <Section title="Landlord approval">
+          {approvals.length > 0 && (
+            <Card className="mb-3">
+              {approvals.map((a, i) => (
+                <div key={a.id} className={`px-4 py-3 ${i ? 'border-t border-hairline' : ''}`}>
+                  <div className="flex items-center gap-2">
+                    <p className="min-w-0 flex-1 truncate text-[17px]">{a.title}</p>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[12px] font-semibold ${
+                        a.status === 'approved' ? 'bg-brand-soft text-brand-dark' : a.status === 'declined' ? 'bg-problem-soft text-problem' : 'bg-progress-soft text-[#8a4b00]'
+                      }`}
+                    >
+                      {a.status === 'pending' ? 'Waiting' : a.status === 'approved' ? 'Approved' : a.status === 'declined' ? 'Declined' : 'Cancelled'}
+                    </span>
+                  </div>
+                  <p className="text-[13px] text-muted">
+                    {[a.estimate_hours != null ? `${a.estimate_hours} h` : '', a.estimate_amount != null ? `$${a.estimate_amount}` : '', a.decision_note ? `“${a.decision_note}”` : '']
+                      .filter(Boolean)
+                      .join(' · ') || 'No estimate'}
+                  </p>
+                  {a.status === 'pending' && (
+                    <button className="mt-1 text-[15px] font-semibold text-problem" onClick={() => run.mutate(() => backend.cancelApproval(a.id))}>
+                      Cancel this link
+                    </button>
+                  )}
+                </div>
+              ))}
+            </Card>
+          )}
+          <Button variant="secondary" onClick={() => setAsking(true)}>
+            Ask the landlord to approve
+          </Button>
+          <p className="mt-1.5 px-4 text-[13px] text-muted">For custom issues, more than an hour, or bigger fixes.</p>
+        </Section>
+      )}
+
       {nearby.length > 0 && (
         <Section title={`Whenever requests nearby (${nearby.length})`}>
           <Card>
@@ -344,6 +392,14 @@ function RequestDetail({ r, all }: { r: ServiceRequest; all: ServiceRequest[] })
         </Button>
       </div>
 
+      {asking && (
+        <ApprovalSheet
+          request={r}
+          landlordName={landlord?.name ?? ''}
+          landlordPhone={landlord?.phone ?? (r.requester_kind === 'landlord' ? r.requester_phone : '')}
+          onClose={() => setAsking(false)}
+        />
+      )}
       {texting && (
         <ReadyTextSheet
           phone={r.requester_phone}

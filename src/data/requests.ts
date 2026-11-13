@@ -189,3 +189,17 @@ export function splitList(text: string): string[] {
     .filter((l) => l.length > 1)
     .slice(0, 60)
 }
+
+/** The text that sends a landlord their approve / decline link */
+export function approvalMessage(
+  landlordName: string,
+  address: string,
+  title: string,
+  token: string,
+  business: string,
+  origin = typeof window === 'undefined' ? '' : window.location.origin,
+): string {
+  const first = landlordName.trim().split(/\s+/)[0]
+  const street = address.split(',')[0]
+  return `Hi${first ? ` ${first}` : ''}, a repair at ${street} needs your OK: ${title}. See the photos and approve or decline here: ${origin}/a/${token}${business ? ` – ${business}` : ''}`
+}
