@@ -3,6 +3,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AddressField } from '../components/AddressField'
 import { HousePlanCard, LandlordCard } from '../components/Plan'
+import { HouseProfileSection } from '../components/HouseProfile'
 import { PlusIcon, SearchIcon, TrashIcon } from '../components/Icons'
 import { Screen } from '../components/Screen'
 import { Button, Card, Divider, EmptyState, ErrorNote, Field, GroupLabel, Loading } from '../components/ui'
@@ -44,9 +45,14 @@ export function HousesScreen() {
       title="Houses"
       back={{ to: '/requests', label: 'Requests' }}
       action={
-        <button onClick={() => setAdding(!adding)} className="flex h-11 w-11 items-center justify-center text-brand" aria-label="Add a house">
-          <PlusIcon size={26} />
-        </button>
+        <div className="flex items-center">
+          <Link to="/landlords" className="min-h-11 px-2 py-2 text-[17px] text-brand">
+            Landlords
+          </Link>
+          <button onClick={() => setAdding(!adding)} className="flex h-11 w-11 items-center justify-center text-brand" aria-label="Add a house">
+            <PlusIcon size={26} />
+          </button>
+        </div>
       }
     >
       {adding && (
@@ -135,6 +141,7 @@ export function HouseScreen() {
     <Screen title={h.address.split(',')[0]} eyebrow={h.address.split(',').slice(1).join(',').trim() || undefined} back={{ to: '/houses', label: 'Houses' }}>
       <HousePlanCard house={h} />
       <LandlordCard house={h} />
+      <HouseProfileSection house={h} />
 
       {repeatKeys.length > 0 && (
         <div className="mt-3 rounded-2xl bg-[#efe7fb] px-4 py-3 text-[15px] text-[#5b2bb5]">

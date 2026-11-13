@@ -80,6 +80,13 @@ export interface SignUpInput {
   companyName: string
 }
 
+export interface LandlordSignUp {
+  fullName: string
+  phone: string
+  companySlug: string
+  referral: string
+}
+
 export interface Auth {
   getUser(): Promise<AppUser | null>
   onAuthChange(callback: (user: AppUser | null) => void): () => void
@@ -93,6 +100,12 @@ export interface Auth {
   sendPasswordReset(email: string): Promise<void>
   updatePassword(password: string): Promise<void>
   signOut(): Promise<void>
+  /**
+   * Email-code login: send a 6-digit code to this email. With `landlord`
+   * details it also creates a landlord account (from a company's page).
+   */
+  sendCode(email: string, landlord?: LandlordSignUp): Promise<void>
+  verifyCode(email: string, code: string): Promise<void>
   /** The login token, for calls to the app's own server (empty in Demo mode) */
   accessToken(): Promise<string>
 }

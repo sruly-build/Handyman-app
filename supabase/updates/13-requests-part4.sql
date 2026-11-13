@@ -261,7 +261,7 @@ begin
       'auto_approve_limit', coalesce(l.auto_approve_limit, (select parts_auto_approve from public.service_settings where company_id = l.company_id))),
     'company', (select jsonb_build_object('name', c.name, 'phone', c.phone, 'slug', s.public_slug)
                 from public.companies c left join public.service_settings s on s.company_id = c.id where c.id = l.company_id),
-    'claims', coalesce((select jsonb_agg(jsonb_build_object('id', pc.id, 'address', pp.address, 'status', pc.status) order by pc.created_at desc)
+    'claims', coalesce((select jsonb_agg(jsonb_build_object('id', pc.id, 'property_id', pc.property_id, 'address', pp.address, 'status', pc.status) order by pc.created_at desc)
                         from public.property_claims pc join public.properties pp on pp.id = pc.property_id
                         where pc.landlord_id = l.id and pc.status <> 'approved'), '[]'::jsonb),
     'houses', coalesce((select jsonb_agg(h order by h ->> 'address') from (

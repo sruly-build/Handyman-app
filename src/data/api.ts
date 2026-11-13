@@ -1,3 +1,4 @@
+import { createLandlordApi } from './landlordApi'
 import { createRequestsApi } from './requestsApi'
 import type { Auth, Db, SignUpInput } from './db'
 import { summarize } from './summary'
@@ -201,6 +202,8 @@ export function createApi(db: Db, auth: Auth) {
     sendPasswordReset: auth.sendPasswordReset,
     updatePassword: auth.updatePassword,
     signOut: auth.signOut,
+    sendCode: auth.sendCode,
+    verifyCode: auth.verifyCode,
     async updateMyName(name: string) {
       await db.update<Profile>('profiles', (await me()).id, { full_name: name })
       await auth.refresh()
@@ -1091,7 +1094,7 @@ export function createApi(db: Db, auth: Auth) {
       await db.remove('invoices', { id })
     },
   }
-  return { ...api, ...createRequestsApi(db, me, api as never, auth) }
+  return { ...api, ...createRequestsApi(db, me, api as never, auth), ...createLandlordApi(db, me) }
 }
 
 export type Api = ReturnType<typeof createApi>

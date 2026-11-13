@@ -137,3 +137,12 @@ export const useHours = (propertyId: string | null) =>
   useQuery({ queryKey: ['hours', propertyId], queryFn: () => backend.listHours(propertyId!), enabled: Boolean(propertyId) })
 export const useJobApprovals = (jobId: string) =>
   useQuery({ queryKey: ['jobApprovals', jobId], queryFn: () => backend.listJobApprovals(jobId) })
+export const useHouseProfile = (houseId: string) =>
+  useQuery({ queryKey: ['houseProfile', houseId], queryFn: () => backend.houseProfile(houseId), enabled: Boolean(houseId) })
+export const useInspections = (houseId: string) =>
+  useQuery({ queryKey: ['inspections', houseId], queryFn: () => backend.listInspections(houseId) })
+export const useMyLandlordAccounts = () => useQuery({ queryKey: ['myLandlords'], queryFn: () => backend.myLandlordAccounts() })
+export const useLandlordSummary = (landlordId: string | undefined) =>
+  useQuery({ queryKey: ['landlordSummary', landlordId], queryFn: () => backend.landlordSummary(landlordId!), enabled: Boolean(landlordId) })
+export const useHouseHistory = (houseId: string) =>
+  useQuery({ queryKey: ['houseHistory', houseId], queryFn: () => backend.houseHistory(houseId) })

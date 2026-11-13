@@ -1,4 +1,4 @@
-import type { Auth, Db, Table, Where } from './db'
+import type { Auth, Db, LandlordSignUp, Table, Where } from './db'
 import type { AppUser } from './types'
 
 /**
@@ -9,6 +9,8 @@ import type { AppUser } from './types'
 
 const KEY = 'handyman-demo-v2'
 const USER_KEY = 'handyman-demo-user'
+const KIND_KEY = 'handyman-demo-kind'
+const PENDING_KEY = 'handyman-demo-code'
 
 type Row = { id: string } & Record<string, unknown>
 type Tables = Partial<Record<Table, Row[]>>
@@ -124,10 +126,15 @@ export function createDemo(): { db: Db; auth: Auth } {
   const listeners = new Set<(user: AppUser | null) => void>()
   const DEMO_USER = 'demo-user'
   const DEMO_COMPANY = 'demo-company'
+  // Each demo landlord login gets its own id (from the email)
+  const demoLandlordId = (email: string) => `demo-landlord-${email.trim().toLowerCase()}`
 
   async function currentUser(): Promise<AppUser | null> {
     const email = localStorage.getItem(USER_KEY)
     if (!email) return null
+    if (localStorage.getItem(KIND_KEY) === 'landlord') {
+      return { id: demoLandlordId(email), email, name: email.split('@')[0], companyId: '', role: 'landlord', isAdmin: false }
+    }
     const [profile] = await db.select<{ full_name: string }>('profiles', { id: DEMO_USER })
     const fallback = email.split('@')[0] || 'there'
     return {
@@ -178,6 +185,7 @@ export function createDemo(): { db: Db; auth: Auth } {
       listeners.forEach((l) => l(user))
     },
     async signIn(email) {
+      localStorage.removeItem(KIND_KEY)
       await ensureCompany(email)
       localStorage.setItem(USER_KEY, email)
       await auth.refresh()
@@ -192,11 +200,43 @@ export function createDemo(): { db: Db; auth: Auth } {
       throw new Error('Demo mode has no passwords: type any email and tap Log in.')
     },
     async updatePassword() {},
+    async sendCode(email, landlord) {
+      // Demo mode sends no emails: any 6-digit code works
+      sessionStorage.setItem(PENDING_KEY, JSON.stringify({ email: email.trim().toLowerCase(), landlord: landlord ?? null }))
+    },
+    async verifyCode(email, code) {
+      if (!/^\d{6}$/.test(code.replace(/\D/g, ''))) throw new Error('Type the 6-digit code (any 6 digits in Demo mode).')
+      const pending = JSON.parse(sessionStorage.getItem(PENDING_KEY) ?? 'null') as { email: string; landlord: LandlordSignUp | null } | null
+      const clean = email.trim().toLowerCase()
+      const landlords = await db.select<{ id: string; email: string; user_id: string | null }>('landlords', { company_id: DEMO_COMPANY })
+      const known = landlords.find((l) => l.email.toLowerCase() === clean)
+      if (pending?.landlord || known) {
+        if (known) await db.update('landlords', known.id, { user_id: demoLandlordId(clean) })
+        else {
+          await db.insert('landlords', {
+            id: crypto.randomUUID(), company_id: DEMO_COMPANY, user_id: demoLandlordId(clean), client_id: null,
+            name: pending!.landlord!.fullName, email: clean, phone: pending!.landlord!.phone, auto_approve_limit: null,
+            notify_new_request: false, notify_done: false, stripe_customer_id: null,
+            referral_code: crypto.randomUUID().replace(/-/g, '').slice(0, 8),
+            referred_by: landlords.find((l) => (l as { referral_code?: string }).referral_code === pending!.landlord!.referral)?.id ?? null,
+            referral_rewarded_at: null, created_at: new Date().toISOString(),
+          })
+        }
+        localStorage.setItem(KIND_KEY, 'landlord')
+      } else {
+        await ensureCompany(clean)
+        localStorage.removeItem(KIND_KEY)
+      }
+      sessionStorage.removeItem(PENDING_KEY)
+      localStorage.setItem(USER_KEY, clean)
+      await auth.refresh()
+    },
     async accessToken() {
       return ''
     },
     async signOut() {
       localStorage.removeItem(USER_KEY)
+      localStorage.removeItem(KIND_KEY)
       await auth.refresh()
     },
   }

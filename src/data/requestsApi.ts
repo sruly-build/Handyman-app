@@ -1,9 +1,13 @@
+import { shrinkPhoto } from '../lib/images'
 import type { Auth, Db } from './db'
 import { addressKey, cleanSlug, defaultServiceSettings, splitList } from './requests'
 import type {
   AppUser,
   Approval,
   Guide,
+  Inspection,
+  PropertyItem,
+  PropertyPhoto,
   HourCredit,
   Job,
   JobInput,
@@ -486,6 +490,70 @@ export function createRequestsApi(db: Db, me: () => Promise<AppUser>, base: Base
         return db.update<Approval>('approvals', approval.id, { status: 'approved', auto: true, decided_at: now(), charge_status: 'pending' })
       }
       return approval
+    },
+
+    // ---- House profile and inspections ----
+    async saveHouseItem(item: Partial<PropertyItem> & { property_id: string; name: string }): Promise<PropertyItem> {
+      const user = await me()
+      const row = {
+        room: (item.room ?? '').trim(), kind: item.kind ?? 'appliance', name: item.name.trim(), brand: (item.brand ?? '').trim(),
+        model: (item.model ?? '').trim(), serial: (item.serial ?? '').trim(), notes: (item.notes ?? '').trim(),
+        condition: item.condition ?? null, replace_soon: item.replace_soon ?? false, worn_note: (item.worn_note ?? '').trim(),
+        unit_id: item.unit_id ?? null, updated_at: now(),
+      }
+      if (item.id) return db.update<PropertyItem>('property_items', item.id, row)
+      return db.insert<PropertyItem>('property_items', { ...row, id: newId(), company_id: user.companyId, property_id: item.property_id, created_at: now() })
+    },
+    async deleteHouseItem(id: string) {
+      const photos = await db.select<PropertyPhoto>('property_photos', { item_id: id })
+      await db.removeFiles(photos.map((p) => p.path), 'house')
+      await db.remove('property_photos', { item_id: id })
+      await db.remove('property_items', { id })
+    },
+    async addHousePhoto(
+      propertyId: string,
+      image: Blob,
+      info: Partial<Pick<PropertyPhoto, 'room' | 'kind' | 'item_id' | 'inspection_id'>>,
+    ): Promise<PropertyPhoto & { url: string }> {
+      const user = await me()
+      const path = `${propertyId}/${newId()}.jpg`
+      await db.upload(path, image, 'house')
+      const row = await db.insert<PropertyPhoto>('property_photos', {
+        id: newId(), company_id: user.companyId, property_id: propertyId, item_id: info.item_id ?? null,
+        inspection_id: info.inspection_id ?? null, room: info.room ?? '', path, kind: info.kind ?? 'room', created_at: now(),
+      })
+      const [url] = await db.fileUrls([path], 'house')
+      return { ...row, url }
+    },
+    async deleteHousePhoto(photo: PropertyPhoto) {
+      await db.removeFiles([photo.path], 'house')
+      await db.remove('property_photos', { id: photo.id })
+    },
+    async saveInspection(i: Partial<Inspection> & { property_id: string; kind: Inspection['kind'] }): Promise<Inspection> {
+      const user = await me()
+      const row = { results: i.results ?? [], summary: (i.summary ?? '').trim(), done_at: i.done_at ?? null, shared: i.shared ?? true, unit_id: i.unit_id ?? null }
+      if (i.id) return db.update<Inspection>('inspections', i.id, row)
+      return db.insert<Inspection>('inspections', {
+        ...row, id: newId(), company_id: user.companyId, property_id: i.property_id, kind: i.kind, by_user: user.id, created_at: now(),
+      })
+    },
+    async listInspections(propertyId: string): Promise<Inspection[]> {
+      return (await db.select<Inspection>('inspections', { property_id: propertyId })).sort((a, b) => b.created_at.localeCompare(a.created_at))
+    },
+    async deleteInspection(id: string) {
+      await db.remove('inspections', { id })
+    },
+
+    /** AI reads the brand and model from a photo of an appliance's sticker (needs the server's AI key) */
+    async readSticker(image: Blob): Promise<{ brand: string; model: string; serial: string; kind: string }> {
+      const small = image.size > 900_000 && image instanceof File ? await shrinkPhoto(image, 1600, 0.8) : image
+      const data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '')
+        reader.onerror = () => reject(new Error('Could not read the photo.'))
+        reader.readAsDataURL(small)
+      })
+      return server('read-sticker', { image: data, mediaType: small.type || 'image/jpeg' })
     },
 
     // ---- Troubleshooting guides ----

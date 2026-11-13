@@ -151,6 +151,34 @@ export function createSupabase(url: string, anonKey: string): { db: Db; auth: Au
       const { error } = await sb.auth.updateUser({ password })
       if (error) throw new Error(friendly(error.message))
     },
+    async sendCode(email, landlord) {
+      const { error } = await sb.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          shouldCreateUser: Boolean(landlord),
+          emailRedirectTo: window.location.origin,
+          data: landlord
+            ? {
+                account_type: 'landlord',
+                company_slug: landlord.companySlug,
+                full_name: landlord.fullName,
+                phone: landlord.phone,
+                referral: landlord.referral,
+              }
+            : undefined,
+        },
+      })
+      if (error) {
+        if (/signups not allowed|not found|user not found/i.test(error.message)) {
+          throw new Error("There's no account with that email yet.")
+        }
+        throw new Error(friendly(error.message))
+      }
+    },
+    async verifyCode(email, code) {
+      const { error } = await sb.auth.verifyOtp({ email: email.trim(), token: code.replace(/\D/g, ''), type: 'email' })
+      if (error) throw new Error(/expired|invalid/i.test(error.message) ? 'That code is wrong or expired. Ask for a new one.' : friendly(error.message))
+    },
     async accessToken() {
       const { data } = await sb.auth.getSession()
       return data.session?.access_token ?? ''

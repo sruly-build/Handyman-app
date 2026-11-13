@@ -1,8 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { backend } from '../data/backend'
 import type { HouseView } from '../data/requestsApi'
-import { refreshAll, useCompany, useHours, useHouse, useJobApprovals, useLandlords, useParts, useSettings } from '../data/queries'
+import { refreshAll, useCompany, useHours, useHouse, useJobApprovals, useLandlords, useParts, useServiceSettings, useSettings } from '../data/queries'
 import { money } from '../data/requests'
 import type { Job, Landlord } from '../data/types'
 import { ReadyTextSheet } from './ReadyText'
@@ -177,6 +178,9 @@ export function LandlordCard({ house }: { house: HouseView }) {
                   {l.user_id ? ' · has a login' : ' · no login yet'}
                 </p>
                 <p className="text-[13px] text-muted">Parts auto-approve: {l.auto_approve_limit != null ? money(l.auto_approve_limit) : 'company default'}</p>
+                <Link to={`/landlords/${l.id}`} className="mt-1 block text-[15px] font-semibold text-brand">
+                  See what they see
+                </Link>
               </div>
               <Divider />
               <div className="flex">
@@ -307,5 +311,28 @@ export function JobPlanPanel({ job }: { job: Job }) {
         />
       )}
     </section>
+  )
+}
+
+/** On a lead (walkthrough): load the standard turnover checklist as punch list items */
+export function TurnoverChecklistButton({ job }: { job: Job }) {
+  const run = useRun()
+  const { data: settings } = useServiceSettings()
+  const list = settings?.turnover_checklist.filter((x) => x.trim()) ?? []
+  if (!list.length) return null
+  return (
+    <div className="mt-4">
+      <Button
+        variant="secondary"
+        disabled={run.isPending || run.isSuccess}
+        onClick={() =>
+          run.mutate(async () => {
+            for (const title of list) await backend.createItem(job.id, title, '')
+          })
+        }
+      >
+        {run.isSuccess ? 'Checklist added' : `Load the standard turnover checklist (${list.length})`}
+      </Button>
+    </div>
   )
 }

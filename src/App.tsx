@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { PublicApp, isPublicPath } from './public/PublicApp'
+import { LandlordApp } from './landlord/LandlordApp'
 import { TabBar } from './components/TabBar'
 import { Loading } from './components/ui'
 import { useAuth } from './lib/auth'
@@ -48,6 +49,8 @@ import { RequestScreen } from './screens/RequestScreen'
 import { NewRequestScreen } from './screens/NewRequestScreen'
 import { HouseScreen, HousesScreen } from './screens/HousesScreen'
 import { GuideEditScreen, GuidesScreen } from './screens/GuidesScreen'
+import { InspectionReportScreen, InspectionScreen } from './screens/InspectionScreen'
+import { LandlordsScreen, LandlordViewScreen } from './screens/LandlordsScreen'
 
 export function App() {
   const { user, loading, recovering, finishRecovery } = useAuth()
@@ -58,6 +61,8 @@ export function App() {
   if (loading) return <Loading />
   if (recovering) return <SetPasswordScreen onDone={finishRecovery} />
   if (!user) return <LoginScreen />
+  // Landlords get their own small app: only their approved houses
+  if (user.role === 'landlord') return <LandlordApp />
 
   return (
     <>
@@ -107,6 +112,10 @@ export function App() {
         <Route path="/requests/:requestId" element={<Keyed param="requestId" Component={RequestScreen} />} />
         <Route path="/houses" element={<HousesScreen />} />
         <Route path="/houses/:houseId" element={<Keyed param="houseId" Component={HouseScreen} />} />
+        <Route path="/houses/:houseId/inspections/:inspectionId" element={<Keyed param="inspectionId" Component={InspectionScreen} />} />
+        <Route path="/houses/:houseId/inspections/:inspectionId/report" element={<InspectionReportScreen />} />
+        <Route path="/landlords" element={<LandlordsScreen />} />
+        <Route path="/landlords/:landlordId" element={<Keyed param="landlordId" Component={LandlordViewScreen} />} />
         <Route path="/request-page/poster" element={<RequestPosterScreen />} />
         <Route path="/request-page/guides" element={<GuidesScreen />} />
         <Route path="/request-page/guides/:issueKey" element={<Keyed param="issueKey" Component={GuideEditScreen} />} />
