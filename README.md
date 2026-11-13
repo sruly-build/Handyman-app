@@ -2,7 +2,7 @@
 
 A phone-first app for a small handyman business: jobs, punch lists, photos and measurements, and later parts, time tracking and billing. It's a web app that can be added to an iPhone home screen and works like a downloaded app. It also works in a desktop browser.
 
-The full plan is in [docs/BUILD_PLAN.md](docs/BUILD_PLAN.md).
+The full plan is in [docs/BUILD_PLAN.md](docs/BUILD_PLAN.md). The Request Inbox & Landlord Maintenance Plan setup steps are in [docs/REQUESTS_SETUP.md](docs/REQUESTS_SETUP.md).
 
 ## What the app does
 

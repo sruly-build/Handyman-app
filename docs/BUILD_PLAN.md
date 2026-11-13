@@ -13,6 +13,7 @@ A phone-first app for a small handyman business. The app name is still to be dec
 | 5 | Estimates, invoices and the 20% markup | ✅ Built |
 | 6 | Leads, walkthroughs and the schedule (day and week) | ✅ Built |
 | 7 | Sales & Leads: dashboard, leads, call list, follow-ups, pipeline, turnover opportunities, convert to customer | ✅ Built |
+| 8 | Request Inbox & Landlord Maintenance Plan (10 phases: public request page, inbox, alerts, guides, approval and status links, Stripe plans and hour bank, landlord accounts, reminders, Google Voice texts with AI). Setup: [REQUESTS_SETUP.md](REQUESTS_SETUP.md) | ✅ Built |
 | Later | Online booking, sending reports to clients, cold-call campaigns, email outreach, website and ad lead capture, contact import, sales reports | |
 
 Every stage has been tested in a phone-sized browser in Demo mode. All of it still needs testing on a real phone with Supabase connected (see the checklist in the README).
