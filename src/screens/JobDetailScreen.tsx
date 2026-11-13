@@ -57,6 +57,7 @@ import type { ItemStatus, PunchItem } from '../data/types'
 import { isLead, isPartnerJob } from '../data/api'
 import { isMine } from '../data/directory'
 import { LeadActions, LeadPanel } from '../components/LeadPanel'
+import { JobPlanPanel } from '../components/Plan'
 import { useUser } from '../lib/auth'
 import { clockLabel, friendlyDate } from '../lib/dates'
 import { directionsLink, phoneLink } from '../lib/links'
@@ -211,6 +212,7 @@ export function JobDetailScreen() {
       )}
 
       {lead && <LeadPanel lead={job} />}
+      {!lead && job.property_id && !isPartnerJob(job, user) && <JobPlanPanel job={job} />}
 
       {lead ? null : partner ? (
         <p className="mt-3 flex flex-wrap items-center gap-x-1.5 px-1 text-[13px] text-muted">

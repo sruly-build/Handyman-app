@@ -2,11 +2,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AddressField } from '../components/AddressField'
+import { HousePlanCard, LandlordCard } from '../components/Plan'
 import { PlusIcon, SearchIcon, TrashIcon } from '../components/Icons'
 import { Screen } from '../components/Screen'
 import { Button, Card, Divider, EmptyState, ErrorNote, Field, GroupLabel, Loading } from '../components/ui'
 import { backend } from '../data/backend'
-import { refreshAll, useHouse, useHouses, useRequests, useServiceSettings } from '../data/queries'
+import { refreshAll, useClaims, useHouse, useHouses, useRequests, useServiceSettings } from '../data/queries'
 import { repeatIssues, requestFlags } from '../data/requests'
 import type { Tenant } from '../data/types'
 import { pickLabel } from '../lib/i18n'
@@ -29,6 +30,11 @@ export function HousesScreen() {
       setAdding(false)
       void refreshAll(qc)
     },
+  })
+  const { data: claims = [] } = useClaims()
+  const decide = useMutation({
+    mutationFn: ({ id, approve }: { id: string; approve: boolean }) => backend.decideClaim(id, approve),
+    onSuccess: () => void refreshAll(qc),
   })
   const list = (data ?? []).filter((h) =>
     `${h.address} ${h.landlord?.name ?? ''}`.toLowerCase().includes(q.trim().toLowerCase()),
@@ -53,6 +59,27 @@ export function HousesScreen() {
             Add house
           </Button>
         </div>
+      )}
+      {claims.length > 0 && (
+        <section className="mb-5">
+          <GroupLabel>Landlords asking to add a house</GroupLabel>
+          <Card>
+            {claims.map((c, i) => (
+              <div key={c.id} className={`px-4 py-3 ${i ? 'border-t border-hairline' : ''}`}>
+                <p className="text-[17px] font-semibold">{c.address}</p>
+                <p className="text-[15px] text-muted">{c.landlord}</p>
+                <div className="mt-2 flex gap-2">
+                  <button className="min-h-11 flex-1 rounded-xl bg-brand text-[15px] font-semibold text-white" onClick={() => decide.mutate({ id: c.id, approve: true })}>
+                    Approve house claim
+                  </button>
+                  <button className="min-h-11 flex-1 rounded-xl bg-canvas text-[15px] font-semibold" onClick={() => decide.mutate({ id: c.id, approve: false })}>
+                    Decline
+                  </button>
+                </div>
+              </div>
+            ))}
+          </Card>
+        </section>
       )}
       <Card className="mb-4 flex items-center gap-2 px-4">
         <SearchIcon size={18} className="text-muted" />
@@ -106,17 +133,8 @@ export function HouseScreen() {
 
   return (
     <Screen title={h.address.split(',')[0]} eyebrow={h.address.split(',').slice(1).join(',').trim() || undefined} back={{ to: '/houses', label: 'Houses' }}>
-      <Card>
-        <Row label="Plan" value={planLabel(h.plan?.status)} />
-        {h.plan?.status === 'active' && (
-          <>
-            <Divider />
-            <Row label="Hour bank" value={`${h.hours_left} h${h.next_expiry ? ` · next expires ${new Date(h.next_expiry).toLocaleDateString()}` : ''}`} />
-          </>
-        )}
-        <Divider />
-        <Row label="Landlord" value={h.landlord ? `${h.landlord.name || h.landlord.email}${h.landlord.phone ? ` · ${h.landlord.phone}` : ''}` : 'Not linked'} />
-      </Card>
+      <HousePlanCard house={h} />
+      <LandlordCard house={h} />
 
       {repeatKeys.length > 0 && (
         <div className="mt-3 rounded-2xl bg-[#efe7fb] px-4 py-3 text-[15px] text-[#5b2bb5]">
@@ -246,11 +264,3 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   )
 }
 
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex min-h-12 items-center gap-3 px-4 py-2">
-      <span className="w-24 shrink-0 text-[15px] text-muted">{label}</span>
-      <span className="min-w-0 flex-1 text-[17px]">{value}</span>
-    </div>
-  )
-}

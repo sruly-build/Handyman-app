@@ -1,4 +1,6 @@
+import { cron } from './_lib/cron.js'
 import { approvalPhotos, requestReceived, testAlert } from './_lib/requests.js'
+import { approvalDecided, billingPortal, chargeParts, planCheckout, stripeWebhook } from './_lib/stripe.js'
 import { HttpError, query, send, type Req, type Res } from './_lib/server.js'
 
 /**
@@ -11,6 +13,12 @@ const routes: Record<string, { method: 'GET' | 'POST'; handler: Handler }> = {
   'request-received': { method: 'POST', handler: requestReceived },
   'test-alert': { method: 'POST', handler: testAlert },
   'approval-photos': { method: 'GET', handler: approvalPhotos },
+  'plan-checkout': { method: 'POST', handler: planCheckout },
+  'billing-portal': { method: 'POST', handler: billingPortal },
+  'stripe-webhook': { method: 'POST', handler: stripeWebhook },
+  'charge-parts': { method: 'POST', handler: chargeParts },
+  'approval-decided': { method: 'POST', handler: approvalDecided },
+  cron: { method: 'GET', handler: cron },
 }
 
 export default async function handler(req: Req, res: Res) {

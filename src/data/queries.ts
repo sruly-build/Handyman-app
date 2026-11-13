@@ -124,9 +124,16 @@ export const useRequests = () => useQuery({ queryKey: ['requests'], queryFn: () 
 export const useRequestPhotos = (id: string) =>
   useQuery({ queryKey: ['photos', 'request', id], queryFn: () => backend.requestPhotos(id) })
 export const useHouses = () => useQuery({ queryKey: ['houses'], queryFn: () => backend.listHouses() })
-export const useHouse = (id: string) => useQuery({ queryKey: ['house', id], queryFn: () => backend.getHouse(id) })
+export const useHouse = (id: string) =>
+  useQuery({ queryKey: ['house', id], queryFn: () => backend.getHouse(id), enabled: Boolean(id) })
 export const useGuides = () => useQuery({ queryKey: ['guides'], queryFn: () => backend.listGuides() })
 export const useRequestApprovals = (requestId: string) =>
   useQuery({ queryKey: ['requestApprovals', requestId], queryFn: () => backend.listRequestApprovals(requestId) })
 export const useHouseLandlord = (propertyId: string | null) =>
   useQuery({ queryKey: ['houseLandlord', propertyId], queryFn: () => backend.houseLandlord(propertyId) })
+export const useLandlords = () => useQuery({ queryKey: ['landlords'], queryFn: () => backend.listLandlords() })
+export const useClaims = () => useQuery({ queryKey: ['claims'], queryFn: () => backend.listClaims() })
+export const useHours = (propertyId: string | null) =>
+  useQuery({ queryKey: ['hours', propertyId], queryFn: () => backend.listHours(propertyId!), enabled: Boolean(propertyId) })
+export const useJobApprovals = (jobId: string) =>
+  useQuery({ queryKey: ['jobApprovals', jobId], queryFn: () => backend.listJobApprovals(jobId) })

@@ -9,6 +9,7 @@ import type {
   JobInput,
   Landlord,
   Membership,
+  PropertyClaim,
   PhotoKind,
   Property,
   PunchItem,
@@ -253,6 +254,9 @@ export function createRequestsApi(db: Db, me: () => Promise<AppUser>, base: Base
     async getHouse(id: string): Promise<HouseView> {
       const [p] = await db.select<Property>('properties', { id })
       if (!p) throw new Error('This house was not found.')
+      // Add any hours the plan has earned since we last looked
+      const plan = (await db.select<Membership>('memberships', { property_id: id })).find((m) => m.status === 'active')
+      if (plan) await api.refreshHours(plan).catch(() => {})
       return houseView(p)
     },
     /** The company's house at this address, or a new one */
@@ -334,6 +338,154 @@ export function createRequestsApi(db: Db, me: () => Promise<AppUser>, base: Base
       const [house] = await db.select<Property>('properties', { id: propertyId })
       if (!house?.landlord_id) return null
       return (await db.select<Landlord>('landlords', { id: house.landlord_id }))[0] ?? null
+    },
+
+    // ---- Landlords ----
+    async listLandlords(): Promise<Landlord[]> {
+      const user = await me()
+      return (await db.select<Landlord>('landlords', { company_id: user.companyId })).sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email))
+    },
+    async saveLandlord(l: Partial<Landlord>): Promise<Landlord> {
+      const user = await me()
+      const row = {
+        name: (l.name ?? '').trim(), email: (l.email ?? '').trim().toLowerCase(), phone: (l.phone ?? '').trim(),
+        auto_approve_limit: l.auto_approve_limit ?? null,
+      }
+      if (l.id) return db.update<Landlord>('landlords', l.id, row)
+      return db.insert<Landlord>('landlords', {
+        ...row, id: newId(), company_id: user.companyId, user_id: null, client_id: null, notify_new_request: false, notify_done: false,
+        stripe_customer_id: null, referral_code: newId().replace(/-/g, '').slice(0, 8), referred_by: null, referral_rewarded_at: null,
+        created_at: now(),
+      })
+    },
+    /** Link a house to a landlord (the owner's say-so is the approval) */
+    async linkLandlord(propertyId: string, landlordId: string | null) {
+      return db.update<Property>('properties', propertyId, { landlord_id: landlordId })
+    },
+    async listClaims(): Promise<(PropertyClaim & { address: string; landlord: string })[]> {
+      const user = await me()
+      const claims = (await db.select<PropertyClaim>('property_claims', { company_id: user.companyId })).filter((c) => c.status === 'pending')
+      return Promise.all(
+        claims.map(async (c) => {
+          const [house] = await db.select<Property>('properties', { id: c.property_id })
+          const [l] = await db.select<Landlord>('landlords', { id: c.landlord_id })
+          return { ...c, address: house?.address ?? '', landlord: l ? l.name || l.email : '' }
+        }),
+      )
+    },
+    async decideClaim(claimId: string, approve: boolean) {
+      if (db.mode === 'supabase') return db.rpc('decide_claim', { claim: claimId, approve })
+      const [c] = await db.select<PropertyClaim>('property_claims', { id: claimId })
+      await db.update<PropertyClaim>('property_claims', claimId, { status: approve ? 'approved' : 'declined', decided_at: now() })
+      if (approve) await db.update<Property>('properties', c.property_id, { landlord_id: c.landlord_id })
+    },
+
+    // ---- The plan and its hour bank ----
+    async listHours(propertyId: string): Promise<HourCredit[]> {
+      return (await db.select<HourCredit>('hour_credits', { property_id: propertyId })).sort((a, b) => a.expires_at.localeCompare(b.expires_at))
+    },
+    /** Bring a plan's hours up to date (each period adds hours; the bank has a cap) */
+    async refreshHours(m: Membership) {
+      if (db.mode === 'supabase') return db.rpc('accrue_hours', { m: m.id })
+      if (m.status !== 'active' || !m.next_hour_at) return
+      const credits = await db.select<HourCredit>('hour_credits', { membership_id: m.id })
+      let next = new Date(m.next_hour_at)
+      while (next.getTime() <= Date.now()) {
+        for (let k = 0; k < m.hours_each; k++) {
+          const banked = credits.filter((c) => !c.used_at && Date.parse(c.expires_at) > next.getTime()).length
+          if (banked < m.hour_cap) {
+            const expires = new Date(next)
+            expires.setMonth(expires.getMonth() + m.expire_months)
+            credits.push(await db.insert<HourCredit>('hour_credits', {
+              id: newId(), company_id: m.company_id, membership_id: m.id, property_id: m.property_id, kind: 'plan',
+              added_at: next.toISOString(), expires_at: expires.toISOString(), used_at: null, job_id: null, request_id: null, note: '',
+            }))
+          }
+        }
+        next = new Date(next)
+        next.setMonth(next.getMonth() + Math.max(1, m.every_months))
+      }
+      await db.update<Membership>('memberships', m.id, { next_hour_at: next.toISOString() })
+    },
+    /** Start a house's plan without Stripe (paid by cash or check), or after Stripe is set up by hand */
+    async startPlanManually(propertyId: string): Promise<Membership> {
+      const user = await me()
+      const settings = await api.getServiceSettings()
+      const tier = settings.plan_tiers.find((t) => t.active) ?? settings.plan_tiers[0]
+      const [house] = await db.select<Property>('properties', { id: propertyId })
+      const existing = (await db.select<Membership>('memberships', { property_id: propertyId })).find((m) => m.status !== 'cancelled')
+      const m = existing ?? (await db.insert<Membership>('memberships', {
+        id: newId(), company_id: user.companyId, property_id: propertyId, landlord_id: house?.landlord_id ?? null, tier: tier.id,
+        price: tier.price ?? 0, hours_each: tier.hours, every_months: tier.every_months, hour_cap: tier.cap,
+        expire_months: tier.expire_months, status: 'pending', stripe_subscription_id: null, started_at: null, next_hour_at: null,
+        current_period_end: null, cancelled_at: null, created_at: now(),
+      }))
+      await api.setPlanStatus(m, 'active')
+      return (await db.select<Membership>('memberships', { id: m.id }))[0]
+    },
+    /** Active, payment failed (no new hours), or cancelled. The owner decides what happens. */
+    async setPlanStatus(m: Membership, status: Membership['status']) {
+      if (db.mode === 'supabase') return db.rpc('set_membership_status', { m: m.id, new_status: status })
+      if (status === 'active' && m.status !== 'active') {
+        const first = !m.started_at
+        await db.update<Membership>('memberships', m.id, {
+          status: 'active', cancelled_at: null,
+          ...(first ? { started_at: now(), next_hour_at: now() } : { next_hour_at: m.next_hour_at && Date.parse(m.next_hour_at) < Date.now() ? now() : m.next_hour_at }),
+        })
+        const [fresh] = await db.select<Membership>('memberships', { id: m.id })
+        await api.refreshHours(fresh)
+        if (m.landlord_id) await db.update<Property>('properties', m.property_id, { landlord_id: m.landlord_id })
+      } else {
+        await db.update<Membership>('memberships', m.id, { status, cancelled_at: status === 'cancelled' ? now() : m.cancelled_at })
+      }
+    },
+    /** Each visit uses one full hour (the oldest first). Returns the hours left. */
+    async useHour(propertyId: string, jobId: string | null = null, requestId: string | null = null): Promise<number> {
+      if (db.mode === 'supabase') return db.rpc<number>('use_hour', { house: propertyId, job: jobId, request: requestId })
+      const live = (await api.listHours(propertyId)).filter((c) => !c.used_at && Date.parse(c.expires_at) > Date.now())
+      if (!live.length) throw new Error('This house has no hours left in its bank.')
+      await db.update<HourCredit>('hour_credits', live[0].id, { used_at: now(), job_id: jobId, request_id: requestId })
+      return live.length - 1
+    },
+    /** Give an hour back, or add a free one (e.g. goodwill). Expires in 12 months. */
+    async addHour(propertyId: string, note: string) {
+      const user = await me()
+      const expires = new Date()
+      expires.setMonth(expires.getMonth() + 12)
+      return db.insert<HourCredit>('hour_credits', {
+        id: newId(), company_id: user.companyId, membership_id: null, property_id: propertyId, kind: 'manual', added_at: now(),
+        expires_at: expires.toISOString(), used_at: null, job_id: null, request_id: null, note: note.trim(),
+      })
+    },
+    async undoHour(credit: HourCredit) {
+      return db.update<HourCredit>('hour_credits', credit.id, { used_at: null, job_id: null, request_id: null })
+    },
+    /** Stripe's payment page for this house's plan (for the landlord to pay) */
+    async planCheckoutLink(propertyId: string) {
+      return server<{ url: string }>('plan-checkout', { propertyId })
+    },
+    async billingPortal() {
+      return server<{ url: string }>('billing-portal')
+    },
+    async chargeParts(approvalId: string) {
+      return server<{ result: string }>('charge-parts', { approvalId })
+    },
+    /**
+     * Ask the landlord to approve parts (price includes the markup). Under
+     * their auto-approve limit it's approved right away.
+     */
+    async createPartsApproval(jobId: string, propertyId: string | null, title: string, parts: Approval['parts']) {
+      const total = Math.round(parts.reduce((sum, p) => sum + p.price * p.qty, 0) * 100) / 100
+      const landlord = await api.houseLandlord(propertyId)
+      const settings = await api.getServiceSettings()
+      const limit = landlord?.auto_approve_limit ?? settings.parts_auto_approve
+      const approval = await api.createApproval({
+        kind: 'parts', title, details: '', estimate_hours: null, estimate_amount: total, parts, jobId, propertyId,
+      })
+      if (landlord && total <= limit) {
+        return db.update<Approval>('approvals', approval.id, { status: 'approved', auto: true, decided_at: now(), charge_status: 'pending' })
+      }
+      return approval
     },
 
     // ---- Troubleshooting guides ----

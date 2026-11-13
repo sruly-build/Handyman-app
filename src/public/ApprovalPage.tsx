@@ -16,7 +16,10 @@ export function ApprovalPage() {
   const [note, setNote] = useState('')
   const decide = useMutation({
     mutationFn: (approve: boolean) => publicApi.decide(token, approve, note),
-    onSuccess: () => void refetch(),
+    onSuccess: (result) => {
+      if (result === 'approved' && a?.kind === 'parts') void publicApi.decided(token)
+      void refetch()
+    },
   })
 
   if (isLoading) return <PublicShell title="Approve a repair" lang="en"><Loading /></PublicShell>

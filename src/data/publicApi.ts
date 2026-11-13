@@ -116,6 +116,8 @@ export interface PublicApi {
   decide(token: string, approve: boolean, note?: string): Promise<string>
   /** Photos for the approval page (needs our server; empty without it) */
   approvalPhotos(token: string): Promise<string[]>
+  /** After approving parts: our server charges the card on file */
+  decided(token: string): Promise<void>
   /** Tell our server a request came in (sends the emergency alert) */
   notify(token: string): Promise<void>
 }
@@ -147,6 +149,13 @@ export function createPublicApi(db: Db): PublicApi {
         return ((await res.json()) as { urls?: string[] }).urls ?? []
       } catch {
         return []
+      }
+    },
+    async decided(token) {
+      try {
+        await fetch(`${apiBase()}/api/approval-decided`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) })
+      } catch {
+        // the daily job charges it if this didn't get through
       }
     },
     async notify(token) {
@@ -311,5 +320,6 @@ function createDemoPublicApi(db: Db): PublicApi {
       return db.fileUrls(photos.map((p) => p.path), 'requests')
     },
     async notify() {},
+    async decided() {},
   }
 }
