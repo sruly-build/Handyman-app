@@ -76,3 +76,30 @@ describe('inbox', () => {
     expect(issueSummary({ issues: [], punch_list: 'Paint hall\nFix sink' })).toBe('Paint hall')
   })
 })
+
+import { dueReminders, filterDue } from './reminders'
+
+describe('reminders', () => {
+  const house = (patch: object) => ({ id: 'h', address: '1 Main St', last_filter_at: null, filter_months: null, plan: { status: 'active' as const }, inspections: [], ...patch })
+  it('works out the filter due date from the house or the company interval', () => {
+    expect(filterDue({ last_filter_at: '2026-07-01', filter_months: null }, 4)).toBe('2026-11-01')
+    expect(filterDue({ last_filter_at: '2026-07-01', filter_months: 2 }, 4)).toBe('2026-09-01')
+    expect(filterDue({ last_filter_at: null, filter_months: 2 }, 4)).toBeNull()
+  })
+  it('lists due filters and the seasonal check-up for plan houses only', () => {
+    const now = new Date('2026-10-10T12:00')
+    const list = dueReminders(
+      [house({ last_filter_at: '2026-06-01' }), house({ id: 'x', plan: null, last_filter_at: '2026-01-01' }), house({ id: 'y', last_filter_at: '2026-09-01' })],
+      4,
+      { winter: true, spring: true },
+      now,
+    )
+    expect(list.filter((r) => r.kind === 'filter').map((r) => [r.houseId, r.overdue])).toEqual([['h', true]])
+    expect(list.filter((r) => r.kind === 'winter').map((r) => r.houseId)).toEqual(['h', 'y'])
+  })
+  it('a check-up done this season clears it', () => {
+    const now = new Date('2026-10-10T12:00')
+    const list = dueReminders([house({ inspections: [{ kind: 'winter', done_at: '2026-09-15T10:00:00Z' }] })], 4, { winter: true, spring: true }, now)
+    expect(list).toEqual([])
+  })
+})

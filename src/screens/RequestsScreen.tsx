@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { HouseIcon, PlusIcon } from '../components/Icons'
 import { Screen } from '../components/Screen'
 import { Card, EmptyState, ErrorNote, Loading, Segmented } from '../components/ui'
+import { Reminders } from '../components/Reminders'
 import { useRequests, useServiceSettings } from '../data/queries'
 import { flagLabels, inboxOrder, issueSummary, repeatIssues, requestFlags, type RequestFlag } from '../data/requests'
 import type { ServiceRequest, Urgency } from '../data/types'
@@ -63,6 +64,7 @@ export function RequestsScreen() {
           { value: 'done', label: 'Done' },
         ]}
       />
+      {view === 'open' && <Reminders />}
       <div className="mt-4">
         {isLoading && <Loading />}
         {error && <ErrorNote error={error} />}

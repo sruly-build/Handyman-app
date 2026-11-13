@@ -1,6 +1,7 @@
 import { shrinkPhoto } from '../lib/images'
 import type { Auth, Db } from './db'
 import { addressKey, cleanSlug, defaultServiceSettings, splitList } from './requests'
+import { dueReminders } from './reminders'
 import type {
   AppUser,
   Approval,
@@ -554,6 +555,18 @@ export function createRequestsApi(db: Db, me: () => Promise<AppUser>, base: Base
         reader.readAsDataURL(small)
       })
       return server('read-sticker', { image: data, mediaType: small.type || 'image/jpeg' })
+    },
+
+    // ---- Filter reminders and seasonal check-ups ----
+    async listReminders() {
+      const settings = await api.getServiceSettings()
+      const houses = (await api.listHouses()).filter((h) => h.plan?.status === 'active')
+      const withInspections = await Promise.all(houses.map(async (h) => ({ ...h, inspections: await db.select<Inspection>('inspections', { property_id: h.id }) })))
+      const list = dueReminders(withInspections, settings.filter_months, {
+        winter: settings.seasonal_checklists.winter.some((x) => x.trim()),
+        spring: settings.seasonal_checklists.spring.some((x) => x.trim()),
+      })
+      return list.map((r) => ({ ...r, landlord: houses.find((h) => h.id === r.houseId)?.landlord ?? null }))
     },
 
     // ---- Troubleshooting guides ----
