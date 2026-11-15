@@ -124,6 +124,8 @@ export function JobDetailScreen() {
 
   const done = items?.filter((i) => i.status === 'done').length ?? 0
   const total = items?.length ?? 0
+  // Done items drop to the bottom; the rest keep their order
+  const listOrder = [...(items ?? [])].sort((a, b) => Number(a.status === 'done') - Number(b.status === 'done'))
 
   const bring = buildBringList(items ?? [], parts, job.bring_extras ?? [])
   const packed = bring.filter((b) => checks.some((c) => c.key === b.key)).length
@@ -303,11 +305,17 @@ export function JobDetailScreen() {
 
       {items && items.length > 0 && (
         <Card>
-          {items.map((item, idx) => (
+          {listOrder.map((item, idx) => (
             <div key={item.id}>
-              {idx > 0 && <Divider />}
+              {item.status === 'done' && idx > 0 && listOrder[idx - 1].status !== 'done' ? (
+                <p className="border-t border-hairline bg-canvas/60 px-4 py-1.5 text-[12px] font-bold uppercase tracking-wide text-brand-dark">
+                  Done ({done})
+                </p>
+              ) : (
+                idx > 0 && <Divider />
+              )}
               <div
-                className={`flex items-center ${item.status === 'in_progress' ? 'bg-progress-soft/60' : item.status === 'done' ? 'bg-brand-soft/40' : ''} ${idx === 0 ? 'rounded-t-2xl' : ''} ${idx === items.length - 1 ? 'rounded-b-2xl' : ''}`}
+                className={`flex items-center ${item.status === 'in_progress' ? 'bg-progress-soft/60' : item.status === 'done' ? 'bg-brand-soft/40' : ''} ${idx === 0 ? 'rounded-t-2xl' : ''} ${idx === listOrder.length - 1 ? 'rounded-b-2xl' : ''}`}
               >
                 <button
                   onClick={() => cycle.mutate(item)}
