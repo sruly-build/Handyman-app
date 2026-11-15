@@ -83,7 +83,7 @@ export function ProgressBar({ done, total }: { done: number; total: number }) {
       aria-valuemin={0}
       aria-valuemax={100}
     >
-      <div className="h-full rounded-full bg-brand transition-[width] duration-500" style={{ width: `${pct}%` }} />
+      <div className="h-full rounded-full bg-gradient-to-r from-brand to-teal transition-[width] duration-500" style={{ width: `${pct}%` }} />
     </div>
   )
 }

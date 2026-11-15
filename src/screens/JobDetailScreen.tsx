@@ -150,10 +150,30 @@ export function JobDetailScreen() {
   return (
     <Screen
       title={job.customer_name}
-      eyebrow={
-        lead
-          ? 'Lead'
-          : `${friendlyDate(job.job_date)}${job.job_date && job.job_time ? ` · ${clockLabel(job.job_time)}` : ''}`
+      hero={
+        <div
+          className={`mb-4 mt-1 rounded-3xl bg-gradient-to-br px-5 py-4 text-white shadow-[0_10px_28px_rgba(15,42,35,0.28)] ${
+            lead ? 'from-[#5b2bb5] to-[#8a5ce0]' : partner ? 'from-[#1f5fae] to-[#3a8ee6]' : 'from-[#08654e] to-[#0e9aa7]'
+          }`}
+        >
+          <p className="text-[13px] font-semibold uppercase tracking-wide text-white/80">
+            {lead
+              ? 'Lead'
+              : `${friendlyDate(job.job_date)}${job.job_date && job.job_time ? ` · ${clockLabel(job.job_time)}` : ''}`}
+          </p>
+          <h1 className="mt-0.5 text-[30px] font-bold leading-tight tracking-tight">{job.customer_name}</h1>
+          {job.address && <p className="mt-1 text-[16px] text-white/90">{job.address}</p>}
+          {total > 0 && (
+            <div className="mt-3 flex items-center gap-3">
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/25">
+                <div className="h-full rounded-full bg-mint" style={{ width: `${Math.round((done / total) * 100)}%` }} />
+              </div>
+              <span className="text-[14px] font-semibold tabular-nums">
+                {done}/{total} done
+              </span>
+            </div>
+          )}
+        </div>
       }
       back={back}
       action={
@@ -164,7 +184,6 @@ export function JobDetailScreen() {
         )
       }
     >
-      {job.address && <p className="-mt-3 mb-4 text-[17px] text-muted">{job.address}</p>}
 
       <div className="grid grid-cols-3 gap-3">
         <ActionButton
@@ -264,7 +283,7 @@ export function JobDetailScreen() {
       <SectionTitle
         action={
           total > 0 && (
-            <span className="pb-0.5 text-[15px] font-semibold text-muted">
+            <span className="mb-1 rounded-full bg-brand-soft px-2.5 py-0.5 text-[14px] font-semibold text-brand-dark">
               {done} of {total} done
             </span>
           )
@@ -287,7 +306,9 @@ export function JobDetailScreen() {
           {items.map((item, idx) => (
             <div key={item.id}>
               {idx > 0 && <Divider />}
-              <div className="flex items-center">
+              <div
+                className={`flex items-center ${item.status === 'in_progress' ? 'bg-progress-soft/60' : item.status === 'done' ? 'bg-brand-soft/40' : ''} ${idx === 0 ? 'rounded-t-2xl' : ''} ${idx === items.length - 1 ? 'rounded-b-2xl' : ''}`}
+              >
                 <button
                   onClick={() => cycle.mutate(item)}
                   className="flex h-16 w-16 shrink-0 items-center justify-center active:opacity-50"
@@ -348,9 +369,9 @@ export function JobDetailScreen() {
       {lead ? (
         <>
           <Card>
-            <RowLink to={`/jobs/${job.id}/bill`} Icon={InvoiceIcon} title="Estimate" value={formatMoney(estimate)} />
+            <RowLink tone="bg-teal-soft text-teal" to={`/jobs/${job.id}/bill`} Icon={InvoiceIcon} title="Estimate" value={formatMoney(estimate)} />
             <Divider />
-            <RowLink
+            <RowLink tone="bg-sun-soft text-sun"
               to={`/jobs/${job.id}/parts`}
               Icon={TagIcon}
               title="Parts"
@@ -363,7 +384,7 @@ export function JobDetailScreen() {
         <Card>
           {myShare?.share_bring && (
             <>
-              <RowLink
+              <RowLink tone="bg-sky-soft text-sky"
                 to={`/jobs/${job.id}/bring`}
                 Icon={ChecklistIcon}
                 title="Bring list"
@@ -385,38 +406,38 @@ export function JobDetailScreen() {
           )}
           {myShare?.share_time && (
             <>
-              <RowLink to={`/jobs/${job.id}/time`} Icon={ClockIcon} title="Time" value={formatDuration(onSite)} />
+              <RowLink tone="bg-grape-soft text-grape" to={`/jobs/${job.id}/time`} Icon={ClockIcon} title="Time" value={formatDuration(onSite)} />
               <Divider />
             </>
           )}
-          <RowLink to={`/jobs/${job.id}/report`} Icon={PhotosIcon} title="Before and after report" />
+          <RowLink tone="bg-rose-soft text-rose" to={`/jobs/${job.id}/report`} Icon={PhotosIcon} title="Before and after report" />
         </Card>
       ) : (
         <Card>
-          <RowLink
+          <RowLink tone="bg-sky-soft text-sky"
             to={`/jobs/${job.id}/bring`}
             Icon={ChecklistIcon}
             title="Bring list"
             value={bring.length ? `${packed} of ${bring.length} packed` : 'Empty'}
           />
           <Divider />
-          <RowLink
+          <RowLink tone="bg-sun-soft text-sun"
             to={`/jobs/${job.id}/parts`}
             Icon={TagIcon}
             title="Parts and orders"
             value={parts.length ? `${parts.length} · ${formatMoney(paid)} paid` : 'None'}
           />
           <Divider />
-          <RowLink to={`/jobs/${job.id}/time`} Icon={ClockIcon} title="Time" value={formatDuration(onSite)} />
+          <RowLink tone="bg-grape-soft text-grape" to={`/jobs/${job.id}/time`} Icon={ClockIcon} title="Time" value={formatDuration(onSite)} />
           <Divider />
-          <RowLink
+          <RowLink tone="bg-teal-soft text-teal"
             to={`/jobs/${job.id}/bill`}
             Icon={InvoiceIcon}
             title={invoice ? `Invoice #${invoice.number}` : 'Estimate'}
             value={billValue}
           />
           <Divider />
-          <RowLink to={`/jobs/${job.id}/report`} Icon={PhotosIcon} title="Before and after report" />
+          <RowLink tone="bg-rose-soft text-rose" to={`/jobs/${job.id}/report`} Icon={PhotosIcon} title="Before and after report" />
         </Card>
       )}
     </Screen>
