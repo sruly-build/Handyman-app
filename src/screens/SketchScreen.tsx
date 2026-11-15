@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowIcon, PencilIcon, RulerIcon, TextIcon, TrashIcon, UndoIcon } from '../components/Icons'
+import { ArrowIcon, CropIcon, PencilIcon, RulerIcon, TextIcon, TrashIcon, UndoIcon } from '../components/Icons'
 import { ErrorNote } from '../components/ui'
 import { backend } from '../data/backend'
 import { keys, refreshAll, refreshPhotos, usePhotos } from '../data/queries'
@@ -68,6 +68,24 @@ export function SketchScreen() {
   const [typing, setTyping] = useState<{ at: Point } | null>(null)
   const [text, setText] = useState('')
   const [measurement, setMeasurement] = useState<Measurement | null>(null)
+  // Cropping: the box being chosen (in canvas pixels), and earlier versions to undo a crop
+  const [crop, setCrop] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
+  const [cropHistory, setCropHistory] = useState<{ background: HTMLImageElement | null; marks: Mark[] }[]>([])
+  const cropDrag = useRef<{ mode: 'move' | 'nw' | 'ne' | 'sw' | 'se'; start: Point; box: { x: number; y: number; w: number; h: number } } | null>(null)
+  const frameRef = useRef<HTMLDivElement>(null)
+  // The space the picture can take on screen
+  const areaRef = useRef<HTMLDivElement>(null)
+  const [area, setArea] = useState({ w: 0, h: 0 })
+  useEffect(() => {
+    const el = areaRef.current
+    if (!el) return
+    const measure = () => setArea({ w: el.clientWidth - 16, h: el.clientHeight - 16 })
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const changed = marks.length > 0 || cropHistory.length > 0
 
   // The measurement this drawing is for (its sizes are offered as one-tap labels)
   useEffect(() => {
@@ -111,6 +129,9 @@ export function SketchScreen() {
     const scale = Math.min(1, 1600 / Math.max(background.naturalWidth, background.naturalHeight))
     return { w: Math.round(background.naturalWidth * scale), h: Math.round(background.naturalHeight * scale) }
   })()
+  // Largest size that fits the screen, keeping the picture's shape
+  const scale = area.w > 0 && area.h > 0 ? Math.min(area.w / size.w, area.h / size.h) : 0
+  const fit = scale ? { width: Math.floor(size.w * scale), height: Math.floor(size.h * scale) } : { width: '100%', aspectRatio: `${size.w} / ${size.h}` }
   const lineWidth = Math.round(size.w / (thick ? 90 : 220))
   const arrowWidth = Math.round(size.w / 160)
   const textSize = Math.round(size.w / 18)
@@ -217,6 +238,77 @@ export function SketchScreen() {
     setText('')
   }
 
+  // ---- Cropping ----
+  function framePoint(e: React.PointerEvent): Point {
+    const rect = frameRef.current!.getBoundingClientRect()
+    return [((e.clientX - rect.left) * size.w) / rect.width, ((e.clientY - rect.top) * size.h) / rect.height]
+  }
+  function cropStart(e: React.PointerEvent, mode: 'move' | 'nw' | 'ne' | 'sw' | 'se') {
+    if (!crop) return
+    ;(e.currentTarget as Element).setPointerCapture?.(e.pointerId)
+    cropDrag.current = { mode, start: framePoint(e), box: crop }
+  }
+  function cropMove(e: React.PointerEvent) {
+    const d = cropDrag.current
+    if (!d) return
+    const [px, py] = framePoint(e)
+    const dx = px - d.start[0]
+    const dy = py - d.start[1]
+    const min = Math.round(Math.min(size.w, size.h) * 0.1)
+    let { x, y, w, h } = d.box
+    if (d.mode === 'move') {
+      x = Math.min(Math.max(0, x + dx), size.w - w)
+      y = Math.min(Math.max(0, y + dy), size.h - h)
+    } else {
+      if (d.mode.includes('w')) {
+        const nx = Math.min(Math.max(0, x + dx), x + w - min)
+        w += x - nx
+        x = nx
+      } else w = Math.min(Math.max(min, w + dx), size.w - x)
+      if (d.mode.includes('n')) {
+        const ny = Math.min(Math.max(0, y + dy), y + h - min)
+        h += y - ny
+        y = ny
+      } else h = Math.min(Math.max(min, h + dy), size.h - y)
+    }
+    setCrop({ x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) })
+  }
+  /** Cut the picture (with anything drawn so far) to the box; drawing carries on on the cut photo */
+  async function applyCrop() {
+    if (!crop || !canvasRef.current) return
+    render()
+    const out = document.createElement('canvas')
+    out.width = crop.w
+    out.height = crop.h
+    out.getContext('2d')!.drawImage(canvasRef.current, crop.x, crop.y, crop.w, crop.h, 0, 0, crop.w, crop.h)
+    try {
+      const blob = await new Promise<Blob>((resolve, reject) =>
+        out.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not crop.'))), 'image/jpeg', 0.92),
+      )
+      const img = new Image()
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve()
+        img.onerror = () => reject(new Error('Could not crop.'))
+        img.src = URL.createObjectURL(blob)
+      })
+      setCropHistory((h) => [...h, { background, marks }])
+      setBackground(img)
+      setMarks([])
+      setCrop(null)
+    } catch {
+      setBgError('This photo cannot be cropped. You can still draw on it.')
+      setCrop(null)
+    }
+  }
+  function undo() {
+    if (marks.length) return setMarks(marks.slice(0, -1))
+    const last = cropHistory[cropHistory.length - 1]
+    if (!last) return
+    setBackground(last.background)
+    setMarks(last.marks)
+    setCropHistory((h) => h.slice(0, -1))
+  }
+
   const save = useMutation({
     mutationFn: async () => {
       render()
@@ -251,7 +343,7 @@ export function SketchScreen() {
   })
 
   const close = () => {
-    if (marks.length === 0 || confirm('Throw away this drawing?')) {
+    if (!changed || confirm('Throw away this drawing?')) {
       if (((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0) navigate(-1)
       else navigate(`/jobs/${jobId}/items/${itemId}`, { replace: true })
     }
@@ -281,7 +373,7 @@ export function SketchScreen() {
         </p>
         <button
           onClick={() => save.mutate()}
-          disabled={save.isPending || marks.length === 0 || Boolean(typing)}
+          disabled={save.isPending || !changed || Boolean(typing) || Boolean(crop)}
           className="min-h-12 px-3 text-[17px] font-bold text-[#34c7a0] disabled:opacity-40"
         >
           {save.isPending ? 'Saving…' : 'Save'}
@@ -294,7 +386,8 @@ export function SketchScreen() {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 items-center justify-center p-2">
+      <div ref={areaRef} className="flex min-h-0 flex-1 items-center justify-center p-2">
+        <div ref={frameRef} className="relative" style={fit}>
         <canvas
           ref={canvasRef}
           width={size.w}
@@ -304,12 +397,71 @@ export function SketchScreen() {
           onPointerUp={onUp}
           onPointerCancel={onUp}
           aria-label="Drawing"
-          className="max-h-full max-w-full touch-none rounded-lg bg-white shadow-lg"
-          style={{ aspectRatio: `${size.w} / ${size.h}` }}
+          className="block h-full w-full touch-none rounded-lg bg-white shadow-lg"
         />
+        {crop && (
+          <div
+            className="absolute inset-0 touch-none overflow-hidden rounded-lg"
+            onPointerMove={cropMove}
+            onPointerUp={() => (cropDrag.current = null)}
+            onPointerCancel={() => (cropDrag.current = null)}
+          >
+            <div
+              aria-label="Crop area"
+              className="absolute cursor-move border-2 border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]"
+              style={{
+                left: `${(crop.x / size.w) * 100}%`,
+                top: `${(crop.y / size.h) * 100}%`,
+                width: `${(crop.w / size.w) * 100}%`,
+                height: `${(crop.h / size.h) * 100}%`,
+              }}
+              onPointerDown={(e) => cropStart(e, 'move')}
+            >
+              <div className="pointer-events-none absolute inset-0 grid grid-cols-3 grid-rows-3">
+                {Array.from({ length: 9 }, (_, i) => (
+                  <span key={i} className="border border-white/25" />
+                ))}
+              </div>
+              {(['nw', 'ne', 'sw', 'se'] as const).map((corner) => (
+                <span
+                  key={corner}
+                  role="button"
+                  aria-label={`Crop corner ${corner}`}
+                  onPointerDown={(e) => {
+                    e.stopPropagation()
+                    cropStart(e, corner)
+                  }}
+                  className={`absolute h-9 w-9 ${corner.includes('n') ? '-top-[18px]' : '-bottom-[18px]'} ${corner.includes('w') ? '-left-[18px]' : '-right-[18px]'} flex items-center justify-center`}
+                >
+                  <span className="h-5 w-5 rounded-full border-2 border-[#0f172a] bg-white shadow" />
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+        </div>
       </div>
 
-      {typing ? (
+      {crop ? (
+        <div className="space-y-2 px-3 pb-3">
+          <p className="text-center text-[13px] text-white/70">Drag the box or its corners, then tap Apply.</p>
+          <div className="grid grid-cols-3 gap-2">
+            <button type="button" onClick={() => setCrop(null)} className="min-h-12 rounded-xl bg-white/10 text-[16px] font-semibold text-white">
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => setCrop({ x: 0, y: 0, w: size.w, h: size.h })}
+              className="min-h-12 rounded-xl bg-white/10 text-[16px] font-semibold text-white"
+            >
+              Reset
+            </button>
+            <button type="button" onClick={() => void applyCrop()} className="min-h-12 rounded-xl bg-[#34c7a0] text-[16px] font-bold text-[#0f2a23]">
+              Apply
+            </button>
+          </div>
+        </div>
+      ) : typing ? (
         <form
           className="space-y-2 px-3 pb-3"
           onSubmit={(e) => {
@@ -356,7 +508,7 @@ export function SketchScreen() {
               />
             ))}
           </div>
-          <div className="grid grid-cols-6 gap-1.5">
+          <div className={`grid gap-1.5 ${background ? 'grid-cols-7' : 'grid-cols-6'}`}>
             <ToolButton active={tool === 'pen' && !thick} onClick={() => { setTool('pen'); setThick(false) }} label="Pen">
               <PencilIcon size={20} />
             </ToolButton>
@@ -372,7 +524,18 @@ export function SketchScreen() {
             <ToolButton active={tool === 'text'} onClick={() => setTool('text')} label="Text">
               <TextIcon size={22} />
             </ToolButton>
-            <ToolButton onClick={() => setMarks(marks.slice(0, -1))} label="Undo" disabled={marks.length === 0}>
+            {background && (
+              <ToolButton
+                onClick={() => {
+                  const m = Math.round(Math.min(size.w, size.h) * 0.08)
+                  setCrop({ x: m, y: m, w: size.w - 2 * m, h: size.h - 2 * m })
+                }}
+                label="Crop"
+              >
+                <CropIcon size={22} />
+              </ToolButton>
+            )}
+            <ToolButton onClick={undo} label="Undo" disabled={!changed}>
               <UndoIcon size={22} />
             </ToolButton>
           </div>
