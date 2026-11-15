@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-do
 import { PublicApp, isPublicPath } from './public/PublicApp'
 import { LandlordApp } from './landlord/LandlordApp'
 import { TabBar } from './components/TabBar'
+import { Fab } from './components/Fab'
 import { Loading } from './components/ui'
 import { useAuth } from './lib/auth'
 import { ApprovalsScreen } from './screens/ApprovalsScreen'
@@ -126,6 +127,7 @@ export function App() {
         <Route path="/jobs/:jobId/share" element={<ShareJobScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <Fab />
       <TabBar />
     </>
   )

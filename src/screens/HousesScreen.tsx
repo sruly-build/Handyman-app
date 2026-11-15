@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useState, type ReactNode } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { AddressField } from '../components/AddressField'
 import { HousePlanCard, LandlordCard } from '../components/Plan'
 import { HouseProfileSection } from '../components/HouseProfile'
@@ -21,7 +21,14 @@ export const planLabel = (status: string | undefined) =>
 export function HousesScreen() {
   const { data, isLoading, error } = useHouses()
   const [q, setQ] = useState('')
-  const [adding, setAdding] = useState(false)
+  const [params, setParams] = useSearchParams()
+  const [adding, setAdding] = useState(params.get('add') === '1')
+  useEffect(() => {
+    if (params.get('add') === '1') {
+      setAdding(true)
+      setParams({}, { replace: true })
+    }
+  }, [params, setParams])
   const [address, setAddress] = useState('')
   const qc = useQueryClient()
   const add = useMutation({
