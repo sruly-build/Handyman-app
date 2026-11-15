@@ -1,5 +1,5 @@
 import type { Measurement } from '../data/types'
-import { PlusIcon, TrashIcon } from './Icons'
+import { CameraIcon, PlusIcon, TrashIcon } from './Icons'
 import { Card } from './ui'
 
 const units: Measurement['unit'][] = ['in', 'ft', 'cm', 'mm', 'm']
@@ -17,9 +17,15 @@ export function measurementSummary(m: Measurement): string {
 interface Props {
   value: Measurement[]
   onChange: (next: Measurement[]) => void
+  /** The marked-up photo of a measurement (by photo id) */
+  photoUrl?: (photoId: string) => string | undefined
+  /** Take or pick a photo for this measurement, then mark it up */
+  onAddPhoto?: (m: Measurement, photo: File) => void
+  /** Open the measurement's photo to mark it up more */
+  onOpenPhoto?: (m: Measurement) => void
 }
 
-export function MeasurementsEditor({ value, onChange }: Props) {
+export function MeasurementsEditor({ value, onChange, photoUrl, onAddPhoto, onOpenPhoto }: Props) {
   const update = (id: string, patch: Partial<Measurement>) =>
     onChange(value.map((m) => (m.id === id ? { ...m, ...patch } : m)))
 
@@ -77,6 +83,35 @@ export function MeasurementsEditor({ value, onChange }: Props) {
             placeholder="Note (optional)"
             className="mt-2 w-full bg-transparent py-1 text-[15px] outline-none placeholder:text-[#c7c7cc]"
           />
+          {onAddPhoto && (
+            <div className="mt-2 flex items-center gap-3">
+              {m.photo_id && photoUrl?.(m.photo_id) && (
+                <button
+                  type="button"
+                  onClick={() => onOpenPhoto?.(m)}
+                  className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-canvas ring-1 ring-black/10"
+                  aria-label="Mark up the measurement photo"
+                >
+                  <img src={photoUrl(m.photo_id)} alt={`${m.label || 'Measurement'} photo`} className="h-full w-full object-cover" />
+                </button>
+              )}
+              <label className="flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-sky-soft px-3 text-[15px] font-semibold text-sky active:opacity-70">
+                <CameraIcon size={20} />
+                {m.photo_id ? 'New photo' : 'Add photo and mark it'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  aria-label={`Photo for ${m.label || 'this measurement'}`}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) onAddPhoto(m, file)
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+            </div>
+          )}
         </Card>
       ))}
       <button

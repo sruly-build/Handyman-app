@@ -124,6 +124,8 @@ export interface Measurement {
   depth: string
   unit: 'in' | 'ft' | 'cm' | 'mm' | 'm'
   note: string
+  /** A photo of it, marked up with arrows and sizes (a sketch photo on the item) */
+  photo_id?: string | null
 }
 
 export interface PunchItem {

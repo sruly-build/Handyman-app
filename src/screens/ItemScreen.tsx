@@ -25,6 +25,7 @@ import { isPartnerJob } from '../data/api'
 import { keys, refreshAll, useAssignments, useItem, useJob, useMyShare, useParts, usePhotos } from '../data/queries'
 import { AssignSheet } from '../components/AssignSheet'
 import { useUser } from '../lib/auth'
+import { setPendingImage } from '../lib/pendingImage'
 import type { ItemPatch, PunchItem } from '../data/types'
 
 /** Like the item, but hours are kept as typed text until saved */
@@ -64,7 +65,7 @@ export function ItemScreen() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [draft, setDraft] = useState<Draft | null>(null)
-  const { saveState, saveError } = useAutosave(itemId, draft)
+  const { saveState, saveError, flush } = useAutosave(itemId, draft)
 
   useEffect(() => {
     if (item && !draft) setDraft(pickDraft(item))
@@ -183,7 +184,17 @@ export function ItemScreen() {
       />
 
       <SectionTitle>Measurements</SectionTitle>
-      <MeasurementsEditor value={draft.measurements} onChange={(measurements) => set({ measurements })} />
+      <MeasurementsEditor
+        value={draft.measurements}
+        onChange={(measurements) => set({ measurements })}
+        photoUrl={(id) => photos.find((p) => p.id === id)?.url}
+        onAddPhoto={(m, file) => {
+          // The measurement is saved on the way out; the photo goes straight to the drawing screen
+          setPendingImage(file)
+          void flush().then(() => navigate(`/jobs/${jobId}/items/${itemId}/sketch?measurement=${m.id}&fromFile=1`))
+        }}
+        onOpenPhoto={(m) => navigate(`/jobs/${jobId}/items/${itemId}/sketch?measurement=${m.id}&photo=${m.photo_id}`)}
+      />
 
       {showParts && (
         <>
@@ -316,7 +327,7 @@ function useAutosave(itemId: string, draft: Draft | null) {
     }
   }, [])
 
-  return { saveState, saveError }
+  return { saveState, saveError, flush: () => flush.current() }
 }
 
 function SaveIndicator({ state }: { state: SaveState }) {
