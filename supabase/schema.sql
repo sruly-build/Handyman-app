@@ -358,6 +358,8 @@ create index if not exists parts_job_id_idx on public.parts (job_id);
 alter table public.parts add column if not exists vendor_orders boolean not null default false;
 -- A photo of the part (so you can see what to buy)
 alter table public.parts add column if not exists photo_path text;
+-- A store link for the part
+alter table public.parts add column if not exists link text;
 
 -- ---------------------------------------------------------------
 -- Bring list ticks (what's been loaded in the van)

@@ -178,6 +178,8 @@ export interface Part {
   vendor_orders?: boolean
   /** A photo of the part (stored as parts/<job id>/<file>) */
   photo_path?: string | null
+  /** A store link for the part (pasted in) */
+  link?: string | null
 }
 
 export interface BringCheck {

@@ -24,7 +24,7 @@ import {
   usePartPictures,
   useSettings,
 } from "../data/queries";
-import { CameraIcon } from "../components/Icons";
+import { CameraIcon, LinkIcon } from "../components/Icons";
 import { shrinkPhoto } from "../lib/images";
 import type { PartStatus } from "../data/types";
 import { isPartnerJob } from "../data/api";
@@ -39,7 +39,11 @@ interface Form {
   item_id: string;
   /** On a vendor's item: does the vendor order it? (null = what the item says) */
   vendor_orders: boolean | null;
+  /** A store link for the part */
+  link: string;
 }
+
+const looksLikeLink = (s: string) => /^https?:\/\/\S+\.\S+/i.test(s.trim());
 
 /** Add a part (/jobs/:jobId/parts/new?item=…) or edit one (/parts/:partId) */
 export function PartFormScreen() {
@@ -61,6 +65,59 @@ export function PartFormScreen() {
   );
   const [removePhoto, setRemovePhoto] = useState(false);
   const { data: pictures = {} } = usePartPictures(part ? [part] : []);
+  // What a pasted store link said (name, price, store, picture)
+  const [linkInfo, setLinkInfo] = useState<{
+    url: string;
+    loading?: boolean;
+    error?: string;
+    title?: string;
+    site?: string;
+    image?: string | null;
+  } | null>(null);
+
+  /** Read a store link and fill in whatever is still empty */
+  async function lookUpLink(raw: string) {
+    const url = raw.trim();
+    if (!looksLikeLink(url)) return;
+    setLinkInfo({ url, loading: true });
+    try {
+      const info = await backend.linkPreview(url);
+      setLinkInfo({ url, ...info });
+      setForm((f) => {
+        if (!f) return f;
+        const qty = parseFloat(f.quantity) > 0 ? parseFloat(f.quantity) : 1;
+        return {
+          ...f,
+          name: f.name.trim() ? f.name : info.title,
+          cost:
+            f.cost.trim() || info.price == null
+              ? f.cost
+              : String(Math.round(info.price * qty * 100) / 100),
+          supplier: f.supplier.trim() ? f.supplier : info.site,
+        };
+      });
+      // Use the store's picture if the part has no photo of its own
+      const hasOwn = part && pictures[part.id]?.own && !removePhoto;
+      if (info.image && !hasOwn) {
+        const blob = await (await fetch(info.image)).blob();
+        const small = await shrinkPhoto(
+          new File([blob], "store.jpg", { type: blob.type }),
+        ).catch(() => blob);
+        setNewPhoto((current) =>
+          current ? current : { blob: small, url: URL.createObjectURL(small) },
+        );
+        setRemovePhoto(false);
+      }
+    } catch (e) {
+      setLinkInfo({
+        url,
+        error:
+          e instanceof Error
+            ? e.message
+            : "Could not read that link. The link is still saved.",
+      });
+    }
+  }
   const [form, setForm] = useState<Form | null>(
     editing
       ? null
@@ -72,6 +129,7 @@ export function PartFormScreen() {
           status: "needed",
           item_id: search.get("item") ?? "",
           vendor_orders: null,
+          link: "",
         },
   );
 
@@ -85,6 +143,7 @@ export function PartFormScreen() {
         status: part.status,
         item_id: part.item_id ?? "",
         vendor_orders: part.vendor_orders ?? false,
+        link: part.link ?? "",
       });
     }
   }, [part, form]);
@@ -118,6 +177,9 @@ export function PartFormScreen() {
       const saved = part
         ? await backend.updatePart(part, input)
         : await backend.createPart(input);
+      const link = f.link.trim();
+      if (link !== (part?.link ?? ""))
+        await backend.setPartLink(saved, link || null);
       if (newPhoto)
         await backend.setPartPhoto(
           { ...saved, photo_path: part?.photo_path ?? null },
@@ -196,6 +258,114 @@ export function PartFormScreen() {
               label: partStatusLabels[v],
             }))}
           />
+        )}
+        {!shared && (
+          <section>
+            <GroupLabel>Store link (optional)</GroupLabel>
+            <Card>
+              <div className="flex items-center">
+                <Field
+                  label="Paste a link to the part"
+                  type="url"
+                  inputMode="url"
+                  className="min-w-0 flex-1"
+                  value={form.link}
+                  placeholder="https://…"
+                  aria-label="Store link"
+                  onChange={(e) => set({ link: e.target.value })}
+                  onPaste={(e) => {
+                    const text = e.clipboardData.getData("text");
+                    if (looksLikeLink(text)) {
+                      e.preventDefault();
+                      set({ link: text.trim() });
+                      void lookUpLink(text);
+                    }
+                  }}
+                  onBlur={() => {
+                    if (
+                      form.link.trim() !== (linkInfo?.url ?? part?.link ?? "")
+                    )
+                      void lookUpLink(form.link);
+                  }}
+                />
+                <button
+                  type="button"
+                  className="mr-3 min-h-11 shrink-0 rounded-xl bg-sky-soft px-4 text-[15px] font-semibold text-sky active:opacity-70"
+                  onClick={async () => {
+                    let text = "";
+                    try {
+                      text = (await navigator.clipboard.readText()).trim();
+                    } catch {
+                      // no clipboard access: they can paste into the box
+                    }
+                    if (looksLikeLink(text)) {
+                      set({ link: text });
+                      void lookUpLink(text);
+                    } else if (looksLikeLink(form.link)) {
+                      void lookUpLink(form.link);
+                    } else {
+                      setLinkInfo({
+                        url: "",
+                        error:
+                          "Copy the part's link in the store's app or website, then tap Paste.",
+                      });
+                    }
+                  }}
+                >
+                  Paste
+                </button>
+              </div>
+              {linkInfo &&
+                (linkInfo.loading || linkInfo.error || linkInfo.title) && (
+                  <>
+                    <Divider />
+                    <div className="flex items-center gap-3 px-4 py-3">
+                      {linkInfo.image ? (
+                        <img
+                          src={linkInfo.image}
+                          alt="From the store"
+                          className="h-14 w-14 shrink-0 rounded-lg object-cover ring-1 ring-black/10"
+                        />
+                      ) : (
+                        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-canvas text-muted">
+                          <LinkIcon size={22} />
+                        </span>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        {linkInfo.loading ? (
+                          <p className="text-[15px] text-muted">
+                            Reading the store page…
+                          </p>
+                        ) : linkInfo.error ? (
+                          <p className="text-[14px] text-problem">
+                            {linkInfo.error}
+                          </p>
+                        ) : (
+                          <>
+                            <p className="line-clamp-2 text-[15px] font-medium">
+                              {linkInfo.title}
+                            </p>
+                            <p className="text-[13px] text-muted">
+                              {linkInfo.site} · filled in the empty boxes below
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              {looksLikeLink(form.link) && !linkInfo?.loading && (
+                <a
+                  href={form.link.trim()}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex min-h-11 items-center gap-2 border-t border-hairline px-4 text-[15px] font-semibold text-sky"
+                >
+                  <LinkIcon size={18} /> Open the store page
+                </a>
+              )}
+            </Card>
+          </section>
         )}
         <Card>
           <Field

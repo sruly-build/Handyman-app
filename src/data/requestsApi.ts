@@ -563,6 +563,10 @@ export function createRequestsApi(db: Db, me: () => Promise<AppUser>, base: Base
     },
 
     /** AI reads the brand and model from a photo of an appliance's sticker (needs the server's AI key) */
+    /** Read a pasted store link: the product's name, price, store and picture (a data: address) */
+    async linkPreview(url: string): Promise<{ title: string; price: number | null; site: string; image: string | null }> {
+      return server('link-preview', { url })
+    },
     async readSticker(image: Blob): Promise<{ brand: string; model: string; serial: string; kind: string }> {
       const small = image.size > 900_000 && image instanceof File ? await shrinkPhoto(image, 1600, 0.8) : image
       const data = await new Promise<string>((resolve, reject) => {

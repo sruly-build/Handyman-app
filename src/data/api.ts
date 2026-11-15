@@ -553,6 +553,17 @@ export function createApi(db: Db, auth: Auth) {
       }
       if (part.photo_path) await db.removeFiles([part.photo_path])
     },
+    /** Save the part's store link */
+    async setPartLink(part: Part, link: string | null) {
+      try {
+        await db.update<Part>('parts', part.id, { link })
+      } catch (e) {
+        if (e instanceof Error && /link/.test(e.message)) {
+          throw new Error('Part links need a quick database update first (supabase/updates/18-part-links.sql).')
+        }
+        throw e
+      }
+    },
     /**
      * A picture for each part: its own photo, or else a photo from its punch
      * list item (before photos first). Returns part id → { url, own }.

@@ -6,7 +6,7 @@ import { backend } from "../data/backend";
 import { formatMoney } from "../data/billing";
 import { refreshAll } from "../data/queries";
 import type { Part, PartStatus } from "../data/types";
-import { CheckIcon, ChevronIcon } from "./Icons";
+import { CheckIcon, ChevronIcon, LinkIcon } from "./Icons";
 
 export const partStatusLabels: Record<PartStatus, string> = {
   needed: "Needed",
@@ -93,6 +93,7 @@ export function PartRow({
       {viewing && picture && (
         <PhotoViewer
           url={picture.url}
+          link={part.link ?? undefined}
           caption={
             picture.own
               ? part.name
@@ -113,6 +114,19 @@ export function PartRow({
           {text}
           <ChevronIcon size={18} className="shrink-0 text-[#c7c7cc]" />
         </Link>
+      )}
+      {part.link && (
+        <a
+          href={part.link}
+          target="_blank"
+          rel="noreferrer"
+          className="flex min-h-16 shrink-0 items-center pl-1 text-sky active:opacity-60"
+          aria-label={`Open the store page for ${part.name}`}
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-soft">
+            <LinkIcon size={18} />
+          </span>
+        </a>
       )}
       {byVendor ? (
         // The vendor orders it: no stages for me to track
