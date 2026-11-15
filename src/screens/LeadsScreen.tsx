@@ -29,6 +29,7 @@ export function LeadsScreen() {
   return (
     <Screen
       title="Turnovers"
+      back={{ to: '/more', label: 'Me' }}
     >
       <SalesNav />
       <Segmented

@@ -53,7 +53,7 @@ export function PipelineScreen() {
   )
 
   return (
-    <Screen title="Pipeline" wide>
+    <Screen title="Pipeline" wide back={{ to: '/more', label: 'Me' }}>
       <SalesNav />
       {isLoading && <Loading />}
       {error && <ErrorNote error={error} />}

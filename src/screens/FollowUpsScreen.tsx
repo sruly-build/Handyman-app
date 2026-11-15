@@ -31,7 +31,7 @@ export function FollowUpsScreen() {
     },
   ]
   return (
-    <Screen title="Follow-ups" wide>
+    <Screen title="Follow-ups" wide back={{ to: '/more', label: 'Me' }}>
       <SalesNav />
       {isLoading && <Loading />}
       {error && <ErrorNote error={error} />}

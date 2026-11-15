@@ -61,6 +61,7 @@ export function ProspectsScreen() {
     <Screen
       title="Leads"
       wide
+      back={{ to: '/more', label: 'Me' }}
     >
       <SalesNav />
       <label className="flex min-h-12 items-center gap-2 rounded-2xl bg-card px-4">

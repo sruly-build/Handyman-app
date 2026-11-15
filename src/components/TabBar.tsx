@@ -1,11 +1,10 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { useRequests } from '../data/queries'
-import { CalendarIcon, HomeIcon, InboxIcon, JobsIcon, LeadIcon, MoreIcon } from './Icons'
+import { CalendarIcon, HomeIcon, InboxIcon, JobsIcon, MoreIcon } from './Icons'
 
 const tabs = [
   { to: '/', label: 'Home', Icon: HomeIcon, end: true, on: 'text-[#6ee7b7]' },
   { to: '/requests', label: 'Requests', Icon: InboxIcon, end: false, on: 'text-[#fdba74]' },
-  { to: '/sales', label: 'Sales', Icon: LeadIcon, end: false, on: 'text-[#c4b5fd]' },
   { to: '/jobs', label: 'Jobs', Icon: JobsIcon, end: false, on: 'text-[#93c5fd]' },
   { to: '/schedule', label: 'Schedule', Icon: CalendarIcon, end: false, on: 'text-[#f9a8d4]' },
   { to: '/more', label: 'Me', Icon: MoreIcon, end: false, on: 'text-[#a5b4fc]' },
@@ -14,7 +13,7 @@ const tabs = [
 /** Bottom tab bar with big tap targets (easy with gloves on) */
 export function TabBar() {
   const { pathname } = useLocation()
-  // Turnovers (/leads) live inside Sales
+  // Sales (and Turnovers, /leads) open from the Me page
   const salesOpen = pathname.startsWith('/sales') || pathname.startsWith('/leads')
   const requestsOpen = pathname.startsWith('/houses')
   // New requests waiting (a red dot with the number; emergencies make it pulse)
@@ -31,7 +30,7 @@ export function TabBar() {
               end={end}
               className={({ isActive }) =>
                 `flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-semibold transition-colors active:opacity-60 ${
-                  isActive || (to === '/sales' && salesOpen) || (to === '/requests' && requestsOpen) ? on : 'text-white/60'
+                  isActive || (to === '/more' && salesOpen) || (to === '/requests' && requestsOpen) ? on : 'text-white/60'
                 }`
               }
             >

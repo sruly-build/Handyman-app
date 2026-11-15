@@ -40,6 +40,7 @@ export function SalesDashboardScreen() {
     <Screen
       title="Sales"
       wide
+      back={{ to: '/more', label: 'Me' }}
     >
       <SalesNav />
       {isLoading && <Loading />}

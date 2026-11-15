@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { BookIcon, CheckIcon, GearIcon, InvoiceIcon, LinkIcon, PeopleIcon } from '../components/Icons'
+import { BookIcon, CheckIcon, GearIcon, InvoiceIcon, LeadIcon, LinkIcon, PeopleIcon } from '../components/Icons'
 import { EmergencyAlerts } from '../components/EmergencyAlerts'
 import { Screen } from '../components/Screen'
 import { Button, Card, Divider, ErrorNote, Field, RowLink, SectionTitle } from '../components/ui'
@@ -46,6 +46,19 @@ export function MeScreen() {
 
   return (
     <Screen title="Me">
+      <Link
+        to="/sales"
+        className="shine mb-6 flex min-h-[76px] items-center gap-4 rounded-[24px] bg-gradient-to-br from-[#7c3aed] via-[#8b5cf6] to-[#c084fc] px-5 text-white shadow-[0_12px_28px_-8px_rgba(124,58,237,0.55)] transition active:scale-[0.98]"
+      >
+        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20">
+          <LeadIcon size={24} />
+        </span>
+        <span className="flex-1">
+          <span className="block text-[19px] font-bold">Sales</span>
+          <span className="block text-[14px] text-white/85">Leads, calls, follow-ups, turnovers</span>
+        </span>
+      </Link>
+
       <h2 className="mb-2 px-1 text-[13px] font-semibold uppercase tracking-wide text-muted">Directory</h2>
       <div className="mb-6 grid grid-cols-2 gap-3">
         <DirectoryLink to="/directory?show=clients" label="Clients" hint="Jobs and history" Icon={PeopleIcon} tone="bg-grape-soft text-grape" />

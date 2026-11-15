@@ -13,7 +13,7 @@ export function CallListScreen() {
   const { data: leads, isLoading, error } = useProspects()
   const queue = callQueue(leads ?? [], user.id)
   return (
-    <Screen title="Call list" wide>
+    <Screen title="Call list" wide back={{ to: '/more', label: 'Me' }}>
       <SalesNav />
       {isLoading && <Loading />}
       {error && <ErrorNote error={error} />}
