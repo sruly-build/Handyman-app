@@ -15,6 +15,28 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- If the app hasn't shown anything after 8 seconds (e.g. an old saved copy), offer a fresh start -->
+    <div id="stuck" style="position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;font-family:system-ui,sans-serif;background:#f1f3f7;color:#0f172a;text-align:center">
+      <p style="font-size:20px;font-weight:700;margin:0">The app is taking too long to open</p>
+      <p style="font-size:16px;color:#5b6475;margin:0">Tap below to load the newest version. Your data is safe.</p>
+      <button id="stuck-fix" style="min-height:56px;padding:0 28px;border:0;border-radius:16px;background:#059669;color:#fff;font-size:17px;font-weight:600">Fix and reload</button>
+    </div>
+    <script>
+      setTimeout(function () {
+        var root = document.getElementById('root')
+        if (root && root.childElementCount === 0) {
+          var stuck = document.getElementById('stuck')
+          stuck.style.display = "flex"
+          document.getElementById('stuck-fix').onclick = function () {
+            var done = function () { location.reload() }
+            var jobs = []
+            if (navigator.serviceWorker) jobs.push(navigator.serviceWorker.getRegistrations().then(function (r) { return Promise.all(r.map(function (x) { return x.unregister() })) }))
+            if (window.caches) jobs.push(caches.keys().then(function (k) { return Promise.all(k.map(function (n) { return caches.delete(n) })) }))
+            Promise.all(jobs).then(done, done)
+          }
+        }
+      }, 8000)
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
