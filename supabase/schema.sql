@@ -317,6 +317,8 @@ create table if not exists public.punch_items (
 );
 alter table public.punch_items add column if not exists tools jsonb not null default '[]'::jsonb;
 alter table public.punch_items add column if not exists estimated_hours numeric;
+-- The day you plan to do this item (items on the same day are done together)
+alter table public.punch_items add column if not exists planned_date date;
 create index if not exists punch_items_job_id_idx on public.punch_items (job_id);
 
 -- ---------------------------------------------------------------

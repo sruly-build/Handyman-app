@@ -6,6 +6,7 @@ import { ListEditor } from '../components/ListEditor'
 import { MeasurementsEditor } from '../components/MeasurementsEditor'
 import { PartRow } from '../components/PartRow'
 import { PhotoGrid, PhotoSection } from '../components/PhotoSection'
+import { PlannedDay } from '../components/PlannedDay'
 import { Screen } from '../components/Screen'
 import { TaskTimer } from '../components/TimeWidgets'
 import {
@@ -37,6 +38,7 @@ const pickDraft = (i: PunchItem): Draft => ({
   measurements: i.measurements,
   tools: i.tools ?? [],
   estimated_hours: i.estimated_hours == null ? '' : String(i.estimated_hours),
+  planned_date: i.planned_date ?? null,
 })
 
 /**
@@ -169,6 +171,9 @@ export function ItemScreen() {
         )}
       </Card>
 
+      <SectionTitle>When</SectionTitle>
+      <PlannedDay jobId={jobId} itemId={itemId} value={draft.planned_date} onChange={(planned_date) => set({ planned_date })} />
+
       <SectionTitle>Measurements</SectionTitle>
       <MeasurementsEditor value={draft.measurements} onChange={(measurements) => set({ measurements })} />
 
@@ -256,8 +261,12 @@ function useAutosave(itemId: string, draft: Draft | null) {
     setSaveState('saving')
     try {
       const hours = parseFloat(next.estimated_hours)
+      // Only send the planned day when it changed (works before the database update too)
+      const before = lastSaved.current ? (JSON.parse(lastSaved.current) as Draft).planned_date : null
+      const { planned_date, ...rest } = next
       const saved = await backend.updateItem(itemId, {
-        ...next,
+        ...rest,
+        ...(planned_date !== before ? { planned_date } : {}),
         title: next.title.trim() || 'Untitled item',
         estimated_hours: Number.isFinite(hours) ? hours : null,
       })

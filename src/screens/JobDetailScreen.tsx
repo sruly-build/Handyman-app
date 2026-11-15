@@ -58,6 +58,7 @@ import { isLead, isPartnerJob } from '../data/api'
 import { isMine } from '../data/directory'
 import { LeadActions, LeadPanel } from '../components/LeadPanel'
 import { JobPlanPanel, TurnoverChecklistButton } from '../components/Plan'
+import { dayLabel } from '../components/PlannedDay'
 import { useUser } from '../lib/auth'
 import { clockLabel, friendlyDate } from '../lib/dates'
 import { directionsLink, phoneLink } from '../lib/links'
@@ -302,7 +303,16 @@ export function JobDetailScreen() {
                     >
                       {item.title}
                     </p>
-                    {item.location && <p className="truncate text-[14px] text-muted">{item.location}</p>}
+                    {(item.location || (item.planned_date && item.status !== 'done')) && (
+                      <p className="truncate text-[14px] text-muted">
+                        {item.planned_date && item.status !== 'done' && (
+                          <span className="mr-1.5 rounded-full bg-[#e4eefb] px-2 py-0.5 text-[12px] font-semibold text-[#1f5fae]">
+                            {dayLabel(item.planned_date)}
+                          </span>
+                        )}
+                        {item.location}
+                      </p>
+                    )}
                     {vendorOf(item.id) && (
                       <p className="truncate text-[13px] font-medium text-brand-dark">{vendorOf(item.id)!.name}</p>
                     )}

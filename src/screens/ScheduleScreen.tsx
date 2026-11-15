@@ -6,7 +6,7 @@ import { Screen } from '../components/Screen'
 import { TextClientSheet } from '../components/TextClient'
 import { Card, ErrorNote, Loading, Segmented } from '../components/ui'
 import { scheduleEvents, weekOf, type ScheduleEvent } from '../data/schedule'
-import { useProspects, useSchedule } from '../data/queries'
+import { useAllItems, useProspects, useSchedule } from '../data/queries'
 import { addDays, clockLabel, todayISO } from '../lib/dates'
 import { directionsLink, phoneLink } from '../lib/links'
 
@@ -19,9 +19,9 @@ const shortDay = (iso: string) => {
   return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
-const kindLabel = { walkthrough: 'Walkthrough', job: 'Job', meeting: 'Sales meeting' }
-const kindColor = { walkthrough: 'bg-progress', job: 'bg-brand', meeting: 'bg-[#7c4dcc]' }
-const kindText = { walkthrough: 'text-[#8a4b00]', job: 'text-brand-dark', meeting: 'text-[#5b2bb5]' }
+const kindLabel = { walkthrough: 'Walkthrough', job: 'Job', meeting: 'Sales meeting', items: 'Punch items' }
+const kindColor = { walkthrough: 'bg-progress', job: 'bg-brand', meeting: 'bg-[#7c4dcc]', items: 'bg-[#2f7bd9]' }
+const kindText = { walkthrough: 'text-[#8a4b00]', job: 'text-brand-dark', meeting: 'text-[#5b2bb5]', items: 'text-[#1f5fae]' }
 
 /** Walkthroughs and jobs by day or week. Lives only in the app. */
 export function ScheduleScreen() {
@@ -38,12 +38,14 @@ export function ScheduleScreen() {
   // Only our own leads and jobs (not jobs other companies shared with us)
   // Sales meetings with leads show here too
   const { data: leads = [] } = useProspects()
+  const { data: items = [] } = useAllItems()
   const meetings = leads
     .filter((l) => l.follow_up?.kind === 'meeting' && !l.archived_at)
     .map((l) => ({ meeting: l.follow_up!, lead: l }))
   const events = scheduleEvents(
     (data ?? []).filter((j) => j.from_company === null),
     meetings,
+    items,
   )
   const week = weekOf(date)
   const step = view === 'day' ? 1 : 7
@@ -141,8 +143,8 @@ function EventCards({ events, onOpen }: { events: ScheduleEvent[]; onOpen: (e: S
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[17px] font-semibold">{e.job.customer_name}</span>
             <span className="block truncate text-[14px] text-muted">
-              {kindLabel[e.kind]}
-              {e.job.address ? ` · ${e.job.address}` : ''}
+              {e.items ? `${e.items.length} punch item${e.items.length === 1 ? '' : 's'}: ${e.items.map((i) => i.title).join(', ')}` : kindLabel[e.kind]}
+              {!e.items && e.job.address ? ` · ${e.job.address}` : ''}
             </span>
           </span>
         </button>
@@ -178,6 +180,13 @@ function EventSheet({ event, onClose }: { event: ScheduleEvent; onClose: () => v
             </p>
             <h2 className="text-[22px] font-bold">{job.customer_name}</h2>
             {job.address && <p className="text-[15px] text-muted">{job.address}</p>}
+            {event.items && (
+              <ul className="mt-2 space-y-0.5 text-[15px]">
+                {event.items.map((i) => (
+                  <li key={i.id}>○ {i.title}</li>
+                ))}
+              </ul>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -226,7 +235,7 @@ function EventSheet({ event, onClose }: { event: ScheduleEvent; onClose: () => v
           to={event.link}
           className="mt-3 flex min-h-14 items-center justify-center rounded-2xl bg-brand text-[17px] font-semibold text-white active:bg-brand-dark"
         >
-          {event.kind === 'job' ? 'Open job' : event.kind === 'walkthrough' ? 'Open turnover' : 'Open lead'}
+          {event.kind === 'job' || event.kind === 'items' ? 'Open job' : event.kind === 'walkthrough' ? 'Open turnover' : 'Open lead'}
         </Link>
       </div>
     </div>,

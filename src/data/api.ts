@@ -65,7 +65,12 @@ const now = () => new Date().toISOString()
 
 // The database may send decimals back as text ("50.00"), so turn them into numbers
 const num = (v: unknown) => (v == null || v === '' ? null : Number(v))
-const fixItem = (i: PunchItem): PunchItem => ({ ...i, tools: i.tools ?? [], estimated_hours: num(i.estimated_hours) })
+const fixItem = (i: PunchItem): PunchItem => ({
+  ...i,
+  tools: i.tools ?? [],
+  estimated_hours: num(i.estimated_hours),
+  planned_date: i.planned_date ?? null,
+})
 const fixPart = (p: Part): Part => ({ ...p, quantity: num(p.quantity) ?? 1, cost: num(p.cost) })
 const fixInvoice = (i: Invoice): Invoice => ({
   ...i,
