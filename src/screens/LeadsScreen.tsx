@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CalendarIcon, PlusIcon } from '../components/Icons'
+import { CalendarIcon } from '../components/Icons'
 import { LeadStatusPill, walkthroughLabel } from '../components/LeadPanel'
 import { Screen } from '../components/Screen'
 import { Card, EmptyState, ErrorNote, GroupLabel, Loading, Segmented } from '../components/ui'
@@ -29,15 +29,6 @@ export function LeadsScreen() {
   return (
     <Screen
       title="Turnovers"
-      action={
-        <Link
-          to="/leads/new"
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-brand text-white active:bg-brand-dark"
-          aria-label="New turnover"
-        >
-          <PlusIcon size={24} strokeWidth={2.6} />
-        </Link>
-      }
     >
       <SalesNav />
       <Segmented

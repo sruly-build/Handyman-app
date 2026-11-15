@@ -1,7 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { JobCard } from '../components/JobCard'
-import { PlusIcon } from '../components/Icons'
 import { Screen } from '../components/Screen'
 import { EmptyState, ErrorNote, Loading, Segmented } from '../components/ui'
 import { useJobs } from '../data/queries'
@@ -21,15 +19,6 @@ export function JobsScreen() {
   return (
     <Screen
       title="Jobs"
-      action={
-        <Link
-          to="/jobs/new"
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-brand text-white active:bg-brand-dark"
-          aria-label="New job"
-        >
-          <PlusIcon size={24} strokeWidth={2.6} />
-        </Link>
-      }
     >
       {anyFromOthers && (
         <div className="mb-4">

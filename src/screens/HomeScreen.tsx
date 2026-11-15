@@ -53,10 +53,30 @@ export function HomeScreen() {
   const dateLine = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
 
   return (
-    <Screen title={`${greeting()}, ${user.name}`} eyebrow={dateLine}>
+    <Screen
+      title={`${greeting()}, ${user.name}`}
+      hero={
+        <div className="mb-5 mt-1 rounded-3xl bg-gradient-to-br from-night to-night-soft px-5 py-5 text-white shadow-[0_10px_30px_rgba(15,42,35,0.35)]">
+          <p className="text-[13px] font-semibold uppercase tracking-wide text-mint">{dateLine}</p>
+          <h1 className="mt-1 text-[30px] font-bold leading-tight tracking-tight">
+            {greeting()}, {user.name}
+          </h1>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-2xl bg-mint/20 px-3 py-2.5">
+              <p className="text-[26px] font-bold leading-none tabular-nums text-mint">{todays.length + walkthroughs.length + otherToday.length}</p>
+              <p className="mt-1 text-[13px] font-semibold text-white/80">Places today</p>
+            </div>
+            <div className="rounded-2xl bg-[#7fd4ff]/20 px-3 py-2.5 [&>p:first-child]:text-[#7fd4ff]">
+              <p className="text-[26px] font-bold leading-none tabular-nums">{tomorrowStops.length}</p>
+              <p className="mt-1 text-[13px] font-semibold text-white/75">Tomorrow</p>
+            </div>
+          </div>
+        </div>
+      }
+    >
       <div className="grid grid-cols-2 gap-3">
-        <QuickLink to="/orders" label="Orders" Icon={OrdersIcon} />
-        <QuickLink to="/bring" label="Bring list" Icon={ChecklistIcon} />
+        <QuickLink to="/orders" label="Orders" Icon={OrdersIcon} tone="bg-sun-soft text-sun" />
+        <QuickLink to="/bring" label="Bring list" Icon={ChecklistIcon} tone="bg-sky-soft text-sky" />
       </div>
 
       {evening && tomorrow.length > 0 && (
@@ -177,11 +197,11 @@ export function HomeScreen() {
   )
 }
 
-function QuickLink({ to, label, Icon }: { to: string; label: string; Icon: typeof OrdersIcon }) {
+function QuickLink({ to, label, Icon, tone }: { to: string; label: string; Icon: typeof OrdersIcon; tone: string }) {
   return (
     <Link to={to} className="transition active:scale-[0.97]">
       <Card className="flex min-h-[88px] flex-col justify-between p-4">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-soft text-brand">
+        <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${tone}`}>
           <Icon size={22} />
         </span>
         <span className="text-[17px] font-semibold">{label}</span>

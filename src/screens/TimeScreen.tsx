@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { ChevronIcon, PlusIcon } from '../components/Icons'
+import { ChevronIcon } from '../components/Icons'
 import { Screen } from '../components/Screen'
 import { ClockCard } from '../components/TimeWidgets'
 import { Card, Divider, EmptyState, GroupLabel, Loading } from '../components/ui'
@@ -30,12 +30,6 @@ export function TimeScreen() {
   return (
     <Screen title="Time" eyebrow={job?.customer_name} back={{ to: `/jobs/${jobId}`, label: 'Job' }}>
       <ClockCard jobId={jobId} />
-      <Link
-        to={`/jobs/${jobId}/time/new`}
-        className="mt-3 flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-brand-soft text-[17px] font-semibold text-brand-dark active:opacity-70"
-      >
-        <PlusIcon size={20} /> Add time by hand
-      </Link>
 
       {isLoading && <Loading />}
       {entries && all.length === 0 && (

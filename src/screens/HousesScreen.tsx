@@ -4,7 +4,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { AddressField } from '../components/AddressField'
 import { HousePlanCard, LandlordCard } from '../components/Plan'
 import { HouseProfileSection } from '../components/HouseProfile'
-import { PlusIcon, SearchIcon, TrashIcon } from '../components/Icons'
+import { SearchIcon, TrashIcon } from '../components/Icons'
 import { Screen } from '../components/Screen'
 import { Button, Card, Divider, EmptyState, ErrorNote, Field, GroupLabel, Loading } from '../components/ui'
 import { backend } from '../data/backend'
@@ -56,9 +56,6 @@ export function HousesScreen() {
           <Link to="/landlords" className="min-h-11 px-2 py-2 text-[17px] text-brand">
             Landlords
           </Link>
-          <button onClick={() => setAdding(!adding)} className="flex h-11 w-11 items-center justify-center text-brand" aria-label="Add a house">
-            <PlusIcon size={26} />
-          </button>
         </div>
       }
     >

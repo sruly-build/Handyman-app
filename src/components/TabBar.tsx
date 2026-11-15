@@ -3,12 +3,12 @@ import { useRequests } from '../data/queries'
 import { CalendarIcon, HomeIcon, InboxIcon, JobsIcon, LeadIcon, MoreIcon } from './Icons'
 
 const tabs = [
-  { to: '/', label: 'Home', Icon: HomeIcon, end: true },
-  { to: '/requests', label: 'Requests', Icon: InboxIcon, end: false },
-  { to: '/sales', label: 'Sales', Icon: LeadIcon, end: false },
-  { to: '/jobs', label: 'Jobs', Icon: JobsIcon, end: false },
-  { to: '/schedule', label: 'Schedule', Icon: CalendarIcon, end: false },
-  { to: '/more', label: 'Me', Icon: MoreIcon, end: false },
+  { to: '/', label: 'Home', Icon: HomeIcon, end: true, on: 'text-[#6ee7c3]' },
+  { to: '/requests', label: 'Requests', Icon: InboxIcon, end: false, on: 'text-[#ffb547]' },
+  { to: '/sales', label: 'Sales', Icon: LeadIcon, end: false, on: 'text-[#c4a2ff]' },
+  { to: '/jobs', label: 'Jobs', Icon: JobsIcon, end: false, on: 'text-[#7fd4ff]' },
+  { to: '/schedule', label: 'Schedule', Icon: CalendarIcon, end: false, on: 'text-[#ff9fc4]' },
+  { to: '/more', label: 'Me', Icon: MoreIcon, end: false, on: 'text-[#ffe27a]' },
 ]
 
 /** Bottom tab bar with big tap targets (easy with gloves on) */
@@ -22,16 +22,16 @@ export function TabBar() {
   const fresh = (requests ?? []).filter((r) => r.status === 'new')
   const emergency = fresh.some((r) => r.urgency === 'emergency')
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-hairline bg-white/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl print:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-30 bg-night pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(0,0,0,0.18)] print:hidden">
       <ul className="mx-auto flex max-w-2xl">
-        {tabs.map(({ to, label, Icon, end }) => (
+        {tabs.map(({ to, label, Icon, end, on }) => (
           <li key={to} className="flex-1">
             <NavLink
               to={to}
               end={end}
               className={({ isActive }) =>
                 `flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-semibold transition-colors active:opacity-60 ${
-                  isActive || (to === '/sales' && salesOpen) || (to === '/requests' && requestsOpen) ? 'text-brand' : 'text-muted'
+                  isActive || (to === '/sales' && salesOpen) || (to === '/requests' && requestsOpen) ? on : 'text-white/60'
                 }`
               }
             >

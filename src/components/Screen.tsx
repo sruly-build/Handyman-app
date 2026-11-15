@@ -12,11 +12,13 @@ interface ScreenProps {
   action?: ReactNode
   /** Wider on big screens (sales tables and pipeline); phones look the same */
   wide?: boolean
+  /** Shown in place of the big title (Home's dark green greeting) */
+  hero?: ReactNode
   children: ReactNode
 }
 
 /** Standard page: Apple-style large bold title, then content. */
-export function Screen({ title, eyebrow, back, action, wide, children }: ScreenProps) {
+export function Screen({ title, eyebrow, back, action, wide, hero, children }: ScreenProps) {
   const navigate = useNavigate()
   return (
     <div className={`animate-screen-in mx-auto min-h-dvh max-w-2xl ${wide ? 'lg:max-w-6xl' : ''} px-4 pb-[calc(10.5rem+env(safe-area-inset-bottom))] print:max-w-none print:p-0 pt-[calc(0.5rem+env(safe-area-inset-top))]`}>
@@ -34,8 +36,12 @@ export function Screen({ title, eyebrow, back, action, wide, children }: ScreenP
         )}
         {action}
       </div>
-      {eyebrow && <p className="mt-1 text-[13px] font-semibold uppercase tracking-wide text-muted">{eyebrow}</p>}
-      <h1 className="mb-5 text-[34px] font-bold leading-tight tracking-tight">{title}</h1>
+      {hero ?? (
+        <>
+          {eyebrow && <p className="mt-1 text-[13px] font-semibold uppercase tracking-wide text-brand">{eyebrow}</p>}
+          <h1 className="mb-5 text-[34px] font-bold leading-tight tracking-tight">{title}</h1>
+        </>
+      )}
       {children}
     </div>
   )

@@ -4,7 +4,11 @@ import { Link } from 'react-router-dom'
 import { CheckIcon, ChevronIcon } from './Icons'
 
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={`rounded-2xl bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${className}`}>{children}</div>
+  return (
+    <div className={`rounded-2xl bg-card shadow-[0_1px_2px_rgba(16,42,35,0.06),0_4px_14px_rgba(16,42,35,0.06)] ring-1 ring-black/[0.05] ${className}`}>
+      {children}
+    </div>
+  )
 }
 
 export function SectionTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
@@ -191,7 +195,7 @@ export function Segmented<T extends string>({
   label: string
 }) {
   return (
-    <div className="flex gap-1 rounded-2xl bg-hairline p-1" role="radiogroup" aria-label={label}>
+    <div className="flex gap-1 rounded-2xl bg-[#d5dbd8] p-1" role="radiogroup" aria-label={label}>
       {options.map((o) => (
         <button
           key={o.value}
@@ -200,7 +204,7 @@ export function Segmented<T extends string>({
           aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
           className={`min-h-11 flex-1 rounded-xl px-2 text-[15px] font-semibold transition ${
-            value === o.value ? 'bg-white text-ink shadow' : 'text-[#636366] active:opacity-60'
+            value === o.value ? 'bg-night text-white shadow' : 'text-[#3d4743] active:opacity-60'
           }`}
         >
           {o.label}
@@ -230,7 +234,9 @@ export function RowLink({
   Icon,
   title,
   value,
+  tone = 'bg-brand-soft text-brand',
 }: {
+  tone?: string
   to: string
   Icon: (p: { size?: number }) => ReactNode
   title: string
@@ -238,7 +244,7 @@ export function RowLink({
 }) {
   return (
     <Link to={to} className="flex min-h-14 items-center gap-3 px-4 py-2 active:bg-canvas">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand">
+      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tone}`}>
         <Icon size={20} />
       </span>
       <span className="flex-1 text-[17px]">{title}</span>

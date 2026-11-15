@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { PlusIcon, SearchIcon } from '../components/Icons'
+import { SearchIcon } from '../components/Icons'
 import { CallButton, FollowUpLine, LeadCard, SalesNav, StagePill } from '../components/Sales'
 import { Screen } from '../components/Screen'
 import { EmptyState, ErrorNote, Loading } from '../components/ui'
@@ -61,15 +61,6 @@ export function ProspectsScreen() {
     <Screen
       title="Leads"
       wide
-      action={
-        <Link
-          to="/sales/leads/new"
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-brand text-white active:bg-brand-dark"
-          aria-label="New lead"
-        >
-          <PlusIcon size={24} strokeWidth={2.6} />
-        </Link>
-      }
     >
       <SalesNav />
       <label className="flex min-h-12 items-center gap-2 rounded-2xl bg-card px-4">

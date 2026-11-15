@@ -47,8 +47,8 @@ export function MeScreen() {
     <Screen title="Me">
       <h2 className="mb-2 px-1 text-[13px] font-semibold uppercase tracking-wide text-muted">Directory</h2>
       <div className="mb-6 grid grid-cols-2 gap-3">
-        <DirectoryLink to="/directory?show=clients" label="Clients" hint="Jobs and history" Icon={PeopleIcon} />
-        <DirectoryLink to="/directory" label="Vendors" hint="Subs and suppliers" Icon={BookIcon} />
+        <DirectoryLink to="/directory?show=clients" label="Clients" hint="Jobs and history" Icon={PeopleIcon} tone="bg-grape-soft text-grape" />
+        <DirectoryLink to="/directory" label="Vendors" hint="Subs and suppliers" Icon={BookIcon} tone="bg-teal-soft text-teal" />
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-3">
@@ -89,13 +89,13 @@ export function MeScreen() {
 
       <SectionTitle>{company?.name || 'Business'}</SectionTitle>
       <Card>
-        <RowLink to="/business" Icon={InvoiceIcon} title="Business profile" value={user.role === 'owner' ? undefined : 'View'} />
+        <RowLink to="/business" tone="bg-sky-soft text-sky" Icon={InvoiceIcon} title="Business profile" value={user.role === 'owner' ? undefined : 'View'} />
         <Divider />
-        <RowLink to="/settings" Icon={GearIcon} title="Prices" value={user.role === 'owner' ? undefined : 'View'} />
+        <RowLink to="/settings" tone="bg-sun-soft text-sun" Icon={GearIcon} title="Prices" value={user.role === 'owner' ? undefined : 'View'} />
         <Divider />
-        <RowLink to="/team" Icon={PeopleIcon} title="Team" />
+        <RowLink to="/team" tone="bg-grape-soft text-grape" Icon={PeopleIcon} title="Team" />
         <Divider />
-        <RowLink to="/request-page" Icon={LinkIcon} title="Request page & plan" />
+        <RowLink to="/request-page" tone="bg-rose-soft text-rose" Icon={LinkIcon} title="Request page & plan" />
       </Card>
 
       {user.isAdmin && (
@@ -124,7 +124,9 @@ function DirectoryLink({
   label,
   hint,
   Icon,
+  tone,
 }: {
+  tone: string
   to: string
   label: string
   hint: string
@@ -133,7 +135,7 @@ function DirectoryLink({
   return (
     <Link to={to} className="transition active:scale-[0.97]">
       <Card className="flex min-h-[96px] flex-col justify-between gap-2 p-4">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-soft text-brand">
+        <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${tone}`}>
           <Icon size={22} />
         </span>
         <span>

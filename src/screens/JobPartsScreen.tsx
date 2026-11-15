@@ -1,5 +1,4 @@
-import { Link, useParams } from 'react-router-dom'
-import { PlusIcon } from '../components/Icons'
+import { useParams } from 'react-router-dom'
 import { PartRow } from '../components/PartRow'
 import { Screen } from '../components/Screen'
 import { Card, Divider, EmptyState, Loading } from '../components/ui'
@@ -64,13 +63,6 @@ export function JobPartsScreen() {
           </Card>
         </>
       )}
-      <Link
-        to={`/jobs/${jobId}/parts/new`}
-        className="mt-3 flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-brand-soft text-[17px] font-semibold text-brand-dark active:opacity-70"
-      >
-        <PlusIcon size={22} strokeWidth={2.6} />
-        Add part
-      </Link>
     </Screen>
   )
 }

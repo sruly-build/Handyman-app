@@ -13,7 +13,6 @@ import {
   PhoneIcon,
   PhotosIcon,
   PeopleIcon,
-  PlusIcon,
   TagIcon,
 } from '../components/Icons'
 import { Screen } from '../components/Screen'
@@ -172,16 +171,19 @@ export function JobDetailScreen() {
           href={job.customer_phone ? phoneLink(job.customer_phone) : undefined}
           label="Call"
           Icon={PhoneIcon}
+          tone="text-brand active:bg-brand-soft"
         />
         <ActionButton
           onClick={job.customer_phone ? () => setTexting(true) : undefined}
           label="Text"
           Icon={MessageIcon}
+          tone="text-sky active:bg-sky-soft"
         />
         <ActionButton
           href={job.address ? directionsLink(job.address) : undefined}
           label="Directions"
           Icon={DirectionsIcon}
+          tone="text-sun active:bg-sun-soft"
           newTab
         />
       </div>
@@ -342,14 +344,6 @@ export function JobDetailScreen() {
         <AssignSheet item={assigning} assignment={vendorOf(assigning.id)} onClose={() => setAssigning(null)} />
       )}
 
-      <Link
-        to={`/jobs/${job.id}/items/new`}
-        className="mt-3 flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-brand-soft text-[17px] font-semibold text-brand-dark transition active:opacity-70"
-      >
-        <PlusIcon size={22} strokeWidth={2.6} />
-        Add punch list item
-      </Link>
-
       <SectionTitle>{lead ? 'This lead' : 'This job'}</SectionTitle>
       {lead ? (
         <>
@@ -435,7 +429,9 @@ function ActionButton({
   label,
   Icon,
   newTab,
+  tone,
 }: {
+  tone: string
   href?: string
   onClick?: () => void
   label: string
@@ -444,12 +440,14 @@ function ActionButton({
 }) {
   const content = (
     <>
-      <Icon size={24} />
+      <span className={`flex h-10 w-10 items-center justify-center rounded-full ${href || onClick ? tone.replace(/text-(\w+)/, 'bg-$1-soft text-$1').replace(/active:\S+/, '') : ''}`}>
+        <Icon size={22} />
+      </span>
       <span>{label}</span>
     </>
   )
-  const base = 'flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-2xl text-[15px] font-semibold'
-  const active = `${base} bg-card text-brand transition active:scale-[0.97] active:bg-brand-soft`
+  const base = 'flex min-h-[88px] flex-col items-center justify-center gap-1.5 rounded-2xl py-2 text-[15px] font-semibold'
+  const active = `${base} bg-card ${tone} shadow-[0_1px_2px_rgba(16,42,35,0.06),0_4px_14px_rgba(16,42,35,0.06)] ring-1 ring-black/[0.05] transition active:scale-[0.97]`
   if (onClick) {
     return (
       <button type="button" onClick={onClick} className={active}>

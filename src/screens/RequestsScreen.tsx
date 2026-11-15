@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { HouseIcon, PlusIcon } from '../components/Icons'
+import { HouseIcon } from '../components/Icons'
 import { Screen } from '../components/Screen'
 import { Card, EmptyState, ErrorNote, Loading, Segmented } from '../components/ui'
 import { Reminders } from '../components/Reminders'
@@ -50,9 +50,6 @@ export function RequestsScreen() {
           </Link>
           <Link to="/houses" className="flex min-h-11 items-center gap-1 px-2 text-[17px] text-brand" aria-label="Houses">
             <HouseIcon size={22} /> Houses
-          </Link>
-          <Link to="/requests/new" className="flex h-11 w-11 items-center justify-center text-brand" aria-label="Add a request">
-            <PlusIcon size={26} />
           </Link>
         </div>
       }

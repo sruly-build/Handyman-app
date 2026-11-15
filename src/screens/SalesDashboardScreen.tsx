@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { PhoneIcon, PlusIcon } from '../components/Icons'
+import { PhoneIcon } from '../components/Icons'
 import { CallButton, LeadCard, SalesNav, whenLabel } from '../components/Sales'
 import { Screen } from '../components/Screen'
 import { Card, EmptyState, ErrorNote, Loading } from '../components/ui'
@@ -40,15 +40,6 @@ export function SalesDashboardScreen() {
     <Screen
       title="Sales"
       wide
-      action={
-        <Link
-          to="/sales/leads/new"
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-brand text-white active:bg-brand-dark"
-          aria-label="New lead"
-        >
-          <PlusIcon size={24} strokeWidth={2.6} />
-        </Link>
-      }
     >
       <SalesNav />
       {isLoading && <Loading />}

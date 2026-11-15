@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { MessageIcon, PeopleIcon, PhoneIcon, PlusIcon, SearchIcon } from '../components/Icons'
+import { MessageIcon, PeopleIcon, PhoneIcon, SearchIcon } from '../components/Icons'
 import { Screen } from '../components/Screen'
 import { Card, Divider, EmptyState, ErrorNote, Loading } from '../components/ui'
 import { categoriesInUse, matchesSearch } from '../data/directory'
@@ -40,16 +40,6 @@ export function DirectoryScreen() {
     <Screen
       title={kind === 'client' ? 'Clients' : 'Vendors'}
       back={{ to: '/more', label: 'Me' }}
-      action={
-        <Link
-          to={`/directory/new?kind=${kind}`}
-          className="flex min-h-11 items-center gap-1 px-1 text-[17px] text-brand active:opacity-50"
-          aria-label={kind === 'client' ? 'Add client' : 'Add vendor'}
-        >
-          <PlusIcon size={20} strokeWidth={2.4} />
-          Add
-        </Link>
-      }
     >
 
       <label className="flex min-h-12 items-center gap-2 rounded-2xl bg-card px-4">
