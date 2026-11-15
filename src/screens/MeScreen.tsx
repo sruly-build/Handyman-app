@@ -8,6 +8,7 @@ import { backend } from '../data/backend'
 import { useCompany, useMyTime, useNow } from '../data/queries'
 import { formatDuration, totalMs } from '../data/time'
 import { useUser } from '../lib/auth'
+import { buildLabel, checkForUpdate } from '../lib/updates'
 
 /** Monday 00:00 of this week, local time */
 function startOfWeek(now: Date): number {
@@ -115,6 +116,7 @@ export function MeScreen() {
           Log out
         </Button>
       </div>
+      <AppVersion />
     </Screen>
   )
 }
@@ -144,5 +146,36 @@ function DirectoryLink({
         </span>
       </Card>
     </Link>
+  )
+}
+
+/** Which version is on this phone, and a button to get the newest one */
+function AppVersion() {
+  const [state, setState] = useState<'idle' | 'checking' | 'found' | 'latest'>('idle')
+  return (
+    <div className="mt-6 text-center">
+      <p className="text-[13px] text-muted">App version: {buildLabel()}</p>
+      <button
+        className="mt-1 min-h-11 px-3 text-[15px] font-semibold text-brand disabled:opacity-50"
+        disabled={state === 'checking'}
+        onClick={async () => {
+          setState('checking')
+          try {
+            setState((await checkForUpdate()) ? 'found' : 'latest')
+          } catch {
+            setState('idle')
+            window.location.reload()
+          }
+        }}
+      >
+        {state === 'checking'
+          ? 'Checking…'
+          : state === 'found'
+            ? 'Updating… the app will reload'
+            : state === 'latest'
+              ? 'You have the newest version'
+              : 'Check for updates'}
+      </button>
+    </div>
   )
 }
