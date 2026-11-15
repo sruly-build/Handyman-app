@@ -140,6 +140,8 @@ export interface PunchItem {
   estimated_hours: number | null
   /** The day I plan to do it (YYYY-MM-DD), so items can be done together */
   planned_date?: string | null
+  /** The time I plan to do it on that day ("HH:MM"; the database may add ":SS") */
+  planned_time?: string | null
   position: number
   created_at: string
 }
@@ -272,7 +274,7 @@ export interface Invoice {
 
 export type JobInput = Omit<Job, 'id' | 'created_at' | 'created_by' | 'company_id'>
 export type ItemPatch = Partial<
-  Pick<PunchItem, 'title' | 'location' | 'notes' | 'status' | 'measurements' | 'tools' | 'estimated_hours' | 'planned_date'>
+  Pick<PunchItem, 'title' | 'location' | 'notes' | 'status' | 'measurements' | 'tools' | 'estimated_hours' | 'planned_date' | 'planned_time'>
 >
 export type PartInput = Omit<Part, 'id' | 'created_at' | 'ordered_at' | 'received_at'>
 

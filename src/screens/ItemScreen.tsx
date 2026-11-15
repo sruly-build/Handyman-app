@@ -39,6 +39,7 @@ const pickDraft = (i: PunchItem): Draft => ({
   tools: i.tools ?? [],
   estimated_hours: i.estimated_hours == null ? '' : String(i.estimated_hours),
   planned_date: i.planned_date ?? null,
+  planned_time: i.planned_time ?? null,
 })
 
 /**
@@ -172,7 +173,14 @@ export function ItemScreen() {
       </Card>
 
       <SectionTitle>When</SectionTitle>
-      <PlannedDay jobId={jobId} itemId={itemId} value={draft.planned_date} onChange={(planned_date) => set({ planned_date })} />
+      <PlannedDay
+        jobId={jobId}
+        itemId={itemId}
+        value={draft.planned_date}
+        time={draft.planned_time}
+        onChange={(planned_date) => set(planned_date ? { planned_date } : { planned_date: null, planned_time: null })}
+        onTime={(planned_time) => set({ planned_time })}
+      />
 
       <SectionTitle>Measurements</SectionTitle>
       <MeasurementsEditor value={draft.measurements} onChange={(measurements) => set({ measurements })} />
@@ -262,11 +270,14 @@ function useAutosave(itemId: string, draft: Draft | null) {
     try {
       const hours = parseFloat(next.estimated_hours)
       // Only send the planned day when it changed (works before the database update too)
-      const before = lastSaved.current ? (JSON.parse(lastSaved.current) as Draft).planned_date : null
-      const { planned_date, ...rest } = next
+      const prev = lastSaved.current ? (JSON.parse(lastSaved.current) as Draft) : null
+      const before = prev?.planned_date ?? null
+      const beforeTime = prev?.planned_time ?? null
+      const { planned_date, planned_time, ...rest } = next
       const saved = await backend.updateItem(itemId, {
         ...rest,
         ...(planned_date !== before ? { planned_date } : {}),
+        ...(planned_time !== beforeTime ? { planned_time } : {}),
         title: next.title.trim() || 'Untitled item',
         estimated_hours: Number.isFinite(hours) ? hours : null,
       })

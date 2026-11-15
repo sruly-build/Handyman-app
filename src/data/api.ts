@@ -70,6 +70,7 @@ const fixItem = (i: PunchItem): PunchItem => ({
   tools: i.tools ?? [],
   estimated_hours: num(i.estimated_hours),
   planned_date: i.planned_date ?? null,
+  planned_time: i.planned_time ? i.planned_time.slice(0, 5) : null,
 })
 const fixPart = (p: Part): Part => ({ ...p, quantity: num(p.quantity) ?? 1, cost: num(p.cost) })
 const fixInvoice = (i: Invoice): Invoice => ({

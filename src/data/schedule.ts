@@ -21,7 +21,7 @@ export interface ScheduleEvent {
 export function scheduleEvents(
   all: Job[],
   meetings: { meeting: FollowUp; lead: ProspectView }[] = [],
-  items: Pick<PunchItem, 'id' | 'job_id' | 'title' | 'status' | 'planned_date' | 'position'>[] = [],
+  items: (Pick<PunchItem, 'id' | 'job_id' | 'title' | 'status' | 'planned_date' | 'position'> & { planned_time?: string | null })[] = [],
 ): ScheduleEvent[] {
   const events: ScheduleEvent[] = []
   // Punch list items planned for a day: one entry per job and day (not done ones only)
@@ -43,8 +43,11 @@ export function scheduleEvents(
       job,
       link: `/jobs/${jobId}`,
       date,
-      time: null,
-      items: [...list].sort((a, b) => a.position - b.position).map(({ id, title }) => ({ id, title })),
+      // The earliest planned time among them (none = all day)
+      time: list.map((i) => i.planned_time?.slice(0, 5)).filter((t): t is string => Boolean(t)).sort()[0] ?? null,
+      items: [...list]
+        .sort((a, b) => (a.planned_time ?? '99').localeCompare(b.planned_time ?? '99') || a.position - b.position)
+        .map(({ id, title }) => ({ id, title })),
     })
   }
   for (const job of all) {

@@ -30,7 +30,11 @@ export function HomeScreen() {
   const tomorrowISO = addDays(today, 1)
   const { stops: tomorrowStops } = useDayStops(tomorrowISO)
   // Busy today (more than 3 places to go): tomorrow starts folded up
-  const busyToday = todays.length + walkthroughs.length > 3
+  // Today's other places to go: punch items planned for today, scheduled requests,
+  // sales meetings (today's jobs and walkthroughs have their own cards)
+  const { stops: todayStops } = useDayStops(today)
+  const otherToday = todayStops.filter((s) => s.kind !== 'job' && s.kind !== 'walkthrough')
+  const busyToday = todays.length + walkthroughs.length + otherToday.length > 3
   const [tomorrowOpen, setTomorrowOpen] = useState<boolean | null>(null)
   const showTomorrow = tomorrowOpen ?? !busyToday
   const upcoming = sortJobs(
@@ -107,14 +111,19 @@ export function HomeScreen() {
       <SectionTitle>Today</SectionTitle>
       {isLoading && <Loading />}
       {error && <ErrorNote error={error} />}
-      {jobs && todays.length === 0 && (
-        <EmptyState title="No jobs today">Jobs with today's date will show up here.</EmptyState>
+      {jobs && todays.length === 0 && otherToday.length === 0 && (
+        <EmptyState title="Nothing planned today">Jobs, punch items and requests planned for today show up here.</EmptyState>
       )}
       <div className="space-y-3">
         {todays.map((j) => (
           <JobCard key={j.id} job={j} />
         ))}
       </div>
+      {otherToday.length > 0 && (
+        <div className="mt-3">
+          <StopList stops={otherToday} />
+        </div>
+      )}
 
       {tomorrowStops.length > 0 && (
         <section>

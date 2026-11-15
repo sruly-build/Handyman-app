@@ -308,6 +308,7 @@ export function JobDetailScreen() {
                         {item.planned_date && item.status !== 'done' && (
                           <span className="mr-1.5 rounded-full bg-[#e4eefb] px-2 py-0.5 text-[12px] font-semibold text-[#1f5fae]">
                             {dayLabel(item.planned_date)}
+                            {item.planned_time ? ` · ${clockLabel(item.planned_time)}` : ''}
                           </span>
                         )}
                         {item.location}

@@ -9,6 +9,7 @@ import { Card } from './ui'
 
 export interface Stop {
   key: string
+  kind: ScheduleEvent['kind'] | 'request'
   time: string | null
   name: string
   what: string
@@ -32,6 +33,7 @@ export function useDayStops(date: string): { stops: Stop[]; loading: boolean } {
   const events: ScheduleEvent[] = scheduleEvents((jobs ?? []).filter((j) => j.from_company === null), meetings, items).filter((e) => e.date === date)
   const stops: Stop[] = events.map((e) => ({
     key: e.key,
+    kind: e.kind,
     time: e.time,
     name: e.job.customer_name,
     what: e.items ? `${e.items.length} punch item${e.items.length === 1 ? '' : 's'}: ${e.items.map((i) => i.title).join(', ')}` : kindWord[e.kind],
@@ -44,6 +46,7 @@ export function useDayStops(date: string): { stops: Stop[]; loading: boolean } {
     if (d !== date) continue
     stops.push({
       key: `r-${r.id}`,
+      kind: 'request',
       time,
       name: r.requester_name || 'Repair request',
       what: `Request: ${issueSummary(r)}`,
@@ -64,9 +67,9 @@ export function StopList({ stops }: { stops: Stop[] }) {
           <Link to={s.link} className="flex min-w-0 flex-1 items-center gap-3 py-3 pl-4 active:bg-canvas">
             <span className="w-16 shrink-0 text-[14px] font-semibold">{s.time ? clockLabel(s.time) : 'All day'}</span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[17px] font-semibold">{s.address || 'No address'}</span>
+              <span className="block truncate text-[17px] font-semibold">{s.address || s.name}</span>
               <span className="block truncate text-[14px] text-muted">
-                {s.name} · {s.what}
+                {s.address ? `${s.name} · ${s.what}` : s.what}
               </span>
             </span>
             <ChevronIcon size={18} className="shrink-0 text-[#c7c7cc]" />
