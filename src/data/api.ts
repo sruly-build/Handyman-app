@@ -534,7 +534,51 @@ export function createApi(db: Db, auth: Auth) {
       })
     },
     async deletePart(id: string) {
+      const [part] = await db.select<Part>('parts', { id })
+      if (part?.photo_path) await db.removeFiles([part.photo_path])
       await db.remove('parts', { id })
+    },
+    /** A photo of the part (replaces the old one) */
+    async setPartPhoto(part: Part, image: Blob | null) {
+      const path = image ? `parts/${part.job_id}/${newId()}.jpg` : null
+      if (image && path) await db.upload(path, image)
+      try {
+        await db.update<Part>('parts', part.id, { photo_path: path })
+      } catch (e) {
+        if (path) await db.removeFiles([path])
+        if (e instanceof Error && /photo_path/.test(e.message)) {
+          throw new Error('Part photos need a quick database update first (supabase/updates/17-part-photos.sql).')
+        }
+        throw e
+      }
+      if (part.photo_path) await db.removeFiles([part.photo_path])
+    },
+    /**
+     * A picture for each part: its own photo, or else a photo from its punch
+     * list item (before photos first). Returns part id → { url, own }.
+     */
+    async partPictures(parts: Part[]): Promise<Record<string, { url: string; own: boolean }>> {
+      const out: Record<string, { url: string; own: boolean }> = {}
+      const own = parts.filter((p) => p.photo_path)
+      const ownUrls = await db.fileUrls(own.map((p) => p.photo_path!))
+      own.forEach((p, i) => ownUrls[i] && (out[p.id] = { url: ownUrls[i], own: true }))
+      const needItem = [...new Set(parts.filter((p) => !out[p.id] && p.item_id).map((p) => p.item_id!))]
+      const firstPhoto = new Map<string, string>()
+      for (const itemId of needItem) {
+        const rows = (await db.select<PhotoRow>('photos', { item_id: itemId })).sort(
+          (a, b) => Number(a.kind !== 'before') - Number(b.kind !== 'before') || a.created_at.localeCompare(b.created_at),
+        )
+        if (rows[0]) firstPhoto.set(itemId, rows[0].storage_path)
+      }
+      const paths = [...firstPhoto.values()]
+      const urls = await db.fileUrls(paths)
+      const byPath = new Map(paths.map((p, i) => [p, urls[i]]))
+      for (const p of parts) {
+        if (out[p.id] || !p.item_id) continue
+        const url = byPath.get(firstPhoto.get(p.item_id) ?? '')
+        if (url) out[p.id] = { url, own: false }
+      }
+      return out
     },
     /** Parts on another company's job (no cost: only they set prices) */
     async addSharedPart(input: Pick<PartInput, 'job_id' | 'item_id' | 'name' | 'quantity' | 'supplier'>) {

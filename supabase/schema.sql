@@ -356,6 +356,8 @@ create table if not exists public.parts (
 create index if not exists parts_job_id_idx on public.parts (job_id);
 -- A part the vendor orders themselves (stays off my orders list and my bill)
 alter table public.parts add column if not exists vendor_orders boolean not null default false;
+-- A photo of the part (so you can see what to buy)
+alter table public.parts add column if not exists photo_path text;
 
 -- ---------------------------------------------------------------
 -- Bring list ticks (what's been loaded in the van)
@@ -587,6 +589,9 @@ language sql stable security definer set search_path = public
 as $$
   select case
     when split_part(path, '/', 1) ~ '^[0-9a-f-]{36}$' then public.can_access_item(split_part(path, '/', 1)::uuid)
+    -- Part photos: "parts/<job id>/<file>"
+    when split_part(path, '/', 1) = 'parts' and split_part(path, '/', 2) ~ '^[0-9a-f-]{36}$'
+      then public.can_access_job(split_part(path, '/', 2)::uuid)
     else false
   end
 $$;

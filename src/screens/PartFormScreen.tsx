@@ -1,80 +1,109 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState, type FormEvent } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Screen } from '../components/Screen'
-import { Button, Card, Divider, ErrorNote, Field, GroupLabel, Loading, Segmented } from '../components/ui'
-import { partStatusLabels } from '../components/PartRow'
-import { backend } from '../data/backend'
-import { formatMoney, partsMarkup, withMarkup } from '../data/billing'
-import { refreshAll, useAssignments, useItems, useJob, usePart, useSettings } from '../data/queries'
-import type { PartStatus } from '../data/types'
-import { isPartnerJob } from '../data/api'
-import { useUser } from '../lib/auth'
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState, type FormEvent } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Screen } from "../components/Screen";
+import {
+  Button,
+  Card,
+  Divider,
+  ErrorNote,
+  Field,
+  GroupLabel,
+  Loading,
+  Segmented,
+} from "../components/ui";
+import { partStatusLabels } from "../components/PartRow";
+import { backend } from "../data/backend";
+import { formatMoney, partsMarkup, withMarkup } from "../data/billing";
+import {
+  refreshAll,
+  useAssignments,
+  useItems,
+  useJob,
+  usePart,
+  usePartPictures,
+  useSettings,
+} from "../data/queries";
+import { CameraIcon } from "../components/Icons";
+import { shrinkPhoto } from "../lib/images";
+import type { PartStatus } from "../data/types";
+import { isPartnerJob } from "../data/api";
+import { useUser } from "../lib/auth";
 
 interface Form {
-  name: string
-  quantity: string
-  cost: string
-  supplier: string
-  status: PartStatus
-  item_id: string
+  name: string;
+  quantity: string;
+  cost: string;
+  supplier: string;
+  status: PartStatus;
+  item_id: string;
   /** On a vendor's item: does the vendor order it? (null = what the item says) */
-  vendor_orders: boolean | null
+  vendor_orders: boolean | null;
 }
 
 /** Add a part (/jobs/:jobId/parts/new?item=…) or edit one (/parts/:partId) */
 export function PartFormScreen() {
-  const { jobId: jobFromUrl, partId } = useParams()
-  const [search] = useSearchParams()
-  const editing = Boolean(partId)
-  const { data: part, isLoading, error } = usePart(partId ?? '', editing)
-  const jobId = jobFromUrl ?? part?.job_id ?? ''
-  const { data: items = [] } = useItems(jobId)
-  const { data: job } = useJob(jobId, Boolean(jobId))
-  const { data: settings } = useSettings()
+  const { jobId: jobFromUrl, partId } = useParams();
+  const [search] = useSearchParams();
+  const editing = Boolean(partId);
+  const { data: part, isLoading, error } = usePart(partId ?? "", editing);
+  const jobId = jobFromUrl ?? part?.job_id ?? "";
+  const { data: items = [] } = useItems(jobId);
+  const { data: job } = useJob(jobId, Boolean(jobId));
+  const { data: settings } = useSettings();
   // Adding a part to another company's job: no cost (only they set prices)
-  const shared = job ? isPartnerJob(job, useUser()) : false
-  const navigate = useNavigate()
-  const qc = useQueryClient()
+  const shared = job ? isPartnerJob(job, useUser()) : false;
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  // The part's photo: a new one picked (saved with the part), or removed
+  const [newPhoto, setNewPhoto] = useState<{ blob: Blob; url: string } | null>(
+    null,
+  );
+  const [removePhoto, setRemovePhoto] = useState(false);
+  const { data: pictures = {} } = usePartPictures(part ? [part] : []);
   const [form, setForm] = useState<Form | null>(
     editing
       ? null
       : {
-          name: '',
-          quantity: '1',
-          cost: '',
-          supplier: '',
-          status: 'needed',
-          item_id: search.get('item') ?? '',
+          name: "",
+          quantity: "1",
+          cost: "",
+          supplier: "",
+          status: "needed",
+          item_id: search.get("item") ?? "",
           vendor_orders: null,
         },
-  )
+  );
 
   useEffect(() => {
     if (part && !form) {
       setForm({
         name: part.name,
         quantity: String(part.quantity),
-        cost: part.cost == null ? '' : String(part.cost),
+        cost: part.cost == null ? "" : String(part.cost),
         supplier: part.supplier,
         status: part.status,
-        item_id: part.item_id ?? '',
+        item_id: part.item_id ?? "",
         vendor_orders: part.vendor_orders ?? false,
-      })
+      });
     }
-  }, [part, form])
+  }, [part, form]);
 
   // Items given to vendors (not on another company's job)
-  const { data: assignments = [] } = useAssignments(jobId, Boolean(jobId) && !shared)
-  const assignmentFor = (itemId: string) => assignments.find((x) => x.id === itemId)
+  const { data: assignments = [] } = useAssignments(
+    jobId,
+    Boolean(jobId) && !shared,
+  );
+  const assignmentFor = (itemId: string) =>
+    assignments.find((x) => x.id === itemId);
   const vendorOrdersFor = (f: Form) => {
-    const a = assignmentFor(f.item_id)
-    return a ? (f.vendor_orders ?? a.materials_by === 'vendor') : false
-  }
+    const a = assignmentFor(f.item_id);
+    return a ? (f.vendor_orders ?? a.materials_by === "vendor") : false;
+  };
 
   const save = useMutation({
     mutationFn: async (f: Form) => {
-      const cost = parseFloat(f.cost)
+      const cost = parseFloat(f.cost);
       const input = {
         job_id: jobId,
         item_id: f.item_id || null,
@@ -84,57 +113,70 @@ export function PartFormScreen() {
         supplier: f.supplier.trim(),
         status: f.status,
         vendor_orders: vendorOrdersFor(f),
-      }
-      if (shared) return backend.addSharedPart(input)
-      return part ? backend.updatePart(part, input) : backend.createPart(input)
+      };
+      if (shared) return backend.addSharedPart(input);
+      const saved = part
+        ? await backend.updatePart(part, input)
+        : await backend.createPart(input);
+      if (newPhoto)
+        await backend.setPartPhoto(
+          { ...saved, photo_path: part?.photo_path ?? null },
+          newPhoto.blob,
+        );
+      else if (removePhoto && part?.photo_path)
+        await backend.setPartPhoto(part, null);
+      return saved;
     },
     onSuccess: () => {
-      void refreshAll(qc)
-      navigate(-1)
+      void refreshAll(qc);
+      navigate(-1);
     },
-  })
+  });
 
   const remove = useMutation({
     mutationFn: () => backend.deletePart(partId!),
     onSuccess: () => {
-      void refreshAll(qc)
-      navigate(-1)
+      void refreshAll(qc);
+      navigate(-1);
     },
-  })
+  });
 
-  const back = { to: jobId ? `/jobs/${jobId}/parts` : '/orders', label: 'Back' }
+  const back = {
+    to: jobId ? `/jobs/${jobId}/parts` : "/orders",
+    label: "Back",
+  };
   if (editing && (isLoading || error || !form)) {
     return (
       <Screen title="Part" back={back}>
         {error ? <ErrorNote error={error} /> : <Loading />}
       </Screen>
-    )
+    );
   }
-  if (!form) return null
+  if (!form) return null;
 
-  const set = (patch: Partial<Form>) => setForm({ ...form, ...patch })
-  const assignment = assignmentFor(form.item_id)
-  const vendorOrders = vendorOrdersFor(form)
-  const costNumber = parseFloat(form.cost)
+  const set = (patch: Partial<Form>) => setForm({ ...form, ...patch });
+  const assignment = assignmentFor(form.item_id);
+  const vendorOrders = vendorOrdersFor(form);
+  const costNumber = parseFloat(form.cost);
 
   function submit(e: FormEvent) {
-    e.preventDefault()
-    save.mutate(form!)
+    e.preventDefault();
+    save.mutate(form!);
   }
 
   return (
-    <Screen title={editing ? 'Edit part' : 'New part'} back={back}>
+    <Screen title={editing ? "Edit part" : "New part"} back={back}>
       <form onSubmit={submit} className="space-y-6">
         {assignment && (
           <section>
             <GroupLabel>Who orders it</GroupLabel>
             <Segmented
               label="Who orders it"
-              value={vendorOrders ? 'vendor' : 'me'}
-              onChange={(v) => set({ vendor_orders: v === 'vendor' })}
+              value={vendorOrders ? "vendor" : "me"}
+              onChange={(v) => set({ vendor_orders: v === "vendor" })}
               options={[
-                { value: 'me', label: 'Me' },
-                { value: 'vendor', label: assignment.name },
+                { value: "me", label: "Me" },
+                { value: "vendor", label: assignment.name },
               ]}
             />
             {vendorOrders && (
@@ -149,7 +191,7 @@ export function PartFormScreen() {
             label="Order status"
             value={form.status}
             onChange={(status) => set({ status })}
-            options={(['needed', 'ordered', 'received'] as const).map((v) => ({
+            options={(["needed", "ordered", "received"] as const).map((v) => ({
               value: v,
               label: partStatusLabels[v],
             }))}
@@ -165,19 +207,23 @@ export function PartFormScreen() {
             placeholder="e.g. Moen 1225 cartridge"
           />
           <Divider />
-          <div className={shared ? '' : 'grid grid-cols-2'}>
+          <div className={shared ? "" : "grid grid-cols-2"}>
             <Field
               label="Quantity"
               inputMode="decimal"
               value={form.quantity}
-              onChange={(e) => set({ quantity: e.target.value.replace(/[^\d.]/g, '') })}
+              onChange={(e) =>
+                set({ quantity: e.target.value.replace(/[^\d.]/g, "") })
+              }
             />
             {!shared && (
               <Field
                 label="Cost paid (total) $"
                 inputMode="decimal"
                 value={form.cost}
-                onChange={(e) => set({ cost: e.target.value.replace(/[^\d.]/g, '') })}
+                onChange={(e) =>
+                  set({ cost: e.target.value.replace(/[^\d.]/g, "") })
+                }
                 placeholder="0.00"
                 className="border-l border-hairline"
               />
@@ -191,12 +237,90 @@ export function PartFormScreen() {
             placeholder="e.g. Home Depot"
           />
         </Card>
-        {!shared && settings && Number.isFinite(costNumber) && costNumber > 0 && partsMarkup(settings, job) > 0 && (
-          <p className="-mt-3 px-4 text-[14px] text-muted">
-            Customer pays {formatMoney(withMarkup(costNumber, partsMarkup(settings, job)))} with your{' '}
-            {partsMarkup(settings, job)}% markup.
-          </p>
+        {!shared && (
+          <section>
+            <GroupLabel>Photo of the part</GroupLabel>
+            <Card className="p-3">
+              {(() => {
+                const current =
+                  newPhoto?.url ??
+                  (removePhoto ? undefined : pictures[part?.id ?? ""]?.url);
+                const fromItem =
+                  !newPhoto &&
+                  !removePhoto &&
+                  part &&
+                  pictures[part.id] &&
+                  !pictures[part.id].own;
+                return (
+                  <div className="flex items-center gap-3">
+                    {current ? (
+                      <img
+                        src={current}
+                        alt="The part"
+                        className="h-24 w-24 shrink-0 rounded-xl object-cover ring-1 ring-black/10"
+                      />
+                    ) : (
+                      <span className="flex h-24 w-24 shrink-0 items-center justify-center rounded-xl bg-canvas text-muted">
+                        <CameraIcon size={28} />
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <label className="flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-sky-soft px-3 text-[15px] font-semibold text-sky active:opacity-70">
+                        <CameraIcon size={20} />
+                        {current && !fromItem ? "Change photo" : "Add a photo"}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="sr-only"
+                          aria-label="Photo of the part"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = "";
+                            if (!file) return;
+                            const blob = await shrinkPhoto(file);
+                            setNewPhoto({
+                              blob,
+                              url: URL.createObjectURL(blob),
+                            });
+                            setRemovePhoto(false);
+                          }}
+                        />
+                      </label>
+                      {current && !fromItem && (
+                        <button
+                          type="button"
+                          className="min-h-10 w-full text-[15px] font-semibold text-problem"
+                          onClick={() => {
+                            setNewPhoto(null);
+                            setRemovePhoto(true);
+                          }}
+                        >
+                          Remove photo
+                        </button>
+                      )}
+                      <p className="text-[13px] text-muted">
+                        {fromItem
+                          ? "Showing the punch list item’s photo. Add one of the part itself, or a screenshot from the store."
+                          : "A picture of the part or a screenshot from the store, so you buy the right one."}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+            </Card>
+          </section>
         )}
+        {!shared &&
+          settings &&
+          Number.isFinite(costNumber) &&
+          costNumber > 0 &&
+          partsMarkup(settings, job) > 0 && (
+            <p className="-mt-3 px-4 text-[14px] text-muted">
+              Customer pays{" "}
+              {formatMoney(withMarkup(costNumber, partsMarkup(settings, job)))}{" "}
+              with your {partsMarkup(settings, job)}% markup.
+            </p>
+          )}
 
         {items.length > 0 && (
           <section>
@@ -212,7 +336,7 @@ export function PartFormScreen() {
                   {items.map((i) => (
                     <option key={i.id} value={i.id}>
                       {i.title}
-                      {i.location ? ` (${i.location})` : ''}
+                      {i.location ? ` (${i.location})` : ""}
                     </option>
                   ))}
                 </select>
@@ -223,19 +347,19 @@ export function PartFormScreen() {
 
         {save.error && <ErrorNote error={save.error} />}
         <Button type="submit" disabled={save.isPending || !form.name.trim()}>
-          {save.isPending ? 'Saving…' : editing ? 'Save part' : 'Add part'}
+          {save.isPending ? "Saving…" : editing ? "Save part" : "Add part"}
         </Button>
         {editing && (
           <Button
             type="button"
             variant="danger"
             disabled={remove.isPending}
-            onClick={() => confirm('Delete this part?') && remove.mutate()}
+            onClick={() => confirm("Delete this part?") && remove.mutate()}
           >
             Delete part
           </Button>
         )}
       </form>
     </Screen>
-  )
+  );
 }

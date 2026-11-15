@@ -3,7 +3,7 @@ import { PartRow } from '../components/PartRow'
 import { Screen } from '../components/Screen'
 import { Card, Divider, EmptyState, Loading } from '../components/ui'
 import { formatMoney, partsMarkup, withMarkup } from '../data/billing'
-import { useAssignments, useItems, useJob, useParts, useSettings } from '../data/queries'
+import { useAssignments, useItems, useJob, useParts, useSettings, usePartPictures } from '../data/queries'
 import { isPartnerJob } from '../data/api'
 import { useUser } from '../lib/auth'
 
@@ -14,6 +14,7 @@ export function JobPartsScreen() {
   // Another company's job: what to buy, without costs
   const shared = job ? isPartnerJob(job, useUser()) : false
   const { data: parts, isLoading } = useParts(jobId, shared, Boolean(job))
+  const { data: pictures = {} } = usePartPictures(parts ?? [])
   const { data: assignments = [] } = useAssignments(jobId, Boolean(job) && !shared)
   const vendorName = (itemId: string | null) => assignments.find((a) => a.id === itemId)?.name
   const { data: items = [] } = useItems(jobId)
@@ -57,7 +58,7 @@ export function JobPartsScreen() {
             {parts.map((p, i) => (
               <div key={p.id}>
                 {i > 0 && <Divider />}
-                <PartRow part={p} context={titleOf(p.item_id)} shared={shared} vendorName={vendorName(p.item_id)} />
+                <PartRow part={p} picture={pictures[p.id]} context={titleOf(p.item_id)} shared={shared} vendorName={vendorName(p.item_id)} />
               </div>
             ))}
           </Card>

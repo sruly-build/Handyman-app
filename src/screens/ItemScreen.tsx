@@ -22,7 +22,7 @@ import {
 } from '../components/ui'
 import { backend } from '../data/backend'
 import { isPartnerJob } from '../data/api'
-import { keys, refreshAll, useAssignments, useItem, useJob, useMyShare, useParts, usePhotos } from '../data/queries'
+import { keys, refreshAll, useAssignments, useItem, useJob, useMyShare, useParts, usePhotos, usePartPictures } from '../data/queries'
 import { AssignSheet } from '../components/AssignSheet'
 import { useUser } from '../lib/auth'
 import { setPendingImage } from '../lib/pendingImage'
@@ -57,6 +57,7 @@ export function ItemScreen() {
   const showParts = !partner || Boolean(myShare?.share_parts)
   const showTime = (!partner || Boolean(myShare?.share_time)) && job?.stage !== 'lead'
   const { data: parts = [] } = useParts(jobId, partner, Boolean(job))
+  const { data: pictures = {} } = usePartPictures(parts)
   // Who is doing it, if not me (my company only)
   const { data: assignments = [] } = useAssignments(jobId, Boolean(job) && !partner)
   const assignment = assignments.find((a) => a.id === itemId)
@@ -204,7 +205,7 @@ export function ItemScreen() {
               {itemParts.map((p, i) => (
                 <div key={p.id}>
                   {i > 0 && <Divider />}
-                  <PartRow part={p} shared={partner} vendorName={assignment?.name} />
+                  <PartRow part={p} picture={pictures[p.id]?.own ? pictures[p.id] : undefined} shared={partner} vendorName={assignment?.name} />
                 </div>
               ))}
             </Card>

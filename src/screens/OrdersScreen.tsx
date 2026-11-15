@@ -3,13 +3,14 @@ import { PartRow, partStatusLabels } from '../components/PartRow'
 import { Screen } from '../components/Screen'
 import { Card, Divider, EmptyState, ErrorNote, Loading, Segmented } from '../components/ui'
 import { formatMoney } from '../data/billing'
-import { useAllItems, useParts, useSchedule } from '../data/queries'
+import { useAllItems, useParts, useSchedule, usePartPictures } from '../data/queries'
 import type { PartStatus } from '../data/types'
 
 /** One combined list of parts across all jobs, so nothing is missed */
 export function OrdersScreen() {
   const [tab, setTab] = useState<PartStatus>('needed')
   const { data: allParts, isLoading, error } = useParts()
+  const { data: pictures = {} } = usePartPictures(allParts ?? [])
   // Parts a vendor orders aren't on my list (they stay visible on the item)
   const parts = allParts?.filter((p) => !p.vendor_orders)
   // Jobs and leads (parts can be added at a walkthrough)
@@ -59,7 +60,7 @@ export function OrdersScreen() {
               {g.parts.map((p, i) => (
                 <div key={p.id}>
                   {i > 0 && <Divider />}
-                  <PartRow part={p} context={itemName(p.item_id)} />
+                  <PartRow part={p} picture={pictures[p.id]} context={itemName(p.item_id)} />
                 </div>
               ))}
             </Card>

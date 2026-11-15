@@ -1,22 +1,24 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
-import { backend } from '../data/backend'
-import { formatMoney } from '../data/billing'
-import { refreshAll } from '../data/queries'
-import type { Part, PartStatus } from '../data/types'
-import { CheckIcon, ChevronIcon } from './Icons'
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { PhotoViewer } from "./PhotoViewer";
+import { Link } from "react-router-dom";
+import { backend } from "../data/backend";
+import { formatMoney } from "../data/billing";
+import { refreshAll } from "../data/queries";
+import type { Part, PartStatus } from "../data/types";
+import { CheckIcon, ChevronIcon } from "./Icons";
 
 export const partStatusLabels: Record<PartStatus, string> = {
-  needed: 'Needed',
-  ordered: 'Ordered',
-  received: 'Received',
-}
+  needed: "Needed",
+  ordered: "Ordered",
+  received: "Received",
+};
 
 const nextPartStatus: Record<PartStatus, PartStatus> = {
-  needed: 'ordered',
-  ordered: 'received',
-  received: 'needed',
-}
+  needed: "ordered",
+  ordered: "received",
+  received: "needed",
+};
 
 /**
  * One part: tap the coloured pill to move it along, tap the rest to edit.
@@ -28,46 +30,81 @@ export function PartRow({
   context,
   shared = false,
   vendorName,
+  picture,
 }: {
-  part: Part
-  context?: string
-  shared?: boolean
-  vendorName?: string
+  part: Part;
+  context?: string;
+  shared?: boolean;
+  vendorName?: string;
+  /** A photo of the part (or of its punch list item) */
+  picture?: { url: string; own: boolean };
 }) {
-  const qc = useQueryClient()
+  const qc = useQueryClient();
+  const [viewing, setViewing] = useState(false);
   const advance = useMutation({
     mutationFn: async () => {
-      if (shared) await backend.setSharedPartStatus(part.id, nextPartStatus[part.status])
-      else await backend.updatePart(part, { status: nextPartStatus[part.status] })
+      if (shared)
+        await backend.setSharedPartStatus(part.id, nextPartStatus[part.status]);
+      else
+        await backend.updatePart(part, { status: nextPartStatus[part.status] });
     },
     onSettled: () => refreshAll(qc),
-  })
+  });
   const pill = {
-    needed: 'bg-problem-soft text-problem',
-    ordered: 'bg-progress-soft text-[#c26a00]',
-    received: 'bg-brand-soft text-brand-dark',
-  }[part.status]
+    needed: "bg-problem-soft text-problem",
+    ordered: "bg-progress-soft text-[#c26a00]",
+    received: "bg-brand-soft text-brand-dark",
+  }[part.status];
 
-  const byVendor = Boolean(part.vendor_orders)
+  const byVendor = Boolean(part.vendor_orders);
   const details = [
-    vendorName && !byVendor ? 'You order' : '',
-    part.quantity !== 1 ? `× ${part.quantity}` : '',
-    !shared && part.cost != null ? formatMoney(part.cost) : '',
+    vendorName && !byVendor ? "You order" : "",
+    part.quantity !== 1 ? `× ${part.quantity}` : "",
+    !shared && part.cost != null ? formatMoney(part.cost) : "",
     part.supplier,
-  ].filter(Boolean)
+  ].filter(Boolean);
 
   const text = (
     <div className="min-w-0 flex-1">
       <p className="truncate text-[17px] font-medium">{part.name}</p>
-      {details.length > 0 && <p className="truncate text-[14px] text-muted">{details.join(' · ')}</p>}
+      {details.length > 0 && (
+        <p className="truncate text-[14px] text-muted">{details.join(" · ")}</p>
+      )}
       {context && <p className="truncate text-[13px] text-muted">{context}</p>}
     </div>
-  )
+  );
 
   return (
     <div className="flex items-center">
+      {picture && (
+        <button
+          type="button"
+          onClick={() => setViewing(true)}
+          className="ml-3 h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-canvas ring-1 ring-black/10 active:opacity-70"
+          aria-label={`See a photo of ${part.name}`}
+        >
+          <img
+            src={picture.url}
+            alt=""
+            className="h-full w-full object-cover"
+          />
+        </button>
+      )}
+      {viewing && picture && (
+        <PhotoViewer
+          url={picture.url}
+          caption={
+            picture.own
+              ? part.name
+              : `${part.name} (photo from the punch list item)`
+          }
+          onClose={() => setViewing(false)}
+        />
+      )}
       {shared ? (
-        <div className="flex min-h-16 min-w-0 flex-1 items-center py-2.5 pl-4">{text}</div>
+        <div className="flex min-h-16 min-w-0 flex-1 items-center py-2.5 pl-4">
+          {text}
+        </div>
       ) : (
         <Link
           to={`/parts/${part.id}`}
@@ -81,7 +118,7 @@ export function PartRow({
         // The vendor orders it: no stages for me to track
         <span className="mr-3 flex min-h-16 shrink-0 items-center">
           <span className="max-w-[140px] truncate rounded-full bg-hairline px-3 py-2 text-[14px] font-semibold text-[#48484a]">
-            {vendorName ?? 'Vendor'} orders
+            {vendorName ?? "Vendor"} orders
           </span>
         </span>
       ) : (
@@ -94,11 +131,13 @@ export function PartRow({
           <span
             className={`flex min-w-[92px] items-center justify-center gap-1 rounded-full px-3 py-2 text-[14px] font-semibold ${pill}`}
           >
-            {part.status === 'received' && <CheckIcon size={15} strokeWidth={3} />}
+            {part.status === "received" && (
+              <CheckIcon size={15} strokeWidth={3} />
+            )}
             {partStatusLabels[part.status]}
           </span>
         </button>
       )}
     </div>
-  )
+  );
 }

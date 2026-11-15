@@ -1,3 +1,4 @@
+import type { Part } from './types'
 import { useQuery, type QueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { backend } from './backend'
@@ -148,3 +149,9 @@ export const useHouseHistory = (houseId: string) =>
   useQuery({ queryKey: ['houseHistory', houseId], queryFn: () => backend.houseHistory(houseId) })
 export const useReminders = () => useQuery({ queryKey: ['reminders'], queryFn: () => backend.listReminders() })
 export const useTexts = () => useQuery({ queryKey: ['texts'], queryFn: () => backend.listTexts() })
+export const usePartPictures = (parts: Part[]) =>
+  useQuery({
+    queryKey: ['photos', 'parts', parts.map((p) => `${p.id}:${p.photo_path ?? ''}:${p.item_id ?? ''}`).join()],
+    queryFn: () => backend.partPictures(parts),
+    enabled: parts.length > 0,
+  })

@@ -176,6 +176,8 @@ export interface Part {
   received_at: string | null
   /** On a vendor's item: the vendor orders it (off my orders list and my bill) */
   vendor_orders?: boolean
+  /** A photo of the part (stored as parts/<job id>/<file>) */
+  photo_path?: string | null
 }
 
 export interface BringCheck {

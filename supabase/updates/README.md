@@ -11,4 +11,5 @@ it already contains everything below.
 | --- | --- |
 | 15 | A planned day on each punch list item |
 | 16 | A planned time on each punch list item |
+| 17 | A photo on each part (Orders) |
 | 10 to 14 | Request Inbox & Landlord Maintenance Plan: request page, inbox, houses, tenants, landlords, plans and hour bank, approvals, house profiles, guides, alerts |
