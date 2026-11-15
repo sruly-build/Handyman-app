@@ -152,8 +152,8 @@ export function JobDetailScreen() {
       title={job.customer_name}
       hero={
         <div
-          className={`mb-4 mt-1 rounded-3xl bg-gradient-to-br px-5 py-4 text-white shadow-[0_10px_28px_rgba(15,42,35,0.28)] ${
-            lead ? 'from-[#5b2bb5] to-[#8a5ce0]' : partner ? 'from-[#1f5fae] to-[#3a8ee6]' : 'from-[#08654e] to-[#0e9aa7]'
+          className={`shine mb-4 mt-1 rounded-[28px] bg-gradient-to-br px-5 py-5 text-white shadow-[0_12px_32px_-8px_rgba(15,23,42,0.35)] ${
+            lead ? 'from-[#7c3aed] via-[#8b5cf6] to-[#c084fc]' : partner ? 'from-[#4338ca] via-[#6366f1] to-[#818cf8]' : 'from-[#2563eb] via-[#3b82f6] to-[#06b6d4]'
           }`}
         >
           <p className="text-[13px] font-semibold uppercase tracking-wide text-white/80">

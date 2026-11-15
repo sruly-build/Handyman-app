@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { JobSummary } from '../data/types'
-import { friendlyDate } from '../lib/dates'
+import { friendlyDate, todayISO } from '../lib/dates'
 import { CalendarIcon, ChevronIcon, PeopleIcon, PinIcon } from './Icons'
 import { Card, ProgressBar } from './ui'
 
@@ -8,9 +8,20 @@ export function JobCard({ job }: { job: JobSummary }) {
   const allDone = job.item_count > 0 && job.done_count === job.item_count
   const fromOther = job.from_company !== null
   const shared = fromOther || job.shared_with.length > 0
+  const today = todayISO()
+  const when = !job.job_date ? 'none' : job.job_date === today ? 'today' : job.job_date > today ? 'soon' : allDone ? 'past' : 'late'
+  const stripe = { today: 'bg-brand', soon: 'bg-sky', late: 'bg-sun', past: 'bg-[#aab4b0]', none: 'bg-[#cfd6d3]' }[when]
+  const dateStyle = {
+    today: 'bg-brand-soft text-brand-dark',
+    soon: 'bg-sky-soft text-sky',
+    late: 'bg-sun-soft text-[#a35a00]',
+    past: 'bg-canvas text-muted',
+    none: 'bg-canvas text-muted',
+  }[when]
   return (
     <Link to={`/jobs/${job.id}`} className="block transition active:scale-[0.98]">
-      <Card className="p-4">
+      <Card className="relative overflow-hidden p-4 pl-5">
+        <span className={`absolute inset-y-0 left-0 w-1.5 ${stripe}`} aria-hidden="true" />
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-2 text-[19px] font-semibold">
@@ -32,13 +43,16 @@ export function JobCard({ job }: { job: JobSummary }) {
             </p>
             {job.address && (
               <p className="mt-0.5 flex items-center gap-1 truncate text-[15px] text-muted">
-                <PinIcon size={15} className="shrink-0" />
+                <PinIcon size={15} className="shrink-0 text-rose" />
                 <span className="truncate">{job.address}</span>
               </p>
             )}
-            <p className="mt-0.5 flex items-center gap-1 text-[15px] text-muted">
-              <CalendarIcon size={15} className="shrink-0" />
-              {friendlyDate(job.job_date)}
+            <p className="mt-1.5">
+              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[13px] font-semibold ${dateStyle}`}>
+                <CalendarIcon size={13} className="shrink-0" />
+                {friendlyDate(job.job_date)}
+                {when === 'late' ? ' · not done' : ''}
+              </span>
             </p>
           </div>
           <ChevronIcon size={20} className="mt-1 shrink-0 text-[#c7c7cc]" />

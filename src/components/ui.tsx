@@ -195,7 +195,7 @@ export function Segmented<T extends string>({
   label: string
 }) {
   return (
-    <div className="flex gap-1 rounded-2xl bg-[#d5dbd8] p-1" role="radiogroup" aria-label={label}>
+    <div className="flex gap-1 rounded-2xl bg-[#e2e6ee] p-1" role="radiogroup" aria-label={label}>
       {options.map((o) => (
         <button
           key={o.value}
@@ -204,7 +204,7 @@ export function Segmented<T extends string>({
           aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
           className={`min-h-11 flex-1 rounded-xl px-2 text-[15px] font-semibold transition ${
-            value === o.value ? 'bg-night text-white shadow' : 'text-[#3d4743] active:opacity-60'
+            value === o.value ? 'bg-night text-white shadow' : 'text-[#475569] active:opacity-60'
           }`}
         >
           {o.label}
@@ -267,5 +267,5 @@ export function CheckCircle({ checked }: { checked: boolean }) {
 
 /** Small grey caption above a card */
 export function GroupLabel({ children }: { children: ReactNode }) {
-  return <h2 className="mb-1.5 px-4 text-[13px] font-semibold uppercase tracking-wide text-muted">{children}</h2>
+  return <h2 className="mb-1.5 px-4 text-[13px] font-bold uppercase tracking-wide text-[color:var(--accent,#5f6a66)]">{children}</h2>
 }

@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { App } from './App'
 import { AuthProvider } from './lib/auth'
 import { keepAppUpdated } from './lib/updates'
+import '@fontsource-variable/inter/index.css'
 import './index.css'
 
 const queryClient = new QueryClient({

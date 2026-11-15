@@ -6,7 +6,7 @@ import { Card, EmptyState, ErrorNote, Loading } from '../components/ui'
 import { callQueue, followUpTiming, isOpen } from '../data/sales'
 import { useLeads, useProspects } from '../data/queries'
 import { useUser } from '../lib/auth'
-import { friendlyDate, todayISO } from '../lib/dates'
+import { friendlyDate } from '../lib/dates'
 import type { ProspectView } from '../data/types'
 
 /** Open the app in the morning and see who to contact */
@@ -129,7 +129,7 @@ export function SalesDashboardScreen() {
           <Section title="Coming up" list={upcoming.slice(0, 5)} />
         </div>
       </div>
-      <p className="mt-6 px-1 text-[12px] text-muted">Today is {friendlyDate(todayISO())}.</p>
+      <p className="mt-6 px-1 text-[12px] text-muted">{new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</p>
     </Screen>
   )
 }

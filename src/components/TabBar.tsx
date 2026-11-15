@@ -3,12 +3,12 @@ import { useRequests } from '../data/queries'
 import { CalendarIcon, HomeIcon, InboxIcon, JobsIcon, LeadIcon, MoreIcon } from './Icons'
 
 const tabs = [
-  { to: '/', label: 'Home', Icon: HomeIcon, end: true, on: 'text-[#6ee7c3]' },
-  { to: '/requests', label: 'Requests', Icon: InboxIcon, end: false, on: 'text-[#ffb547]' },
-  { to: '/sales', label: 'Sales', Icon: LeadIcon, end: false, on: 'text-[#c4a2ff]' },
-  { to: '/jobs', label: 'Jobs', Icon: JobsIcon, end: false, on: 'text-[#7fd4ff]' },
-  { to: '/schedule', label: 'Schedule', Icon: CalendarIcon, end: false, on: 'text-[#ff9fc4]' },
-  { to: '/more', label: 'Me', Icon: MoreIcon, end: false, on: 'text-[#ffe27a]' },
+  { to: '/', label: 'Home', Icon: HomeIcon, end: true, on: 'text-[#6ee7b7]' },
+  { to: '/requests', label: 'Requests', Icon: InboxIcon, end: false, on: 'text-[#fdba74]' },
+  { to: '/sales', label: 'Sales', Icon: LeadIcon, end: false, on: 'text-[#c4b5fd]' },
+  { to: '/jobs', label: 'Jobs', Icon: JobsIcon, end: false, on: 'text-[#93c5fd]' },
+  { to: '/schedule', label: 'Schedule', Icon: CalendarIcon, end: false, on: 'text-[#f9a8d4]' },
+  { to: '/more', label: 'Me', Icon: MoreIcon, end: false, on: 'text-[#a5b4fc]' },
 ]
 
 /** Bottom tab bar with big tap targets (easy with gloves on) */
@@ -22,8 +22,8 @@ export function TabBar() {
   const fresh = (requests ?? []).filter((r) => r.status === 'new')
   const emergency = fresh.some((r) => r.urgency === 'emergency')
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 bg-night pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(0,0,0,0.18)] print:hidden">
-      <ul className="mx-auto flex max-w-2xl">
+    <nav className="fixed inset-x-0 bottom-0 z-30 px-3 pb-[calc(env(safe-area-inset-bottom)+8px)] print:hidden">
+      <ul className="mx-auto flex max-w-2xl rounded-[24px] bg-night/95 shadow-[0_12px_30px_-6px_rgba(15,23,42,0.55)] ring-1 ring-white/10 backdrop-blur-xl">
         {tabs.map(({ to, label, Icon, end, on }) => (
           <li key={to} className="flex-1">
             <NavLink

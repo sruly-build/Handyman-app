@@ -34,7 +34,7 @@ export function SalesNav() {
             replace
             aria-current={active ? 'page' : undefined}
             className={`flex min-h-10 shrink-0 items-center rounded-full px-4 text-[15px] font-semibold transition ${
-              active ? 'bg-ink text-white' : 'bg-card text-ink active:opacity-60'
+              active ? 'bg-grape text-white shadow' : 'bg-card text-ink active:opacity-60'
             }`}
           >
             {s.label}

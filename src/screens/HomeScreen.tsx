@@ -56,17 +56,17 @@ export function HomeScreen() {
     <Screen
       title={`${greeting()}, ${user.name}`}
       hero={
-        <div className="mb-5 mt-1 rounded-3xl bg-gradient-to-br from-night to-night-soft px-5 py-5 text-white shadow-[0_10px_30px_rgba(15,42,35,0.35)]">
+        <div className="shine mb-5 mt-1 rounded-[28px] bg-gradient-to-br from-[#0f172a] via-[#134e4a] to-[#059669] px-5 py-5 text-white shadow-[0_14px_36px_-10px_rgba(15,23,42,0.5)]">
           <p className="text-[13px] font-semibold uppercase tracking-wide text-mint">{dateLine}</p>
           <h1 className="mt-1 text-[30px] font-bold leading-tight tracking-tight">
             {greeting()}, {user.name}
           </h1>
           <div className="mt-4 grid grid-cols-2 gap-3">
-            <div className="rounded-2xl bg-mint/20 px-3 py-2.5">
+            <div className="rounded-2xl bg-white/12 px-3 py-2.5 ring-1 ring-white/15 backdrop-blur">
               <p className="text-[26px] font-bold leading-none tabular-nums text-mint">{todays.length + walkthroughs.length + otherToday.length}</p>
               <p className="mt-1 text-[13px] font-semibold text-white/80">Places today</p>
             </div>
-            <div className="rounded-2xl bg-[#7fd4ff]/20 px-3 py-2.5 [&>p:first-child]:text-[#7fd4ff]">
+            <div className="rounded-2xl bg-white/12 px-3 py-2.5 ring-1 ring-white/15 backdrop-blur [&>p:first-child]:text-[#93c5fd]">
               <p className="text-[26px] font-bold leading-none tabular-nums">{tomorrowStops.length}</p>
               <p className="mt-1 text-[13px] font-semibold text-white/75">Tomorrow</p>
             </div>

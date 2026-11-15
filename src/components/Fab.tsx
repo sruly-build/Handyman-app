@@ -56,7 +56,7 @@ export function Fab() {
         aria-label={label}
         title={label}
         onClick={() => (target === 'menu' ? setMenu(true) : navigate(target.to))}
-        className="fixed bottom-[calc(env(safe-area-inset-bottom)+80px)] right-[max(16px,env(safe-area-inset-right))] z-30 flex h-16 w-16 items-center justify-center rounded-full bg-brand text-white shadow-[0_10px_28px_rgba(8,101,78,0.45)] ring-4 ring-white transition active:scale-95 active:bg-brand-dark print:hidden lg:right-[calc(50%-21rem)]"
+        className="fixed bottom-[calc(env(safe-area-inset-bottom)+88px)] right-[max(16px,env(safe-area-inset-right))] z-30 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#10b981] to-[#047857] text-white shadow-[0_12px_28px_-6px_rgba(4,120,87,0.6)] ring-4 ring-white transition active:scale-95 active:bg-brand-dark print:hidden lg:right-[calc(50%-21rem)]"
       >
         <PlusIcon size={32} strokeWidth={2.6} />
       </button>
