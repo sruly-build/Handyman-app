@@ -66,49 +66,66 @@ export function BringListScreen() {
 
   function remindMe() {
     try {
-      downloadFile(`bring-list-${job!.customer_name}.ics`, bringReminderIcs(job!, window.location.href), 'text/calendar')
+      downloadFile(
+        `bring-list-${job!.customer_name}.ics`,
+        bringReminderIcs(job!, window.location.href),
+        'text/calendar',
+      )
     } catch (err) {
       alert(err instanceof Error ? err.message : String(err))
     }
   }
 
-  const renderRows = (entries: BringEntry[]) => (
-    <Card>
-      {entries.map((e, i) => {
-        const checked = isChecked(e)
-        return (
-          <div key={e.key}>
-            {i > 0 && <Divider />}
-            <div className="flex items-center">
-              <button
-                onClick={() => toggle.mutate({ key: e.key, checked: !checked })}
-                className="flex min-h-14 flex-1 items-center gap-3 px-4 py-2 text-left active:bg-canvas"
-              >
-                <CheckCircle checked={checked} />
-                <span className="min-w-0 flex-1">
-                  <span className={`block text-[17px] ${checked ? 'text-muted line-through decoration-[#c7c7cc]' : ''}`}>
-                    {e.label}
-                  </span>
-                  {e.sources.length > 0 && (
-                    <span className="block truncate text-[13px] text-muted">For: {e.sources.join(', ')}</span>
-                  )}
-                </span>
-              </button>
-              {!partner && isExtra(e) && e.sources.length === 0 && (
-                <button
-                  onClick={() => setExtras.mutate(extras.filter((x) => `tool:${normalize(x)}` !== e.key))}
-                  className="flex h-14 w-12 items-center justify-center text-muted"
-                  aria-label={`Remove ${e.label}`}
-                >
-                  <CloseIcon size={18} />
-                </button>
+  const renderRows = (all: BringEntry[]) => {
+    // Packed things drop to the bottom; the rest keep their order
+    const entries = [...all].sort((a, b) => Number(isChecked(a)) - Number(isChecked(b)))
+    const packedHere = entries.filter(isChecked).length
+    return (
+      <Card>
+        {entries.map((e, i) => {
+          const checked = isChecked(e)
+          return (
+            <div key={e.key}>
+              {checked && i > 0 && !isChecked(entries[i - 1]) ? (
+                <p className="border-t border-hairline bg-canvas/60 px-4 py-1.5 text-[12px] font-bold uppercase tracking-wide text-brand-dark">
+                  Packed ({packedHere})
+                </p>
+              ) : (
+                i > 0 && <Divider />
               )}
+              <div className="flex items-center">
+                <button
+                  onClick={() => toggle.mutate({ key: e.key, checked: !checked })}
+                  className="flex min-h-14 flex-1 items-center gap-3 px-4 py-2 text-left active:bg-canvas"
+                >
+                  <CheckCircle checked={checked} />
+                  <span className="min-w-0 flex-1">
+                    <span
+                      className={`block text-[17px] ${checked ? 'text-muted line-through decoration-[#c7c7cc]' : ''}`}
+                    >
+                      {e.label}
+                    </span>
+                    {e.sources.length > 0 && (
+                      <span className="block truncate text-[13px] text-muted">For: {e.sources.join(', ')}</span>
+                    )}
+                  </span>
+                </button>
+                {!partner && isExtra(e) && e.sources.length === 0 && (
+                  <button
+                    onClick={() => setExtras.mutate(extras.filter((x) => `tool:${normalize(x)}` !== e.key))}
+                    className="flex h-14 w-12 items-center justify-center text-muted"
+                    aria-label={`Remove ${e.label}`}
+                  >
+                    <CloseIcon size={18} />
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        )
-      })}
-    </Card>
-  )
+          )
+        })}
+      </Card>
+    )
+  }
 
   return (
     <Screen title="Bring list" eyebrow={`${job.customer_name} · ${friendlyDate(job.job_date)}`} back={back}>
