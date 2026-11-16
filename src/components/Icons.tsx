@@ -265,3 +265,15 @@ export const CropIcon = (p: IconProps) => (
     <path d="M18 22V8a2 2 0 0 0-2-2H2" />
   </Icon>
 )
+export const RedoIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="m15 14 5-5-5-5" />
+    <path d="M20 9H10a6 6 0 0 0 0 12h3" />
+  </Icon>
+)
+export const SelectIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M5 3.5 18.5 10l-6 1.8L9.8 18z" />
+    <path d="m13 12 5 5" />
+  </Icon>
+)

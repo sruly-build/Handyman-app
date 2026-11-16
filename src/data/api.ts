@@ -43,6 +43,7 @@ import type {
   PartStatus,
   Photo,
   PhotoKind,
+  SketchLayers,
   PhotoRow,
   Profile,
   PunchItem,
@@ -98,6 +99,9 @@ export const isPartnerJob = (job: Pick<Job, 'company_id'>, user: Pick<AppUser, '
   job.company_id != null && job.company_id !== user.companyId
 
 /** Everything the screens can do, built on the basic storage operations in db.ts */
+/** Where a drawing's layers live, next to its picture: [the marks, the clean photo underneath] */
+const sketchFiles = (path: string) => [`${path}.layers.json`, `${path}.base.jpg`]
+
 export function createApi(db: Db, auth: Auth) {
   async function me(): Promise<AppUser> {
     const user = await auth.getUser()
@@ -498,6 +502,45 @@ export function createApi(db: Db, auth: Auth) {
     async deletePhoto(photo: Photo) {
       await db.removeFiles([photo.storage_path])
       await db.remove('photos', { id: photo.id })
+      // A drawing's editable layers (if it has them)
+      if (photo.kind === 'sketch') await db.removeFiles(sketchFiles(photo.storage_path)).catch(() => {})
+    },
+    /**
+     * Save a drawing so it can be changed later: the finished picture, plus
+     * its layers (the clean photo underneath and each mark). Replacing an
+     * earlier drawing moves its measurement links over and deletes the old one.
+     */
+    async saveSketch(itemId: string, image: Blob, layers: SketchLayers, base: Blob | null, replace?: Photo | null) {
+      const photo = await api.addPhoto(itemId, 'sketch', image)
+      const [layersPath, basePath] = sketchFiles(photo.storage_path)
+      await db.upload(layersPath, new Blob([JSON.stringify({ ...layers, base: Boolean(base) })], { type: 'application/json' }))
+      if (base) await db.upload(basePath, base)
+      if (replace) {
+        const item = await api.getItem(itemId)
+        if (item.measurements.some((m) => m.photo_id === replace.id)) {
+          await api.updateItem(itemId, {
+            measurements: item.measurements.map((m) => (m.photo_id === replace.id ? { ...m, photo_id: photo.id } : m)),
+          })
+        }
+        await api.deletePhoto(replace)
+      }
+      return photo
+    },
+    /** A drawing's layers, if it was saved with them (older drawings were not) */
+    async sketchLayers(photo: Photo): Promise<{ layers: SketchLayers; baseUrl: string | null } | null> {
+      if (photo.kind !== 'sketch') return null
+      const [layersPath, basePath] = sketchFiles(photo.storage_path)
+      const [layersUrl, baseUrl] = await db.fileUrls([layersPath, basePath]).catch(() => [])
+      if (!layersUrl) return null
+      try {
+        const res = await fetch(layersUrl)
+        if (!res.ok) return null
+        const layers = (await res.json()) as SketchLayers & { base?: boolean }
+        if (!Array.isArray(layers.marks)) return null
+        return { layers, baseUrl: layers.base ? baseUrl || null : null }
+      } catch {
+        return null
+      }
     },
 
     // ---- Parts and orders ----

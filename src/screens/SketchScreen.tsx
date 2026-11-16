@@ -1,25 +1,42 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowIcon, CropIcon, PencilIcon, RulerIcon, TextIcon, TrashIcon, UndoIcon } from '../components/Icons'
+import {
+  ArrowIcon,
+  CropIcon,
+  PencilIcon,
+  RedoIcon,
+  RulerIcon,
+  SelectIcon,
+  TextIcon,
+  TrashIcon,
+  UndoIcon,
+} from '../components/Icons'
 import { ErrorNote } from '../components/ui'
 import { backend } from '../data/backend'
 import { keys, refreshAll, refreshPhotos, usePhotos } from '../data/queries'
-import type { Measurement } from '../data/types'
+import type { Measurement, Photo, SketchMark as Mark, SketchPoint as Point } from '../data/types'
 import { takePendingImage } from '../lib/pendingImage'
 
-type Point = [number, number]
-type Mark =
-  | { kind: 'line'; color: string; width: number; points: Point[] }
-  | { kind: 'text'; color: string; size: number; at: Point; text: string }
-  /** An arrow; "both" = a dimension line with a head at each end */
-  | { kind: 'arrow'; color: string; width: number; from: Point; to: Point; both: boolean }
+type Tool = 'select' | 'pen' | 'arrow' | 'measure' | 'text'
+/** What's on the page: the photo underneath (none = blank paper) and the marks on top */
+interface Doc {
+  background: HTMLImageElement | null
+  marks: Mark[]
+}
+type Box = { x: number; y: number; w: number; h: number }
 
-type Tool = 'pen' | 'arrow' | 'measure' | 'text'
-
-const colors = ['#1c1c1e', '#ff3b30', '#ffcc00', '#007aff', '#0f9d7a', '#ffffff']
-const BLANK_W = 1200
-const BLANK_H = 1600
+const colors = [
+  { value: '#e5484d', name: 'Red' },
+  { value: '#f5a524', name: 'Amber' },
+  { value: '#0a84ff', name: 'Blue' },
+  { value: '#30a46c', name: 'Green' },
+  { value: '#111827', name: 'Black' },
+  { value: '#ffffff', name: 'White' },
+]
+const weights = ['Fine', 'Medium', 'Bold'] as const
+const BLANK = { w: 1200, h: 1600 }
+const FONT = `'Inter Variable', Inter, system-ui, -apple-system, sans-serif`
 
 /** The item, once the new measurement has been saved (it is saved as the item screen closes) */
 async function itemWithMeasurement(itemId: string, measurementId: string) {
@@ -31,20 +48,207 @@ async function itemWithMeasurement(itemId: string, measurementId: string) {
   return null
 }
 
-function drawArrowHead(ctx: CanvasRenderingContext2D, from: Point, to: Point, size: number) {
-  const angle = Math.atan2(to[1] - from[1], to[0] - from[0])
+function loadImage(src: string, remote = false) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image()
+    if (remote) img.crossOrigin = 'anonymous' // needed so the drawing can be saved
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error('Could not load the photo.'))
+    img.src = src
+  })
+}
+
+// ---------- Drawing the marks ----------
+
+/** Dark text on light colours, white on the rest */
+const inkOn = (fill: string) => (fill === '#ffffff' || fill === '#f5a524' ? '#111827' : '#ffffff')
+
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.arcTo(x + w, y, x + w, y + h, r)
+  ctx.arcTo(x + w, y + h, x, y + h, r)
+  ctx.arcTo(x, y + h, x, y, r)
+  ctx.arcTo(x, y, x + w, y, r)
+  ctx.closePath()
+}
+
+/** A soft shadow so marks stand off a photo */
+function shadow(ctx: CanvasRenderingContext2D, u: number, on: boolean) {
+  ctx.shadowColor = on ? 'rgba(0,0,0,0.35)' : 'transparent'
+  ctx.shadowBlur = on ? 6 * u : 0
+  ctx.shadowOffsetY = on ? 1.5 * u : 0
+}
+
+const labelSize = (m: { width: number }, u: number) => Math.max(30 * u, m.width * 5)
+
+/** A text label in a rounded tag, centred on `at`, turned to `angle` */
+function drawTag(ctx: CanvasRenderingContext2D, text: string, at: Point, size: number, fill: string, angle = 0) {
+  ctx.save()
+  ctx.translate(at[0], at[1])
+  ctx.rotate(angle)
+  ctx.font = `600 ${size}px ${FONT}`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  const w = ctx.measureText(text).width + size * 0.9
+  const h = size * 1.45
+  roundRect(ctx, -w / 2, -h / 2, w, h, h * 0.3)
+  ctx.fillStyle = fill
+  ctx.fill()
+  ctx.shadowColor = 'transparent'
+  if (fill === '#ffffff') {
+    ctx.lineWidth = Math.max(1, size / 22)
+    ctx.strokeStyle = 'rgba(17,24,39,0.25)'
+    ctx.stroke()
+  }
+  ctx.fillStyle = inkOn(fill)
+  ctx.fillText(text, 0, size * 0.04)
+  ctx.restore()
+  return { w, h }
+}
+
+function arrowHead(ctx: CanvasRenderingContext2D, from: Point, to: Point, len: number) {
+  const a = Math.atan2(to[1] - from[1], to[0] - from[0])
   ctx.beginPath()
   ctx.moveTo(to[0], to[1])
-  ctx.lineTo(to[0] - size * Math.cos(angle - Math.PI / 7), to[1] - size * Math.sin(angle - Math.PI / 7))
-  ctx.lineTo(to[0] - size * Math.cos(angle + Math.PI / 7), to[1] - size * Math.sin(angle + Math.PI / 7))
+  ctx.lineTo(to[0] - len * Math.cos(a - Math.PI / 8), to[1] - len * Math.sin(a - Math.PI / 8))
+  ctx.lineTo(to[0] - len * 0.78 * Math.cos(a), to[1] - len * 0.78 * Math.sin(a))
+  ctx.lineTo(to[0] - len * Math.cos(a + Math.PI / 8), to[1] - len * Math.sin(a + Math.PI / 8))
   ctx.closePath()
   ctx.fill()
 }
 
+/** Keep a label upright whichever way its line was drawn */
+const upright = (from: Point, to: Point) => {
+  let a = Math.atan2(to[1] - from[1], to[0] - from[0])
+  if (a > Math.PI / 2) a -= Math.PI
+  if (a < -Math.PI / 2) a += Math.PI
+  return a
+}
+
+function drawMark(ctx: CanvasRenderingContext2D, m: Mark, u: number, onPhoto: boolean) {
+  ctx.save()
+  shadow(ctx, u, onPhoto)
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  if (m.kind === 'line') {
+    ctx.strokeStyle = m.color
+    ctx.lineWidth = m.width
+    const p = m.points
+    ctx.beginPath()
+    ctx.moveTo(p[0][0], p[0][1])
+    if (p.length === 1) ctx.lineTo(p[0][0] + 0.1, p[0][1])
+    // Smooth curves through the finger's path
+    for (let i = 1; i < p.length - 1; i++) {
+      ctx.quadraticCurveTo(p[i][0], p[i][1], (p[i][0] + p[i + 1][0]) / 2, (p[i][1] + p[i + 1][1]) / 2)
+    }
+    if (p.length > 1) ctx.lineTo(p[p.length - 1][0], p[p.length - 1][1])
+    ctx.stroke()
+  } else if (m.kind === 'arrow') {
+    const { from, to, width } = m
+    const len = Math.hypot(to[0] - from[0], to[1] - from[1]) || 1
+    const ux = (to[0] - from[0]) / len
+    const uy = (to[1] - from[1]) / len
+    const head = Math.max(width * 4.5, 16 * u)
+    ctx.strokeStyle = m.color
+    ctx.fillStyle = m.color
+    ctx.lineWidth = width
+    // The shaft stops where the head starts, so the tip stays sharp
+    const start: Point = m.both ? [from[0] + ux * head * 0.7, from[1] + uy * head * 0.7] : from
+    const end: Point = [to[0] - ux * head * 0.7, to[1] - uy * head * 0.7]
+    ctx.beginPath()
+    ctx.moveTo(start[0], start[1])
+    ctx.lineTo(end[0], end[1])
+    ctx.stroke()
+    arrowHead(ctx, from, to, head)
+    if (m.both) {
+      arrowHead(ctx, to, from, head)
+      // End stops, like a drawing's dimension line
+      const t = head * 0.75
+      ctx.lineWidth = Math.max(1, width * 0.7)
+      for (const p of [from, to]) {
+        ctx.beginPath()
+        ctx.moveTo(p[0] - uy * t, p[1] + ux * t)
+        ctx.lineTo(p[0] + uy * t, p[1] - ux * t)
+        ctx.stroke()
+      }
+      if (m.label) drawTag(ctx, m.label, [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2], labelSize(m, u), m.color, upright(from, to))
+    }
+  } else {
+    drawTag(ctx, m.text, m.at, m.size, m.color)
+  }
+  ctx.restore()
+}
+
+/** The area a mark covers (for selecting it) */
+function boundsOf(ctx: CanvasRenderingContext2D, m: Mark, u: number): Box {
+  if (m.kind === 'text') {
+    ctx.font = `600 ${m.size}px ${FONT}`
+    const w = ctx.measureText(m.text).width + m.size * 0.9
+    const h = m.size * 1.45
+    return { x: m.at[0] - w / 2, y: m.at[1] - h / 2, w, h }
+  }
+  const pts = m.kind === 'line' ? m.points : [m.from, m.to]
+  const pad = m.kind === 'line' ? m.width : Math.max(m.width * 4.5, 16 * u) * 0.6
+  const xs = pts.map((p) => p[0])
+  const ys = pts.map((p) => p[1])
+  let box = { x: Math.min(...xs) - pad, y: Math.min(...ys) - pad, w: Math.max(...xs) - Math.min(...xs) + 2 * pad, h: Math.max(...ys) - Math.min(...ys) + 2 * pad }
+  if (m.kind === 'arrow' && m.both && m.label) {
+    const s = labelSize(m, u)
+    ctx.font = `600 ${s}px ${FONT}`
+    const half = (ctx.measureText(m.label).width + s * 0.9) / 2
+    const cx = (m.from[0] + m.to[0]) / 2
+    const cy = (m.from[1] + m.to[1]) / 2
+    const x = Math.min(box.x, cx - half)
+    const y = Math.min(box.y, cy - s)
+    box = { x, y, w: Math.max(box.x + box.w, cx + half) - x, h: Math.max(box.y + box.h, cy + s) - y }
+  }
+  return box
+}
+
+function distToSegment(p: Point, a: Point, b: Point) {
+  const dx = b[0] - a[0]
+  const dy = b[1] - a[1]
+  const t = dx || dy ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy))) : 0
+  return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy)
+}
+
+/** Which mark is under the finger (the top one first) */
+function hitTest(ctx: CanvasRenderingContext2D, marks: Mark[], p: Point, u: number): number | null {
+  const reach = 22 * u
+  for (let i = marks.length - 1; i >= 0; i--) {
+    const m = marks[i]
+    if (m.kind === 'text') {
+      const b = boundsOf(ctx, m, u)
+      if (p[0] >= b.x - reach / 2 && p[0] <= b.x + b.w + reach / 2 && p[1] >= b.y - reach / 2 && p[1] <= b.y + b.h + reach / 2) return i
+    } else if (m.kind === 'arrow') {
+      if (distToSegment(p, m.from, m.to) < Math.max(reach, m.width * 2)) return i
+      if (m.label) {
+        const mid: Point = [(m.from[0] + m.to[0]) / 2, (m.from[1] + m.to[1]) / 2]
+        if (Math.hypot(p[0] - mid[0], p[1] - mid[1]) < labelSize(m, u) * 1.5) return i
+      }
+    } else {
+      for (let k = 0; k < m.points.length; k++) {
+        if (distToSegment(p, m.points[k], m.points[Math.min(k + 1, m.points.length - 1)]) < Math.max(reach, m.width * 1.5)) return i
+      }
+    }
+  }
+  return null
+}
+
+function moved(m: Mark, dx: number, dy: number): Mark {
+  const shift = (p: Point): Point => [p[0] + dx, p[1] + dy]
+  if (m.kind === 'line') return { ...m, points: m.points.map(shift) }
+  if (m.kind === 'text') return { ...m, at: shift(m.at) }
+  return { ...m, from: shift(m.from), to: shift(m.to) }
+}
+
 /**
  * Finger drawing, on a blank page or on top of a photo: pen, arrows,
- * dimension lines (↔ with the measurement written on them) and text.
- * Opened from a measurement, the result is attached to that measurement.
+ * dimension lines (with the size written on them), text and cropping.
+ * Each mark stays separate, so it can be selected, moved, recoloured,
+ * retyped or deleted, even after saving (the layers are saved with the
+ * picture). Opened from a measurement, the drawing is attached to it.
  */
 export function SketchScreen() {
   const { jobId = '', itemId = '' } = useParams()
@@ -57,21 +261,27 @@ export function SketchScreen() {
   const qc = useQueryClient()
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [background, setBackground] = useState<HTMLImageElement | null>(null)
+  const [doc, setDoc] = useState<Doc>({ background: null, marks: [] })
+  const [past, setPast] = useState<Doc[]>([])
+  const [future, setFuture] = useState<Doc[]>([])
+  const [blank, setBlank] = useState(BLANK)
+  const [loading, setLoading] = useState(Boolean(photoId) || fromFile)
   const [bgError, setBgError] = useState<string | null>(null)
-  const [marks, setMarks] = useState<Mark[]>([])
+  /** The saved drawing being changed (replaced when saved) */
+  const [editing, setEditing] = useState<Photo | null>(null)
   const drawing = useRef<Mark | null>(null)
-  const [tool, setTool] = useState<Tool>(measurementId ? 'measure' : 'pen')
-  const [color, setColor] = useState(colors[1])
-  const [thick, setThick] = useState(false)
-  // Typing a label: where it goes, and what's typed
-  const [typing, setTyping] = useState<{ at: Point } | null>(null)
+  const drag = useRef<{ index: number; start: Point; original: Mark; moved: boolean } | null>(null)
+  const [tool, setTool] = useState<Tool>(measurementId && !photoId ? 'measure' : 'pen')
+  const [color, setColor] = useState(colors[0].value)
+  const [weight, setWeight] = useState(1)
+  const [selected, setSelected] = useState<number | null>(null)
+  // Typing: a new label at a spot, or new words for an existing mark
+  const [typing, setTyping] = useState<{ at?: Point; index?: number; fresh?: boolean } | null>(null)
   const [text, setText] = useState('')
   const [measurement, setMeasurement] = useState<Measurement | null>(null)
-  // Cropping: the box being chosen (in canvas pixels), and earlier versions to undo a crop
-  const [crop, setCrop] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
-  const [cropHistory, setCropHistory] = useState<{ background: HTMLImageElement | null; marks: Mark[] }[]>([])
-  const cropDrag = useRef<{ mode: 'move' | 'nw' | 'ne' | 'sw' | 'se'; start: Point; box: { x: number; y: number; w: number; h: number } } | null>(null)
+  // Cropping: the box being chosen (in the drawing's pixels)
+  const [crop, setCrop] = useState<Box | null>(null)
+  const cropDrag = useRef<{ mode: 'move' | 'nw' | 'ne' | 'sw' | 'se'; start: Point; box: Box } | null>(null)
   const frameRef = useRef<HTMLDivElement>(null)
   // The space the picture can take on screen
   const areaRef = useRef<HTMLDivElement>(null)
@@ -85,7 +295,15 @@ export function SketchScreen() {
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
-  const changed = marks.length > 0 || cropHistory.length > 0
+  const changed = past.length > 0
+
+  /** Make a change that Undo can take back */
+  function commit(next: Doc) {
+    setPast((p) => [...p, doc])
+    setFuture([])
+    setDoc(next)
+  }
+  const setMarks = (marks: Mark[]) => commit({ ...doc, marks })
 
   // The measurement this drawing is for (its sizes are offered as one-tap labels)
   useEffect(() => {
@@ -103,86 +321,82 @@ export function SketchScreen() {
   useEffect(() => {
     if (!fromFile) return
     const file = takePendingImage()
+    setLoading(false)
     if (!file) return setBgError('The photo was lost. Go back and add it again.')
-    const url = URL.createObjectURL(file)
-    const img = new Image()
-    img.onload = () => setBackground(img)
-    img.onerror = () => setBgError('That file could not be opened as a photo.')
-    img.src = url
+    loadImage(URL.createObjectURL(file)).then(
+      (img) => setDoc({ background: img, marks: [] }),
+      () => setBgError('That file could not be opened as a photo.'),
+    )
   }, [fromFile])
 
-  // Load the photo to draw on, if one was chosen
+  // An existing photo: a saved drawing opens with its marks still separate
+  const opened = useRef(false)
   useEffect(() => {
-    if (!photoId || !photos) return
+    if (!photoId || !photos || opened.current) return
     const photo = photos.find((p) => p.id === photoId)
     if (!photo) return
-    const img = new Image()
-    img.crossOrigin = 'anonymous' // needed so the drawing can be saved
-    img.onload = () => setBackground(img)
-    img.onerror = () => setBgError('Could not load the photo. You can still draw on a blank page.')
-    img.src = photo.url
+    opened.current = true
+    void (async () => {
+      try {
+        const saved = await backend.sketchLayers(photo)
+        if (photo.kind === 'sketch') setEditing(photo)
+        if (saved) {
+          const background = saved.baseUrl ? await loadImage(saved.baseUrl, true) : null
+          if (!background) setBlank({ w: saved.layers.w, h: saved.layers.h })
+          setDoc({ background, marks: saved.layers.marks })
+          setTool('select')
+        } else {
+          setDoc({ background: await loadImage(photo.url, true), marks: [] })
+        }
+      } catch {
+        setBgError('Could not load the photo. You can still draw on a blank page.')
+      } finally {
+        setLoading(false)
+      }
+    })()
   }, [photoId, photos])
 
-  // Size the canvas to the photo (or a blank portrait page)
+  // Size the drawing to the photo (or a blank portrait page)
+  const { background, marks } = doc
   const size = (() => {
-    if (!background) return { w: BLANK_W, h: BLANK_H }
-    const scale = Math.min(1, 1600 / Math.max(background.naturalWidth, background.naturalHeight))
-    return { w: Math.round(background.naturalWidth * scale), h: Math.round(background.naturalHeight * scale) }
+    if (!background) return blank
+    const s = Math.min(1, 1600 / Math.max(background.naturalWidth, background.naturalHeight))
+    return { w: Math.round(background.naturalWidth * s), h: Math.round(background.naturalHeight * s) }
   })()
+  const u = size.w / 1000
   // Largest size that fits the screen, keeping the picture's shape
   const scale = area.w > 0 && area.h > 0 ? Math.min(area.w / size.w, area.h / size.h) : 0
   const fit = scale ? { width: Math.floor(size.w * scale), height: Math.floor(size.h * scale) } : { width: '100%', aspectRatio: `${size.w} / ${size.h}` }
-  const lineWidth = Math.round(size.w / (thick ? 90 : 220))
-  const arrowWidth = Math.round(size.w / 160)
-  const textSize = Math.round(size.w / 18)
+  const penWidth = [4, 8, 13][weight] * u
+  const arrowWidth = [4, 7, 11][weight] * u
+  const textSize = [26, 36, 50][weight] * u
 
-  function render(extra?: Mark | null) {
+  function render(opts: { extra?: Mark | null; showSelection?: boolean } = {}) {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')!
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
     if (background) ctx.drawImage(background, 0, 0, canvas.width, canvas.height)
-    for (const m of extra ? [...marks, extra] : marks) {
-      if (m.kind === 'line') {
-        ctx.strokeStyle = m.color
-        ctx.lineWidth = m.width
-        ctx.lineCap = 'round'
-        ctx.lineJoin = 'round'
-        ctx.beginPath()
-        m.points.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)))
-        if (m.points.length === 1) ctx.lineTo(m.points[0][0] + 0.1, m.points[0][1])
-        ctx.stroke()
-      } else if (m.kind === 'arrow') {
-        // A white edge so it shows on any photo
-        for (const [stroke, extraWidth] of [[m.color === '#ffffff' ? '#1c1c1e' : '#ffffff', m.width * 0.9], [m.color, 0]] as const) {
-          ctx.strokeStyle = stroke
-          ctx.fillStyle = stroke
-          ctx.lineWidth = m.width + extraWidth
-          ctx.lineCap = 'round'
-          ctx.beginPath()
-          ctx.moveTo(m.from[0], m.from[1])
-          ctx.lineTo(m.to[0], m.to[1])
-          ctx.stroke()
-          const head = m.width * 4.5 + extraWidth
-          drawArrowHead(ctx, m.from, m.to, head)
-          if (m.both) drawArrowHead(ctx, m.to, m.from, head)
-        }
-      } else {
-        ctx.font = `bold ${m.size}px -apple-system, system-ui, sans-serif`
-        ctx.textBaseline = 'middle'
-        ctx.textAlign = 'center'
-        ctx.lineWidth = m.size / 6
-        ctx.lineJoin = 'round'
-        ctx.strokeStyle = m.color === '#ffffff' ? '#1c1c1e' : '#ffffff'
-        ctx.strokeText(m.text, m.at[0], m.at[1])
-        ctx.fillStyle = m.color
-        ctx.fillText(m.text, m.at[0], m.at[1])
-      }
+    const all = opts.extra ? [...marks, opts.extra] : marks
+    for (const m of all) drawMark(ctx, m, u, Boolean(background))
+    if (opts.showSelection && selected != null && marks[selected]) {
+      const b = boundsOf(ctx, marks[selected], u)
+      const pad = 8 * u
+      ctx.save()
+      ctx.lineWidth = 2.5 * u
+      ctx.setLineDash([10 * u, 7 * u])
+      ctx.strokeStyle = '#ffffff'
+      roundRect(ctx, b.x - pad, b.y - pad, b.w + 2 * pad, b.h + 2 * pad, 10 * u)
+      ctx.stroke()
+      ctx.lineDashOffset = 8.5 * u
+      ctx.strokeStyle = '#0a84ff'
+      ctx.stroke()
+      ctx.restore()
     }
   }
 
-  useEffect(() => render(drawing.current))
+  useEffect(() => render({ extra: drawing.current, showSelection: tool === 'select' }))
 
   function pointFrom(e: React.PointerEvent<HTMLCanvasElement>): Point {
     const rect = e.currentTarget.getBoundingClientRect()
@@ -190,8 +404,17 @@ export function SketchScreen() {
   }
 
   function onDown(e: React.PointerEvent<HTMLCanvasElement>) {
-    if (typing) return
+    if (typing || loading) return
     const at = pointFrom(e)
+    if (tool === 'select') {
+      const hit = hitTest(canvasRef.current!.getContext('2d')!, marks, at, u)
+      setSelected(hit)
+      if (hit != null) {
+        e.currentTarget.setPointerCapture(e.pointerId)
+        drag.current = { index: hit, start: at, original: marks[hit], moved: false }
+      }
+      return
+    }
     if (tool === 'text') {
       setText('')
       setTyping({ at })
@@ -200,42 +423,95 @@ export function SketchScreen() {
     e.currentTarget.setPointerCapture(e.pointerId)
     drawing.current =
       tool === 'pen'
-        ? { kind: 'line', color, width: lineWidth, points: [at] }
+        ? { kind: 'line', color, width: penWidth, points: [at] }
         : { kind: 'arrow', color, width: arrowWidth, from: at, to: at, both: tool === 'measure' }
-    render(drawing.current)
+    render({ extra: drawing.current })
   }
 
   function onMove(e: React.PointerEvent<HTMLCanvasElement>) {
+    const d = drag.current
+    if (d) {
+      const p = pointFrom(e)
+      const dx = p[0] - d.start[0]
+      const dy = p[1] - d.start[1]
+      if (!d.moved && Math.hypot(dx, dy) < 4 * u) return
+      if (!d.moved) {
+        d.moved = true
+        setPast((h) => [...h, doc])
+        setFuture([])
+      }
+      setDoc((cur) => ({ ...cur, marks: cur.marks.map((m, i) => (i === d.index ? moved(d.original, dx, dy) : m)) }))
+      return
+    }
     const current = drawing.current
     if (!current) return
     if (current.kind === 'line') current.points.push(pointFrom(e))
     else if (current.kind === 'arrow') current.to = pointFrom(e)
-    render(current)
+    render({ extra: current })
   }
 
   function onUp() {
+    drag.current = null
     const current = drawing.current
     drawing.current = null
     if (!current) return
     if (current.kind === 'arrow') {
       const length = Math.hypot(current.to[0] - current.from[0], current.to[1] - current.from[1])
       if (length < size.w / 40) return render() // just a tap
-      setMarks((m) => [...m, current])
+      setMarks([...marks, current])
       // A dimension line: write the size on it next
       if (current.both) {
-        const mid: Point = [(current.from[0] + current.to[0]) / 2, (current.from[1] + current.to[1]) / 2 - textSize * 0.9]
         setText('')
-        setTyping({ at: mid })
+        setTyping({ index: marks.length, fresh: true })
       }
       return
     }
-    setMarks((m) => [...m, current])
+    setMarks([...marks, current])
   }
 
+  /** Finish typing: a new label, or new words for a mark */
   function addText(value: string) {
-    if (typing && value.trim()) setMarks((m) => [...m, { kind: 'text', color, size: textSize, at: typing.at, text: value.trim() }])
+    const words = value.trim()
+    const t = typing
     setTyping(null)
     setText('')
+    if (!t) return
+    if (t.index != null) {
+      const m = marks[t.index]
+      if (!m) return
+      if (m.kind === 'text') {
+        if (!words) {
+          setSelected(null)
+          return setMarks(marks.filter((_, i) => i !== t.index))
+        }
+        if (words !== m.text) setMarks(marks.map((x, i) => (i === t.index ? { ...m, text: words } : x)))
+      } else if (m.kind === 'arrow' && (m.label ?? '') !== words) {
+        const next = marks.map((x, i) => (i === t.index ? { ...m, label: words || undefined } : x))
+        // Typed right after drawing the line: part of the same change (one Undo removes both)
+        if (t.fresh) setDoc((cur) => ({ ...cur, marks: next }))
+        else setMarks(next)
+      }
+      return
+    }
+    if (words && t.at) setMarks([...marks, { kind: 'text', color, size: textSize, at: t.at, text: words }])
+  }
+
+  // ---- The selected mark ----
+  const chosen = tool === 'select' && selected != null ? marks[selected] : undefined
+  const canRetype = chosen && (chosen.kind === 'text' || (chosen.kind === 'arrow' && chosen.both))
+  function recolor(value: string) {
+    setColor(value)
+    if (chosen && selected != null && chosen.color !== value) setMarks(marks.map((m, i) => (i === selected ? { ...m, color: value } : m)))
+  }
+  function deleteSelected() {
+    if (selected == null) return
+    setMarks(marks.filter((_, i) => i !== selected))
+    setSelected(null)
+  }
+  function retype() {
+    if (selected == null || !chosen) return
+    setText(chosen.kind === 'text' ? chosen.text : chosen.kind === 'arrow' ? (chosen.label ?? '') : '')
+    setTyping({ index: selected })
   }
 
   // ---- Cropping ----
@@ -273,53 +549,77 @@ export function SketchScreen() {
     }
     setCrop({ x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) })
   }
-  /** Cut the picture (with anything drawn so far) to the box; drawing carries on on the cut photo */
+  /** Cut the photo to the box; the marks move with it and stay changeable */
   async function applyCrop() {
-    if (!crop || !canvasRef.current) return
-    render()
+    if (!crop || !background) return
     const out = document.createElement('canvas')
     out.width = crop.w
     out.height = crop.h
-    out.getContext('2d')!.drawImage(canvasRef.current, crop.x, crop.y, crop.w, crop.h, 0, 0, crop.w, crop.h)
+    const sx = background.naturalWidth / size.w
+    const sy = background.naturalHeight / size.h
+    out.getContext('2d')!.drawImage(background, crop.x * sx, crop.y * sy, crop.w * sx, crop.h * sy, 0, 0, crop.w, crop.h)
     try {
       const blob = await new Promise<Blob>((resolve, reject) =>
         out.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not crop.'))), 'image/jpeg', 0.92),
       )
-      const img = new Image()
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve()
-        img.onerror = () => reject(new Error('Could not crop.'))
-        img.src = URL.createObjectURL(blob)
-      })
-      setCropHistory((h) => [...h, { background, marks }])
-      setBackground(img)
-      setMarks([])
+      const img = await loadImage(URL.createObjectURL(blob))
+      // The new picture may be drawn at a different scale (it's capped at 1600 px)
+      const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight))
+      const fix = (m: Mark): Mark => {
+        const p = (q: Point): Point => [(q[0] - crop.x) * k, (q[1] - crop.y) * k]
+        if (m.kind === 'line') return { ...m, points: m.points.map(p), width: m.width * k }
+        if (m.kind === 'text') return { ...m, at: p(m.at), size: m.size * k }
+        return { ...m, from: p(m.from), to: p(m.to), width: m.width * k }
+      }
+      commit({ background: img, marks: marks.map(fix) })
+      setSelected(null)
       setCrop(null)
     } catch {
       setBgError('This photo cannot be cropped. You can still draw on it.')
       setCrop(null)
     }
   }
+
   function undo() {
-    if (marks.length) return setMarks(marks.slice(0, -1))
-    const last = cropHistory[cropHistory.length - 1]
+    const last = past[past.length - 1]
     if (!last) return
-    setBackground(last.background)
-    setMarks(last.marks)
-    setCropHistory((h) => h.slice(0, -1))
+    setFuture((f) => [doc, ...f])
+    setPast((p) => p.slice(0, -1))
+    setDoc(last)
+    setSelected(null)
+  }
+  function redo() {
+    const [next, ...rest] = future
+    if (!next) return
+    setPast((p) => [...p, doc])
+    setFuture(rest)
+    setDoc(next)
+    setSelected(null)
   }
 
   const save = useMutation({
     mutationFn: async () => {
+      const canvas = canvasRef.current!
+      const toBlob = (c: HTMLCanvasElement) =>
+        new Promise<Blob>((resolve, reject) => {
+          try {
+            c.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not save the drawing.'))), 'image/jpeg', 0.9)
+          } catch {
+            reject(new Error('This photo cannot be drawn on. Try a blank sketch instead.'))
+          }
+        })
       render()
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        try {
-          canvasRef.current!.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not save the sketch.'))), 'image/jpeg', 0.88)
-        } catch {
-          reject(new Error('This photo cannot be drawn on. Try a blank sketch instead.'))
-        }
-      })
-      const saved = (await backend.addPhoto(itemId, 'sketch', blob)) as { id: string }
+      const image = await toBlob(canvas)
+      // The clean photo underneath, so the marks can be changed later
+      let base: Blob | null = null
+      if (background) {
+        const c = document.createElement('canvas')
+        c.width = size.w
+        c.height = size.h
+        c.getContext('2d')!.drawImage(background, 0, 0, size.w, size.h)
+        base = await toBlob(c)
+      }
+      const saved = await backend.saveSketch(itemId, image, { version: 1, w: size.w, h: size.h, marks }, base, editing)
       if (measurementId) {
         // Attach it to the measurement (replacing the earlier marked-up photo)
         const item = await itemWithMeasurement(itemId, measurementId)
@@ -330,8 +630,8 @@ export function SketchScreen() {
         })
         // So the item screen shows (and keeps) the link straight away
         qc.setQueryData(keys.item(itemId), updated)
-        const old = before && photos?.find((p) => p.id === before)
-        if (old && old.id !== saved.id) await backend.deletePhoto(old)
+        const old = before && before !== saved.id && before !== editing?.id && photos?.find((p) => p.id === before)
+        if (old) await backend.deletePhoto(old)
       }
     },
     onSuccess: () => {
@@ -343,7 +643,7 @@ export function SketchScreen() {
   })
 
   const close = () => {
-    if (!changed || confirm('Throw away this drawing?')) {
+    if (!changed || confirm('Throw away your changes?')) {
       if (((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0) navigate(-1)
       else navigate(`/jobs/${jobId}/items/${itemId}`, { replace: true })
     }
@@ -355,26 +655,32 @@ export function SketchScreen() {
         .filter((d) => measurement[d].trim())
         .map((d) => `${measurement[d].trim()} ${measurement.unit}`)
     : []
-  const hint = {
-    pen: '',
-    arrow: 'Drag from where the arrow starts to what it points at.',
-    measure: 'Drag across what you measured, then type the size.',
-    text: 'Tap where the text should go.',
-  }[tool]
+  const hint = loading
+    ? 'Opening…'
+    : {
+        select: chosen ? 'Drag to move it, or change it below.' : marks.length ? 'Tap a mark to change it.' : 'Nothing drawn yet.',
+        pen: 'Draw with your finger.',
+        arrow: 'Drag from the start to what it points at.',
+        measure: 'Drag across what you measured, then type the size.',
+        text: 'Tap where the label goes.',
+      }[tool]
+  const title = measurement ? measurement.label || 'Measurement photo' : editing ? 'Edit drawing' : photoId || fromFile ? 'Mark up photo' : 'Sketch'
+  const panel = 'rounded-[22px] bg-[#1c1c1e]/95 ring-1 ring-white/10'
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-[#2c2c2e] pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
-      <div className="flex items-center justify-between px-2">
-        <button onClick={close} className="min-h-12 px-3 text-[17px] text-white">
+    <div className="fixed inset-0 z-40 flex flex-col bg-[#0b0b0d] pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] text-white">
+      <div className="flex items-center justify-between gap-2 px-3 py-1.5">
+        <button onClick={close} className="min-h-11 rounded-full px-3 text-[16px] font-medium text-white/80 active:bg-white/10">
           Cancel
         </button>
-        <p className="min-w-0 truncate text-[17px] font-semibold text-white">
-          {measurement ? measurement.label || 'Measurement photo' : photoId || fromFile ? 'Draw on photo' : 'Sketch'}
-        </p>
+        <p className="min-w-0 truncate text-[16px] font-semibold tracking-tight">{title}</p>
         <button
-          onClick={() => save.mutate()}
+          onClick={() => {
+            setSelected(null)
+            save.mutate()
+          }}
           disabled={save.isPending || !changed || Boolean(typing) || Boolean(crop)}
-          className="min-h-12 px-3 text-[17px] font-bold text-[#34c7a0] disabled:opacity-40"
+          className="min-h-11 rounded-full bg-white px-5 text-[16px] font-semibold text-[#0b0b0d] disabled:bg-white/15 disabled:text-white/40"
         >
           {save.isPending ? 'Saving…' : 'Save'}
         </button>
@@ -388,182 +694,222 @@ export function SketchScreen() {
 
       <div ref={areaRef} className="flex min-h-0 flex-1 items-center justify-center p-2">
         <div ref={frameRef} className="relative" style={fit}>
-        <canvas
-          ref={canvasRef}
-          width={size.w}
-          height={size.h}
-          onPointerDown={onDown}
-          onPointerMove={onMove}
-          onPointerUp={onUp}
-          onPointerCancel={onUp}
-          aria-label="Drawing"
-          className="block h-full w-full touch-none rounded-lg bg-white shadow-lg"
-        />
-        {crop && (
-          <div
-            className="absolute inset-0 touch-none overflow-hidden rounded-lg"
-            onPointerMove={cropMove}
-            onPointerUp={() => (cropDrag.current = null)}
-            onPointerCancel={() => (cropDrag.current = null)}
-          >
+          <canvas
+            ref={canvasRef}
+            width={size.w}
+            height={size.h}
+            onPointerDown={onDown}
+            onPointerMove={onMove}
+            onPointerUp={onUp}
+            onPointerCancel={onUp}
+            aria-label="Drawing"
+            className={`block h-full w-full touch-none rounded-md bg-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.8)] ${loading ? 'opacity-40' : ''}`}
+          />
+          {crop && (
             <div
-              aria-label="Crop area"
-              className="absolute cursor-move border-2 border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]"
-              style={{
-                left: `${(crop.x / size.w) * 100}%`,
-                top: `${(crop.y / size.h) * 100}%`,
-                width: `${(crop.w / size.w) * 100}%`,
-                height: `${(crop.h / size.h) * 100}%`,
-              }}
-              onPointerDown={(e) => cropStart(e, 'move')}
+              className="absolute inset-0 touch-none overflow-hidden rounded-md"
+              onPointerMove={cropMove}
+              onPointerUp={() => (cropDrag.current = null)}
+              onPointerCancel={() => (cropDrag.current = null)}
             >
-              <div className="pointer-events-none absolute inset-0 grid grid-cols-3 grid-rows-3">
-                {Array.from({ length: 9 }, (_, i) => (
-                  <span key={i} className="border border-white/25" />
+              <div
+                aria-label="Crop area"
+                className="absolute cursor-move border border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.6)]"
+                style={{
+                  left: `${(crop.x / size.w) * 100}%`,
+                  top: `${(crop.y / size.h) * 100}%`,
+                  width: `${(crop.w / size.w) * 100}%`,
+                  height: `${(crop.h / size.h) * 100}%`,
+                }}
+                onPointerDown={(e) => cropStart(e, 'move')}
+              >
+                <div className="pointer-events-none absolute inset-0 grid grid-cols-3 grid-rows-3">
+                  {Array.from({ length: 9 }, (_, i) => (
+                    <span key={i} className="border border-white/20" />
+                  ))}
+                </div>
+                {(['nw', 'ne', 'sw', 'se'] as const).map((corner) => (
+                  <span
+                    key={corner}
+                    role="button"
+                    aria-label={`Crop corner ${corner}`}
+                    onPointerDown={(e) => {
+                      e.stopPropagation()
+                      cropStart(e, corner)
+                    }}
+                    className={`absolute h-10 w-10 ${corner.includes('n') ? '-top-[6px]' : '-bottom-[6px]'} ${corner.includes('w') ? '-left-[6px]' : '-right-[6px]'}`}
+                  >
+                    {/* An L-shaped corner grip */}
+                    <span
+                      className={`absolute h-6 w-6 border-white ${corner.includes('n') ? 'top-0 border-t-4' : 'bottom-0 border-b-4'} ${corner.includes('w') ? 'left-0 border-l-4' : 'right-0 border-r-4'}`}
+                    />
+                  </span>
                 ))}
               </div>
-              {(['nw', 'ne', 'sw', 'se'] as const).map((corner) => (
-                <span
-                  key={corner}
-                  role="button"
-                  aria-label={`Crop corner ${corner}`}
-                  onPointerDown={(e) => {
-                    e.stopPropagation()
-                    cropStart(e, corner)
-                  }}
-                  className={`absolute h-9 w-9 ${corner.includes('n') ? '-top-[18px]' : '-bottom-[18px]'} ${corner.includes('w') ? '-left-[18px]' : '-right-[18px]'} flex items-center justify-center`}
-                >
-                  <span className="h-5 w-5 rounded-full border-2 border-[#0f172a] bg-white shadow" />
-                </span>
-              ))}
             </div>
-          </div>
-        )}
+          )}
         </div>
       </div>
 
-      {crop ? (
-        <div className="space-y-2 px-3 pb-3">
-          <p className="text-center text-[13px] text-white/70">Drag the box or its corners, then tap Apply.</p>
-          <div className="grid grid-cols-3 gap-2">
-            <button type="button" onClick={() => setCrop(null)} className="min-h-12 rounded-xl bg-white/10 text-[16px] font-semibold text-white">
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={() => setCrop({ x: 0, y: 0, w: size.w, h: size.h })}
-              className="min-h-12 rounded-xl bg-white/10 text-[16px] font-semibold text-white"
-            >
-              Reset
-            </button>
-            <button type="button" onClick={() => void applyCrop()} className="min-h-12 rounded-xl bg-[#34c7a0] text-[16px] font-bold text-[#0f2a23]">
-              Apply
-            </button>
-          </div>
-        </div>
-      ) : typing ? (
-        <form
-          className="space-y-2 px-3 pb-3"
-          onSubmit={(e) => {
-            e.preventDefault()
-            addText(text)
-          }}
-        >
-          {sizes.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {sizes.map((s) => (
-                <button key={s} type="button" onClick={() => addText(s)} className="min-h-10 rounded-full bg-white px-3 text-[15px] font-semibold text-ink">
-                  {s}
-                </button>
-              ))}
+      <div className="space-y-2 px-3 pb-3">
+        {crop ? (
+          <div className={`${panel} space-y-2 p-2`}>
+            <p className="pt-1 text-center text-[13px] text-white/60">Drag the box or its corners, then tap Apply.</p>
+            <div className="grid grid-cols-3 gap-2">
+              <button type="button" onClick={() => setCrop(null)} className="min-h-12 rounded-2xl bg-white/10 text-[15px] font-semibold">
+                Cancel
+              </button>
+              <button type="button" onClick={() => setCrop({ x: 0, y: 0, w: size.w, h: size.h })} className="min-h-12 rounded-2xl bg-white/10 text-[15px] font-semibold">
+                Reset
+              </button>
+              <button type="button" onClick={() => void applyCrop()} className="min-h-12 rounded-2xl bg-white text-[15px] font-semibold text-[#0b0b0d]">
+                Apply
+              </button>
             </div>
-          )}
-          <div className="flex gap-2">
-            <input
-              autoFocus
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Text, e.g. 30 in"
-              aria-label="Text to add"
-              className="min-h-12 min-w-0 flex-1 rounded-xl bg-white px-3 text-[17px] text-ink outline-none"
-            />
-            <button type="submit" className="min-h-12 rounded-xl bg-[#34c7a0] px-4 text-[17px] font-bold text-[#0f2a23]">
-              Add
-            </button>
-            <button type="button" onClick={() => setTyping(null)} className="min-h-12 rounded-xl bg-white/10 px-3 text-[15px] text-white">
-              Skip
-            </button>
           </div>
-        </form>
-      ) : (
-        <div className="space-y-2 px-3 pb-2">
-          <div className="flex items-center justify-center gap-3">
-            {colors.map((c) => (
-              <button
-                key={c}
-                onClick={() => setColor(c)}
-                className={`h-10 w-10 rounded-full border-2 ${color === c ? 'border-white ring-2 ring-white/40' : 'border-white/20'}`}
-                style={{ background: c }}
-                aria-label={`Colour ${c}`}
-              />
-            ))}
-          </div>
-          <div className={`grid gap-1.5 ${background ? 'grid-cols-7' : 'grid-cols-6'}`}>
-            <ToolButton active={tool === 'pen' && !thick} onClick={() => { setTool('pen'); setThick(false) }} label="Pen">
-              <PencilIcon size={20} />
-            </ToolButton>
-            <ToolButton active={tool === 'pen' && thick} onClick={() => { setTool('pen'); setThick(true) }} label="Thick">
-              <PencilIcon size={24} strokeWidth={3} />
-            </ToolButton>
-            <ToolButton active={tool === 'arrow'} onClick={() => setTool('arrow')} label="Arrow">
-              <ArrowIcon size={22} />
-            </ToolButton>
-            <ToolButton active={tool === 'measure'} onClick={() => setTool('measure')} label="Measure">
-              <RulerIcon size={22} />
-            </ToolButton>
-            <ToolButton active={tool === 'text'} onClick={() => setTool('text')} label="Text">
-              <TextIcon size={22} />
-            </ToolButton>
-            {background && (
-              <ToolButton
-                onClick={() => {
-                  const m = Math.round(Math.min(size.w, size.h) * 0.08)
-                  setCrop({ x: m, y: m, w: size.w - 2 * m, h: size.h - 2 * m })
-                }}
-                label="Crop"
-              >
-                <CropIcon size={22} />
-              </ToolButton>
+        ) : typing ? (
+          <form
+            className={`${panel} space-y-2 p-2`}
+            onSubmit={(e) => {
+              e.preventDefault()
+              addText(text)
+            }}
+          >
+            {sizes.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {sizes.map((s) => (
+                  <button key={s} type="button" onClick={() => addText(s)} className="min-h-10 rounded-full bg-white/10 px-3.5 text-[15px] font-semibold">
+                    {s}
+                  </button>
+                ))}
+              </div>
             )}
-            <ToolButton onClick={undo} label="Undo" disabled={!changed}>
-              <UndoIcon size={22} />
-            </ToolButton>
-          </div>
-          <div className="flex items-center justify-between">
-            <p className="text-[13px] text-white/70">{hint}</p>
-            <button
-              onClick={() => confirm('Clear the whole drawing?') && setMarks([])}
-              disabled={marks.length === 0}
-              className="flex min-h-10 items-center gap-1 px-2 text-[13px] text-white/70 disabled:opacity-30"
-            >
-              <TrashIcon size={16} /> Clear
-            </button>
-          </div>
-        </div>
-      )}
+            <div className="flex gap-2">
+              <input
+                autoFocus
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder={typing.index != null && marks[typing.index]?.kind === 'arrow' ? 'Size, e.g. 30 in' : 'Label, e.g. Replace valve'}
+                aria-label="Text to add"
+                className="min-h-12 min-w-0 flex-1 rounded-2xl bg-white px-3.5 text-[17px] text-[#0b0b0d] outline-none"
+              />
+              <button type="submit" className="min-h-12 rounded-2xl bg-[#0a84ff] px-4 text-[16px] font-semibold">
+                Done
+              </button>
+              <button type="button" onClick={() => setTyping(null)} className="min-h-12 rounded-2xl bg-white/10 px-3 text-[15px] text-white/80">
+                Skip
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
+            {chosen && (
+              <div className={`${panel} flex items-center gap-1 p-1.5`}>
+                {canRetype && (
+                  <button onClick={retype} className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-2xl text-[15px] font-semibold active:bg-white/10">
+                    <TextIcon size={18} /> {chosen.kind === 'text' ? 'Edit text' : 'Edit size'}
+                  </button>
+                )}
+                <button
+                  onClick={deleteSelected}
+                  className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-2xl text-[15px] font-semibold text-[#ff6b6b] active:bg-white/10"
+                >
+                  <TrashIcon size={18} /> Delete
+                </button>
+                <button onClick={() => setSelected(null)} className="min-h-11 flex-1 rounded-2xl text-[15px] font-semibold text-white/70 active:bg-white/10">
+                  Deselect
+                </button>
+              </div>
+            )}
+            <div className={`${panel} space-y-2 p-2`}>
+              <div className="flex items-center justify-between gap-2 px-1">
+                <div className="flex items-center gap-2">
+                  {colors.map((c) => (
+                    <button
+                      key={c.value}
+                      onClick={() => recolor(c.value)}
+                      className={`h-8 w-8 rounded-full transition ${
+                        (chosen ? chosen.color : color) === c.value ? 'ring-2 ring-white ring-offset-2 ring-offset-[#1c1c1e]' : 'ring-1 ring-white/25'
+                      }`}
+                      style={{ background: c.value }}
+                      aria-label={`Colour ${c.name}`}
+                    />
+                  ))}
+                </div>
+                <button
+                  onClick={() => setWeight((w) => (w + 1) % 3)}
+                  className="flex h-9 min-w-[76px] items-center justify-center gap-2 rounded-full bg-white/10 px-3 text-[13px] font-semibold"
+                  aria-label={`Line weight: ${weights[weight]}. Tap to change.`}
+                >
+                  <span className="rounded-full bg-white" style={{ width: [5, 8, 12][weight], height: [5, 8, 12][weight] }} />
+                  {weights[weight]}
+                </button>
+              </div>
+              <div className="flex items-stretch gap-1">
+                <ToolButton active={tool === 'select'} onClick={() => setTool('select')} label="Select">
+                  <SelectIcon size={21} />
+                </ToolButton>
+                <ToolButton active={tool === 'pen'} onClick={() => setTool('pen')} label="Pen">
+                  <PencilIcon size={21} />
+                </ToolButton>
+                <ToolButton active={tool === 'arrow'} onClick={() => setTool('arrow')} label="Arrow">
+                  <ArrowIcon size={21} />
+                </ToolButton>
+                <ToolButton active={tool === 'measure'} onClick={() => setTool('measure')} label="Measure">
+                  <RulerIcon size={21} />
+                </ToolButton>
+                <ToolButton active={tool === 'text'} onClick={() => setTool('text')} label="Text">
+                  <TextIcon size={21} />
+                </ToolButton>
+                {background && (
+                  <ToolButton
+                    onClick={() => {
+                      setSelected(null)
+                      const m = Math.round(Math.min(size.w, size.h) * 0.08)
+                      setCrop({ x: m, y: m, w: size.w - 2 * m, h: size.h - 2 * m })
+                    }}
+                    label="Crop"
+                  >
+                    <CropIcon size={21} />
+                  </ToolButton>
+                )}
+              </div>
+              <div className="flex items-center gap-1 border-t border-white/10 pt-1.5">
+                <p className="min-w-0 flex-1 truncate px-1 text-[13px] text-white/55">{hint}</p>
+                <IconButton onClick={undo} disabled={!past.length} label="Undo">
+                  <UndoIcon size={20} />
+                </IconButton>
+                <IconButton onClick={redo} disabled={!future.length} label="Redo">
+                  <RedoIcon size={20} />
+                </IconButton>
+                <IconButton
+                  onClick={() => {
+                    if (confirm('Clear all the marks?')) {
+                      setSelected(null)
+                      setMarks([])
+                    }
+                  }}
+                  disabled={marks.length === 0}
+                  label="Clear"
+                >
+                  <TrashIcon size={19} />
+                </IconButton>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   )
 }
 
 function ToolButton({
   active,
-  disabled,
   onClick,
   label,
   children,
 }: {
   active?: boolean
-  disabled?: boolean
   onClick: () => void
   label: string
   children: React.ReactNode
@@ -571,13 +917,26 @@ function ToolButton({
   return (
     <button
       onClick={onClick}
-      disabled={disabled}
-      className={`flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-xl text-[11px] font-semibold disabled:opacity-30 ${
-        active ? 'bg-white text-ink' : 'bg-white/10 text-white'
+      className={`flex min-h-[52px] flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl text-[11px] font-medium transition ${
+        active ? 'bg-white text-[#0b0b0d]' : 'text-white/75 active:bg-white/10'
       }`}
     >
       {children}
       {label}
+    </button>
+  )
+}
+
+function IconButton({ onClick, disabled, label, children }: { onClick: () => void; disabled?: boolean; label: string; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      className="flex h-10 w-10 items-center justify-center rounded-full text-white/85 active:bg-white/10 disabled:opacity-25"
+    >
+      {children}
     </button>
   )
 }

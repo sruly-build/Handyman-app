@@ -94,7 +94,7 @@ export function PhotoGrid({
               className="flex h-14 items-center gap-2 px-3 text-[17px] font-semibold text-white"
             >
               <PencilIcon size={24} />
-              Draw on it
+              {viewing.kind === 'sketch' ? 'Edit' : 'Draw on it'}
             </button>
           }
         />

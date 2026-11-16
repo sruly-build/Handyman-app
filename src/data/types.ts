@@ -788,3 +788,19 @@ export interface InboundMessage {
   request_id: string | null
   received_at: string
 }
+
+/** One mark on a drawing (positions are in the drawing's own pixels) */
+export type SketchPoint = [number, number]
+export type SketchMark =
+  | { kind: 'line'; color: string; width: number; points: SketchPoint[] }
+  | { kind: 'text'; color: string; size: number; at: SketchPoint; text: string }
+  /** An arrow; "both" = a dimension line, with its size written on it (label) */
+  | { kind: 'arrow'; color: string; width: number; from: SketchPoint; to: SketchPoint; both: boolean; label?: string }
+
+/** What a drawing is made of, saved next to it so it can be changed later */
+export interface SketchLayers {
+  version: 1
+  w: number
+  h: number
+  marks: SketchMark[]
+}
