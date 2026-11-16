@@ -5,7 +5,7 @@ import { formatMoney } from '../data/billing'
 import { useBillLink } from '../data/queries'
 import type { Company, Invoice, InvoiceLine, Job } from '../data/types'
 import { LinkIcon, MailIcon, MessageIcon } from './Icons'
-import { Card, ErrorNote, TextArea } from './ui'
+import { Card, ErrorNote, TextArea, Toggle } from './ui'
 
 const NOTE_KEY = 'bill-link-note'
 
@@ -61,6 +61,10 @@ export function LiveBillLink({
       }
       return backend.updateBillLink(job.id, { note: value })
     },
+    onSuccess: () => void refresh(),
+  })
+  const photosToggle = useMutation({
+    mutationFn: (on: boolean) => backend.updateBillLink(job.id, { show_photos: on }),
     onSuccess: () => void refresh(),
   })
   const turnOff = useMutation({ mutationFn: () => backend.deleteBillLink(job.id), onSuccess: () => void refresh() })
@@ -138,6 +142,15 @@ export function LiveBillLink({
           <LinkIcon size={17} /> {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
+      <div className="mt-2 rounded-xl bg-canvas">
+        <Toggle
+          label="Show before and after photos"
+          hint="The customer sees each item's photos on the page"
+          checked={Boolean(link.show_photos)}
+          onChange={(on) => photosToggle.mutate(on)}
+        />
+      </div>
+      {photosToggle.error && <ErrorNote error={photosToggle.error} />}
       <div className="mt-2 rounded-xl bg-canvas">
         <TextArea
           label="How to pay (shown on the page, optional)"

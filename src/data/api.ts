@@ -1190,8 +1190,14 @@ export function createApi(db: Db, auth: Auth) {
         throw e
       }
     },
-    async updateBillLink(jobId: string, patch: Partial<Pick<BillLink, 'estimate' | 'note'>>) {
-      return db.updateWhere<BillLink>('bill_links', { job_id: jobId }, { ...patch, updated_at: now() })
+    async updateBillLink(jobId: string, patch: Partial<Pick<BillLink, 'estimate' | 'note' | 'show_photos'>>) {
+      try {
+        return await db.updateWhere<BillLink>('bill_links', { job_id: jobId }, { ...patch, updated_at: now() })
+      } catch (e) {
+        if (e instanceof Error && /show_photos/.test(e.message))
+          throw new Error('Photos on live links need a quick database update first (supabase/updates/21-bill-photos.sql).')
+        throw e
+      }
     },
     async deleteBillLink(jobId: string) {
       await db.remove('bill_links', { job_id: jobId })

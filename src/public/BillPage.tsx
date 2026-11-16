@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { PhotoViewer } from '../components/PhotoViewer'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { MailIcon, PhoneIcon, PrintIcon } from '../components/Icons'
 import { ErrorNote, Loading } from '../components/ui'
@@ -138,6 +139,8 @@ export function BillPage() {
         {invoice && <Row label="Balance due" value={formatMoney(s.due)} bold />}
       </section>
 
+      {bill.photos && bill.photos.length > 0 && <BeforeAfter photos={bill.photos} />}
+
       {bill.note.trim() && (
         <section className="mt-3 rounded-2xl bg-card px-4 py-3 ring-1 ring-black/[0.05]">
           <p className="text-[12px] font-bold uppercase tracking-wide text-muted">{invoice ? 'How to pay' : 'Note'}</p>
@@ -157,6 +160,55 @@ export function BillPage() {
         </button>
       </div>
     </Frame>
+  )
+}
+
+/** Before and after photos for each item; tap one to see it full screen */
+function BeforeAfter({ photos }: { photos: NonNullable<PublicBill['photos']> }) {
+  const paths = photos.flatMap((p) => [...p.before, ...p.after])
+  const { data: urls = [] } = useQuery({
+    queryKey: ['public-bill-photos', paths.join()],
+    queryFn: () => publicApi.billPhotoUrls(paths),
+    staleTime: 30 * 60_000,
+  })
+  const urlOf = (path: string) => urls[paths.indexOf(path)] || ''
+  const [open, setOpen] = useState<{ url: string; caption: string } | null>(null)
+  const strip = (list: string[], label: string, item: string) => (
+    <div className="min-w-0">
+      <p className="mb-1 text-[12px] font-bold uppercase tracking-wide text-muted">{label}</p>
+      {list.length === 0 ? (
+        <div className="flex aspect-square items-center justify-center rounded-xl bg-canvas text-[12px] text-muted">No photo</div>
+      ) : (
+        <div className="grid grid-cols-1 gap-1.5">
+          {list.map((path, i) => (
+            <button
+              key={path}
+              type="button"
+              onClick={() => urlOf(path) && setOpen({ url: urlOf(path), caption: `${item} · ${label}${list.length > 1 ? ` ${i + 1}` : ''}` })}
+              className="aspect-square overflow-hidden rounded-xl bg-canvas"
+              aria-label={`${item}: ${label} photo ${i + 1}`}
+            >
+              {urlOf(path) && <img src={urlOf(path)} alt="" loading="lazy" className="h-full w-full object-cover" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+  return (
+    <section className="mt-3 rounded-2xl bg-card px-4 py-3 ring-1 ring-black/[0.05] print:break-inside-avoid">
+      <p className="text-[12px] font-bold uppercase tracking-wide text-muted">Before and after</p>
+      {photos.map((p, i) => (
+        <div key={p.item + i} className={`py-3 ${i ? 'border-t border-hairline' : ''}`}>
+          <p className="mb-2 text-[15px] font-semibold">{p.item}</p>
+          <div className="grid grid-cols-2 gap-2">
+            {strip(p.before, 'Before', p.item)}
+            {strip(p.after, 'After', p.item)}
+          </div>
+        </div>
+      ))}
+      {open && <PhotoViewer url={open.url} caption={open.caption} onClose={() => setOpen(null)} />}
+    </section>
   )
 }
 

@@ -8,6 +8,8 @@ import type {
   Job,
   Payment,
   PublicBill,
+  PunchItem,
+  PhotoRow,
   GuideStep,
   Localized,
   Membership,
@@ -128,6 +130,8 @@ export interface PublicApi {
   notify(token: string): Promise<void>
   /** A live bill link (peek: the business previewing, not counted as opened) */
   bill(token: string, peek?: boolean): Promise<PublicBill | null>
+  /** Links the browser can show for a live bill's photos */
+  billPhotoUrls(paths: string[]): Promise<string[]>
 }
 
 /** A random 32-letter folder name for one form's photos */
@@ -140,6 +144,7 @@ export function createPublicApi(db: Db): PublicApi {
   return {
     page: (slug) => db.rpc<RequestPageInfo | null>('request_page', { slug }),
     bill: (tok, peek = false) => db.rpc<PublicBill | null>('public_bill', { tok, peek }),
+    billPhotoUrls: (paths) => db.fileUrls(paths),
     checkAddress: (slug, address) => db.rpc<AddressCheck>('check_address', { slug, addr: address }),
     async uploadPhoto(uploadKey, photo) {
       const path = `incoming/${uploadKey}/${crypto.randomUUID()}.jpg`
@@ -349,8 +354,23 @@ function createDemoPublicApi(db: Db): PublicApi {
         lines: inv?.lines ?? link.estimate.lines ?? [],
         total: Number(inv?.total ?? link.estimate.total ?? 0),
         paid,
+        photos: link.show_photos
+          ? (
+              await Promise.all(
+                (await db.select<PunchItem>('punch_items', { job_id: job.id })).map(async (i) => {
+                  const ph = (await db.select<PhotoRow>('photos', { item_id: i.id })).sort((a, b) => a.created_at.localeCompare(b.created_at))
+                  return {
+                    item: i.title,
+                    before: ph.filter((p) => p.kind === 'before').map((p) => p.storage_path),
+                    after: ph.filter((p) => p.kind === 'after').map((p) => p.storage_path),
+                  }
+                }),
+              )
+            ).filter((x) => x.before.length || x.after.length)
+          : [],
       }
     },
+    billPhotoUrls: (paths) => db.fileUrls(paths),
     async decided() {},
   }
 }

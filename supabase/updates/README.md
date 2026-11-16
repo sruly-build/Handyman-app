@@ -15,4 +15,5 @@ it already contains everything below.
 | 18 | A store link on each part |
 | 19 | Landlord approval rules (when to ask, budget, emergencies) |
 | 20 | Live invoice links (send the customer a page with the bill) |
+| 21 | Before and after photos on live invoice links |
 | 10 to 14 | Request Inbox & Landlord Maintenance Plan: request page, inbox, houses, tenants, landlords, plans and hour bank, approvals, house profiles, guides, alerts |

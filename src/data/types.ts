@@ -832,6 +832,8 @@ export interface BillLink {
   estimate: { lines?: InvoiceLine[]; total?: number }
   /** e.g. how to pay */
   note: string
+  /** Show the customer the before and after photos */
+  show_photos?: boolean
   created_at: string
   updated_at: string
   viewed_at: string | null
@@ -850,4 +852,6 @@ export interface PublicBill {
   lines: InvoiceLine[]
   total: number
   paid: number
+  /** Before and after photos per item (file paths), when turned on */
+  photos?: { item: string; before: string[]; after: string[] }[]
 }
