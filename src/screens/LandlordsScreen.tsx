@@ -18,6 +18,12 @@ export function LandlordsScreen() {
             {join}
           </a>
           <p className="mt-1 text-[13px] text-muted">Landlords sign up free with an email code. They see a house only after you approve it, or once they pay for its plan.</p>
+          <Link
+            to="/landlords/share"
+            className="mt-3 flex min-h-12 items-center justify-center rounded-2xl bg-[#25d366] text-[16px] font-semibold text-white active:scale-[0.98]"
+          >
+            Share on WhatsApp (message and status image)
+          </Link>
         </Card>
       )}
       {isLoading && <Loading />}

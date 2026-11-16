@@ -206,7 +206,7 @@ export function RequestSettingsScreen() {
                     inputMode="decimal"
                     disabled={!owner}
                     value={tier.price ?? ''}
-                    placeholder="Not set"
+                    placeholder="Empty = free"
                     onChange={(e) => setTier(i, { price: num(e.target.value) })}
                   />
                   <Field

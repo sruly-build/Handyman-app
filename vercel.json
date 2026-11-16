@@ -1,7 +1,22 @@
 {
   "rewrites": [
-    { "source": "/api/:path*", "destination": "/api/index?route=:path*" },
-    { "source": "/((?!api/|assets/|.*\\..*).*)", "destination": "/index.html" }
+    {
+      "source": "/api/:path*",
+      "destination": "/api/index?route=:path*"
+    },
+    {
+      "source": "/l/:slug",
+      "destination": "/api/index?route=join-preview&slug=:slug"
+    },
+    {
+      "source": "/((?!api/|assets/|.*\\..*).*)",
+      "destination": "/index.html"
+    }
   ],
-  "crons": [{ "path": "/api/cron", "schedule": "17 9 * * *" }]
+  "crons": [
+    {
+      "path": "/api/cron",
+      "schedule": "17 9 * * *"
+    }
+  ]
 }

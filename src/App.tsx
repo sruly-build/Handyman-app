@@ -53,6 +53,7 @@ import { HouseScreen, HousesScreen } from './screens/HousesScreen'
 import { GuideEditScreen, GuidesScreen } from './screens/GuidesScreen'
 import { InspectionReportScreen, InspectionScreen } from './screens/InspectionScreen'
 import { LandlordsScreen, LandlordViewScreen } from './screens/LandlordsScreen'
+import { JoinShareScreen } from './screens/JoinShareScreen'
 
 export function App() {
   const { user, loading, recovering, finishRecovery } = useAuth()
@@ -118,6 +119,7 @@ export function App() {
         <Route path="/houses/:houseId/inspections/:inspectionId" element={<Keyed param="inspectionId" Component={InspectionScreen} />} />
         <Route path="/houses/:houseId/inspections/:inspectionId/report" element={<InspectionReportScreen />} />
         <Route path="/landlords" element={<LandlordsScreen />} />
+        <Route path="/landlords/share" element={<JoinShareScreen />} />
         <Route path="/landlords/:landlordId" element={<Keyed param="landlordId" Component={LandlordViewScreen} />} />
         <Route path="/request-page/poster" element={<RequestPosterScreen />} />
         <Route path="/request-page/guides" element={<GuidesScreen />} />

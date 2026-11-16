@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { BookIcon, CheckIcon, GearIcon, InvoiceIcon, LeadIcon, LinkIcon, PeopleIcon } from '../components/Icons'
+import { BookIcon, CheckIcon, ChevronIcon, GearIcon, InvoiceIcon, LeadIcon, LinkIcon, MessageIcon, PeopleIcon } from '../components/Icons'
 import { EmergencyAlerts } from '../components/EmergencyAlerts'
 import { Screen } from '../components/Screen'
 import { Button, Card, Divider, ErrorNote, Field, RowLink, SectionTitle } from '../components/ui'
@@ -57,6 +57,20 @@ export function MeScreen() {
           <span className="block text-[19px] font-bold">Sales</span>
           <span className="block text-[14px] text-white/85">Leads, calls, follow-ups, turnovers</span>
         </span>
+      </Link>
+
+      <Link
+        to="/landlords/share"
+        className="-mt-3 mb-6 flex min-h-[60px] items-center gap-3 rounded-2xl bg-card px-4 shadow-[0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-black/[0.05] active:bg-canvas"
+      >
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#dcfce7] text-[#15803d]">
+          <MessageIcon size={19} />
+        </span>
+        <span className="flex-1">
+          <span className="block text-[16px] font-semibold">Landlord sign-up page</span>
+          <span className="block text-[13px] text-muted">Share on WhatsApp: message and status image</span>
+        </span>
+        <ChevronIcon size={16} className="text-[#b0b0b8]" />
       </Link>
 
       <h2 className="mb-2 px-1 text-[13px] font-semibold uppercase tracking-wide text-muted">Directory</h2>
