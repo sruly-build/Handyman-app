@@ -58,7 +58,7 @@ export function ClockCard({ jobId }: { jobId: string }) {
             </>
           ) : (
             <p className="text-[15px] text-muted">
-              Tap Arrived when you get there.
+              Not on site yet
             </p>
           )}
         </div>

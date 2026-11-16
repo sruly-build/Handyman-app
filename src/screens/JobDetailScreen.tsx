@@ -186,27 +186,25 @@ export function JobDetailScreen() {
       title={job.customer_name}
       hero={
         <div
-          className={`shine mb-4 mt-1 rounded-[28px] bg-gradient-to-br px-5 py-5 text-white shadow-[0_12px_32px_-8px_rgba(15,23,42,0.35)] ${
-            lead
-              ? "from-[#7c3aed] via-[#8b5cf6] to-[#c084fc]"
-              : partner
-                ? "from-[#4338ca] via-[#6366f1] to-[#818cf8]"
-                : "from-[#2563eb] via-[#3b82f6] to-[#06b6d4]"
-          }`}
+          className="mb-3 mt-1 rounded-2xl bg-card px-4 pb-3 pt-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-black/[0.05]"
         >
-          <p className="text-[13px] font-semibold uppercase tracking-wide text-white/80">
+          <p
+            className={`flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide ${
+              lead ? "text-grape" : partner ? "text-[#4f46e5]" : "text-sky"
+            }`}
+          >
             {lead
               ? "Lead"
               : `${friendlyDate(job.job_date)}${job.job_date && job.job_time ? ` · ${clockLabel(job.job_time)}` : ""}`}
           </p>
-          <h1 className="mt-0.5 text-[30px] font-bold leading-tight tracking-tight">
+          <h1 className="mt-0.5 text-[22px] font-bold leading-tight tracking-tight">
             {job.customer_name}
           </h1>
           {job.address && (
-            <p className="mt-1 text-[16px] text-white/90">{job.address}</p>
+            <p className="mt-0.5 truncate text-[15px] text-muted">{job.address}</p>
           )}
           {(job.move_out_date || job.ready_by_date) && (
-            <p className="mt-1.5 flex flex-wrap gap-x-3 text-[13px] font-medium text-white/85">
+            <p className="mt-1 flex flex-wrap gap-x-3 text-[13px] font-medium text-sun">
               {job.move_out_date && (
                 <span>Moves out {friendlyDate(job.move_out_date)}</span>
               )}
@@ -216,19 +214,19 @@ export function JobDetailScreen() {
             </p>
           )}
           {total > 0 && (
-            <div className="mt-3 flex items-center gap-3">
-              <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/25">
+            <div className="mt-2.5 flex items-center gap-2.5">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-hairline">
                 <div
-                  className="h-full rounded-full bg-mint"
+                  className="h-full rounded-full bg-brand"
                   style={{ width: `${Math.round((done / total) * 100)}%` }}
                 />
               </div>
-              <span className="text-[14px] font-semibold tabular-nums">
+              <span className="text-[13px] font-medium tabular-nums text-muted">
                 {done}/{total} done
               </span>
             </div>
           )}
-          <div className="mt-4 grid grid-cols-3 gap-2">
+          <div className="mt-3 grid grid-cols-3 gap-2">
             <HeroAction
               href={
                 job.customer_phone ? phoneLink(job.customer_phone) : undefined
@@ -631,10 +629,10 @@ function HeroAction({
   newTab?: boolean;
 }) {
   const cls =
-    "flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-white/20 text-[15px] font-semibold text-white backdrop-blur transition active:scale-[0.97] active:bg-white/30";
+    "flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-canvas text-[14px] font-semibold text-ink transition active:scale-[0.97] active:bg-hairline";
   const content = (
     <>
-      <Icon size={18} />
+      <Icon size={16} className="text-brand" />
       {label}
     </>
   );
