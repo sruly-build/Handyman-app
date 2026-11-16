@@ -2,6 +2,12 @@ import type { Db } from './db'
 import { addressKey, defaultServiceSettings } from './requests'
 import type {
   Approval,
+  BillLink,
+  Company,
+  Invoice,
+  Job,
+  Payment,
+  PublicBill,
   GuideStep,
   Localized,
   Membership,
@@ -120,6 +126,8 @@ export interface PublicApi {
   decided(token: string): Promise<void>
   /** Tell our server a request came in (sends the emergency alert) */
   notify(token: string): Promise<void>
+  /** A live bill link (peek: the business previewing, not counted as opened) */
+  bill(token: string, peek?: boolean): Promise<PublicBill | null>
 }
 
 /** A random 32-letter folder name for one form's photos */
@@ -131,6 +139,7 @@ export function createPublicApi(db: Db): PublicApi {
   if (db.mode === 'demo') return createDemoPublicApi(db)
   return {
     page: (slug) => db.rpc<RequestPageInfo | null>('request_page', { slug }),
+    bill: (tok, peek = false) => db.rpc<PublicBill | null>('public_bill', { tok, peek }),
     checkAddress: (slug, address) => db.rpc<AddressCheck>('check_address', { slug, addr: address }),
     async uploadPhoto(uploadKey, photo) {
       const path = `incoming/${uploadKey}/${crypto.randomUUID()}.jpg`
@@ -320,6 +329,28 @@ function createDemoPublicApi(db: Db): PublicApi {
       return db.fileUrls(photos.map((p) => p.path), 'requests')
     },
     async notify() {},
+    async bill(tok, peek = false) {
+      const [link] = (await db.select<BillLink>('bill_links', {})).filter((l) => l.token === tok)
+      if (!link) return null
+      const [job] = await db.select<Job>('jobs', { id: link.job_id })
+      if (!job) return null
+      const [c] = await db.select<Company>('companies', { id: DEMO_COMPANY })
+      const [inv] = await db.select<Invoice>('invoices', { job_id: job.id })
+      const paid = (await db.select<Payment>('payments', { job_id: job.id })).reduce((sum, p) => sum + Number(p.amount), 0)
+      if (!peek) await db.updateWhere<BillLink>('bill_links', { job_id: job.id }, { viewed_at: new Date().toISOString(), view_count: link.view_count + 1 })
+      return {
+        company: { name: c?.name ?? '', phone: c?.phone ?? '', email: c?.email ?? '', address: c?.address ?? '' },
+        customer: { name: job.customer_name, address: job.address },
+        note: link.note,
+        kind: inv ? 'invoice' : 'estimate',
+        number: inv?.number ?? null,
+        date: inv?.created_at ?? link.updated_at,
+        status: inv?.status ?? 'unpaid',
+        lines: inv?.lines ?? link.estimate.lines ?? [],
+        total: Number(inv?.total ?? link.estimate.total ?? 0),
+        paid,
+      }
+    },
     async decided() {},
   }
 }

@@ -9,6 +9,10 @@
       "destination": "/api/index?route=join-preview&slug=:slug"
     },
     {
+      "source": "/b/:token",
+      "destination": "/api/index?route=bill-preview&token=:token"
+    },
+    {
       "source": "/((?!api/|assets/|.*\\..*).*)",
       "destination": "/index.html"
     }

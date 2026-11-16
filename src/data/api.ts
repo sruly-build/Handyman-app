@@ -8,6 +8,7 @@ import type {
   BringCheck,
   Company,
   Invite,
+  BillLink,
   Invoice,
   InvoiceLine,
   JobCharge,
@@ -1167,6 +1168,34 @@ export function createApi(db: Db, auth: Auth) {
     },
 
     // ---- Invoices ----
+    /** The job's live bill link, if one was made */
+    async getBillLink(jobId: string): Promise<BillLink | null> {
+      try {
+        return (await db.select<BillLink>('bill_links', { job_id: jobId }))[0] ?? null
+      } catch {
+        return null // before the database update
+      }
+    },
+    async createBillLink(jobId: string, estimate: BillLink['estimate'], note = ''): Promise<BillLink> {
+      try {
+        const row: BillLink = {
+          job_id: jobId, token: (newId() + newId()).replace(/-/g, ''), estimate, note,
+          created_at: now(), updated_at: now(), viewed_at: null, view_count: 0,
+        }
+        // (Demo mode keeps rows by id; the real table is keyed by the job)
+        return await db.insert<BillLink & { id: string }>('bill_links', (db.mode === 'demo' ? { ...row, id: jobId } : row) as BillLink & { id: string })
+      } catch (e) {
+        if (e instanceof Error && /bill_links/.test(e.message))
+          throw new Error('Live invoice links need a quick database update first (supabase/updates/20-bill-links.sql).')
+        throw e
+      }
+    },
+    async updateBillLink(jobId: string, patch: Partial<Pick<BillLink, 'estimate' | 'note'>>) {
+      return db.updateWhere<BillLink>('bill_links', { job_id: jobId }, { ...patch, updated_at: now() })
+    },
+    async deleteBillLink(jobId: string) {
+      await db.remove('bill_links', { job_id: jobId })
+    },
     async getInvoice(jobId: string): Promise<Invoice | null> {
       const [invoice] = await db.select<Invoice>('invoices', { job_id: jobId })
       return invoice ? fixInvoice(invoice) : null

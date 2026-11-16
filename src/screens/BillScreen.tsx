@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { ExtraCharges, Payments, syncInvoicePaid } from '../components/BillExtras'
 import { BeforeAfterList, DocHeader, LinesTable, Paper, PrintButton } from '../components/Documents'
 import { Screen } from '../components/Screen'
+import { LiveBillLink } from '../components/LiveBillLink'
 import { Button, Card, ErrorNote, Loading, Segmented, Toggle } from '../components/ui'
 import { backend } from '../data/backend'
 import { buildBill, formatMoney, invoiceLines, paymentSummary, type Bill } from '../data/billing'
@@ -147,6 +148,7 @@ export function BillScreen() {
           </Card>
         )}
         {setMaterialsMarkup.error && <ErrorNote error={setMaterialsMarkup.error} />}
+        <LiveBillLink job={job} company={company} invoice={invoice ?? null} estimate={{ lines: invoiceLines(estimate), total: estimate.total }} />
       </div>
 
       {shown === 'estimate' && (

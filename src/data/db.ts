@@ -37,6 +37,7 @@ export type Table =
   | 'bring_checks'
   | 'time_entries'
   | 'invoices'
+  | 'bill_links'
   | 'job_charges'
   | 'price_list'
   | 'payments'

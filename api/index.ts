@@ -1,6 +1,6 @@
 import { cron } from './_lib/cron.js'
 import { linkPreview } from './_lib/linkPreview.js'
-import { joinPreview } from './_lib/joinPreview.js'
+import { billPreview, joinPreview } from './_lib/joinPreview.js'
 import { inboundEmail } from './_lib/inbound.js'
 import { approvalPhotos, readListRoute, readStickerRoute, requestReceived, testAlert } from './_lib/requests.js'
 import { approvalDecided, billingPortal, chargeParts, planCheckout, stripeWebhook } from './_lib/stripe.js'
@@ -27,6 +27,7 @@ const routes: Record<string, { method: 'GET' | 'POST'; handler: Handler }> = {
   'read-list': { method: 'POST', handler: readListRoute },
   'link-preview': { method: 'POST', handler: linkPreview },
   'join-preview': { method: 'GET', handler: joinPreview },
+  'bill-preview': { method: 'GET', handler: billPreview },
 }
 
 export default async function handler(req: Req, res: Res) {

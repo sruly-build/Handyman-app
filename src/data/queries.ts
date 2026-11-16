@@ -99,6 +99,8 @@ export const useDirectoryShares = () =>
   useQuery({ queryKey: ['directoryShares'], queryFn: () => backend.listDirectoryShares() })
 export const useSharedDirectories = () =>
   useQuery({ queryKey: ['sharedDirectories'], queryFn: () => backend.listSharedDirectories() })
+export const useBillLink = (jobId: string) =>
+  useQuery({ queryKey: ['billLink', jobId], queryFn: () => backend.getBillLink(jobId) })
 export const useInvoice = (jobId: string) =>
   useQuery({ queryKey: keys.invoice(jobId), queryFn: () => backend.getInvoice(jobId) })
 

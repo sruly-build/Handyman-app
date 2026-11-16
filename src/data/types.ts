@@ -823,3 +823,31 @@ export interface ApprovalPrefs {
   contact: 'text' | 'whatsapp' | 'email'
   note: string
 }
+
+/** A live link the customer opens to see the estimate or invoice */
+export interface BillLink {
+  job_id: string
+  token: string
+  /** The latest estimate (kept fresh by the app until there's an invoice) */
+  estimate: { lines?: InvoiceLine[]; total?: number }
+  /** e.g. how to pay */
+  note: string
+  created_at: string
+  updated_at: string
+  viewed_at: string | null
+  view_count: number
+}
+
+/** What the customer's bill page shows */
+export interface PublicBill {
+  company: { name: string; phone: string; email: string; address: string }
+  customer: { name: string; address: string }
+  note: string
+  kind: 'estimate' | 'invoice'
+  number: number | null
+  date: string
+  status: 'unpaid' | 'paid'
+  lines: InvoiceLine[]
+  total: number
+  paid: number
+}
