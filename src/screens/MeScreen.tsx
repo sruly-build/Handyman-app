@@ -48,7 +48,7 @@ export function MeScreen() {
     <Screen title="Me">
       <Link
         to="/sales"
-        className="shine mb-6 flex min-h-[76px] items-center gap-4 rounded-[24px] bg-gradient-to-br from-[#7c3aed] via-[#8b5cf6] to-[#c084fc] px-5 text-white shadow-[0_12px_28px_-8px_rgba(124,58,237,0.55)] transition active:scale-[0.98]"
+        className="shine mb-6 flex min-h-[76px] items-center gap-4 rounded-[24px] bg-gradient-to-br from-[#0f172a] to-[#1e293b] px-5 text-white shadow-[0_10px_24px_-10px_rgba(15,23,42,0.5)] transition active:scale-[0.98]"
       >
         <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20">
           <LeadIcon size={24} />
