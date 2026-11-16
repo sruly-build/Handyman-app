@@ -1,5 +1,5 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState, type ReactNode } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link, Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AddressField } from '../components/AddressField'
 import { InspectionReport, inspectionKindLabel } from '../components/InspectionReport'
@@ -8,10 +8,13 @@ import { Screen } from '../components/Screen'
 import { Button, Card, Divider, EmptyState, ErrorNote, Field, GroupLabel, Loading, TextArea, Toggle } from '../components/ui'
 import { backend } from '../data/backend'
 import type { LandlordSummary } from '../data/landlordApi'
+import type { ApprovalPrefs } from '../data/types'
+import { defaultApprovalPrefs, normalizeApprovalPrefs } from '../data/approvalRules'
+import { ApprovalPrefsEditor } from '../components/ApprovalPrefsEditor'
+import { PENDING_RULES_KEY } from '../public/LandlordJoinPage'
 import { refreshAll, useHouseHistory, useHouseProfile, useLandlordSummary, useMyLandlordAccounts } from '../data/queries'
 import { issueSummary } from '../data/requests'
 import type { Tenant } from '../data/types'
-import { useQuery } from '@tanstack/react-query'
 import { LandlordStatus, planText } from './LandlordStatus'
 
 /** Everything a landlord sees after logging in. Only their own approved houses. */
@@ -37,6 +40,8 @@ export function LandlordApp() {
     )
   }
   return (
+    <>
+    <PendingRulesSaver landlordId={landlordId} />
     <Routes>
       <Route path="/landlord" element={<LandlordHome summary={summary} />} />
       <Route path="/landlord/add-house" element={<AddHouse landlordId={landlordId} />} />
@@ -45,6 +50,7 @@ export function LandlordApp() {
       <Route path="/landlord/houses/:houseId/inspections/:inspectionId" element={<LandlordInspection summary={summary} />} />
       <Route path="*" element={<Navigate to="/landlord" replace />} />
     </Routes>
+    </>
   )
 }
 
@@ -151,6 +157,65 @@ function AddHouse({ landlordId }: { landlordId: string }) {
   )
 }
 
+/** Rules picked on the sign-up page are saved once the landlord is logged in */
+function PendingRulesSaver({ landlordId }: { landlordId: string }) {
+  const qc = useQueryClient()
+  useEffect(() => {
+    let raw: string | null = null
+    try {
+      raw = localStorage.getItem(PENDING_RULES_KEY)
+    } catch {
+      return
+    }
+    const prefs = normalizeApprovalPrefs(raw ? JSON.parse(raw) : null)
+    if (!prefs) return
+    void backend.saveApprovalPrefs(landlordId, prefs).then(
+      () => {
+        try {
+          localStorage.removeItem(PENDING_RULES_KEY)
+        } catch {
+          // fine
+        }
+        void qc.invalidateQueries({ queryKey: ['approvalPrefs', landlordId] })
+      },
+      () => {}, // tried again next time
+    )
+  }, [landlordId, qc])
+  return null
+}
+
+function ApprovalRulesSection({ landlordId }: { landlordId: string }) {
+  const qc = useQueryClient()
+  const { data: saved, isLoading } = useQuery({ queryKey: ['approvalPrefs', landlordId], queryFn: () => backend.approvalPrefs(landlordId) })
+  const [draft, setDraft] = useState<ApprovalPrefs | null>(null)
+  const value = draft ?? saved ?? defaultApprovalPrefs
+  const save = useMutation({
+    mutationFn: () => backend.saveApprovalPrefs(landlordId, value),
+    onSuccess: () => {
+      setDraft(null)
+      void qc.invalidateQueries({ queryKey: ['approvalPrefs', landlordId] })
+    },
+  })
+  return (
+    <Section title="Approvals">
+      {isLoading ? (
+        <Loading />
+      ) : (
+        <>
+          {!saved && !draft && <p className="mb-2 px-1 text-[14px] text-muted">You haven't set your rules yet. These are suggestions; change anything and tap Save.</p>}
+          <ApprovalPrefsEditor value={value} onChange={setDraft} />
+          <div className="mt-3">
+            <Button disabled={save.isPending || (Boolean(saved) && !draft)} onClick={() => save.mutate()}>
+              {save.isPending ? 'Saving…' : save.isSuccess && !draft ? 'Saved' : 'Save approval rules'}
+            </Button>
+          </div>
+          {save.error && <ErrorNote error={save.error} />}
+        </>
+      )}
+    </Section>
+  )
+}
+
 function LandlordSettings({ summary }: { summary: LandlordSummary }) {
   const qc = useQueryClient()
   const [newReq, setNewReq] = useState(summary.landlord.notify_new_request)
@@ -170,6 +235,8 @@ function LandlordSettings({ summary }: { summary: LandlordSummary }) {
           <p className="text-[15px] text-muted">{summary.landlord.email}</p>
         </div>
       </Card>
+
+      <ApprovalRulesSection landlordId={summary.landlord.id} />
 
       <Section title="Email me when">
         <Card>

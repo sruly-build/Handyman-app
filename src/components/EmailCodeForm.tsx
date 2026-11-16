@@ -10,8 +10,11 @@ import { Button, Card, ErrorNote, Field } from './ui'
 export function EmailCodeForm({
   landlord,
   children,
+  before,
   submitLabel = 'Email me a code',
 }: {
+  /** Shown above the email box until the code is sent (e.g. sign-up choices) */
+  before?: ReactNode
   landlord?: (email: string) => LandlordSignUp | null
   /** Extra fields shown before the code is sent (e.g. name and phone) */
   children?: ReactNode
@@ -46,6 +49,7 @@ export function EmailCodeForm({
 
   return (
     <form onSubmit={submit} className="space-y-4">
+      {!sent && before}
       <Card>
         <Field
           label="Email"

@@ -52,7 +52,7 @@ async function drawStatus(canvas: HTMLCanvasElement, o: { company: string; link:
   ;['Maintenance', 'plan for', 'landlords'].forEach((line, i) => ctx.fillText(line, x, 540 + i * 122))
   ctx.fillStyle = '#d1fae5'
   ctx.font = font(500, 46)
-  ;["One text and it's handled:", 'repairs, turnovers and', 'inspections for your rentals.'].forEach((line, i) => ctx.fillText(line, x, 870 + i * 62))
+  ;['We handle the hassle with', 'your tenants. You approve the', 'work, your way, on your budget.'].forEach((line, i) => ctx.fillText(line, x, 870 + i * 62))
 
   // Perks
   ctx.font = font(600, 42)
@@ -103,14 +103,14 @@ export function JoinShareScreen() {
   const link = settings?.public_slug ? `${window.location.origin}/l/${settings.public_slug}` : ''
   const plan = settings?.plan_tiers?.find((t) => t.active) ?? null
   const free = !plan?.price
-  const badge = free ? 'Free to join' : `${money(plan!.price!)}/month per house`
-  const perks = plan?.services?.length ? plan.services : defaultPerks
+  const badge = 'Free sign-up'
+  const perks = defaultPerks
 
   const defaultMessage = useMemo(
     () =>
-      `🏠 Landlords: ${name} now offers a maintenance plan for your rentals.${free ? ' Free to join!' : ''}\n\n` +
-      `✅ Repairs, turnovers and inspections\n✅ One text and it's handled\n✅ Before and after photos of every job\n\nSign up here 👉 ${link}`,
-    [name, free, link],
+      `🏠 Landlords: let ${name} take care of your rentals. Free sign-up!\n\n` +
+      `🤝 We handle the hassle with your tenants\n✅ You approve the work, your way and on your budget\n🔧 Repairs, turnovers and inspections, with photos\n\nSign up here 👉 ${link}`,
+    [name, link],
   )
   const [message, setMessage] = useState<string | null>(null)
   const text = message ?? defaultMessage
@@ -183,7 +183,7 @@ export function JoinShareScreen() {
           <div className="bg-[#cfe9c9] px-3 py-2">
             <p className="text-[14px] font-semibold leading-snug text-[#111b21]">{name} · Maintenance plan for landlords</p>
             <p className="line-clamp-2 text-[12px] text-[#54656f]">
-              {free ? 'Free to join. ' : `${badge}. `}One text and it's handled: repairs, turnovers and inspections for your rentals.
+              Free sign-up. We handle the hassle with your tenants; you approve the work, your way and on your budget.
             </p>
           </div>
           <p className="whitespace-pre-wrap px-3 py-2 text-[14px] text-[#111b21]">{text}</p>
@@ -227,9 +227,7 @@ export function JoinShareScreen() {
         People can also scan the code on the image.
       </p>
       <p className="mt-3 px-1 text-[13px] text-muted">
-        {free
-          ? 'The page says "Free to join" because the plan has no price yet. Add a price in the request page settings when you’re ready.'
-          : `The page shows ${badge}. Change it in the request page settings.`}
+        Signing up is free. {free ? 'The plan has no price yet; add one in the request page settings when you\u2019re ready.' : `The plan price (${money(plan!.price!)}/month per house) shows in the small print.`}
       </p>
     </Screen>
   )

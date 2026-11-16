@@ -548,6 +548,8 @@ export interface Landlord {
   email: string
   phone: string
   auto_approve_limit: number | null
+  /** The landlord's own rules for when we ask before doing work */
+  approval_prefs?: ApprovalPrefs | null
   notify_new_request: boolean
   notify_done: boolean
   stripe_customer_id: string | null
@@ -803,4 +805,21 @@ export interface SketchLayers {
   w: number
   h: number
   marks: SketchMark[]
+}
+
+/** A landlord's rules for approvals, chosen when they sign up (and changeable later) */
+export interface ApprovalPrefs {
+  /** always: ask before every job · over: only when it costs more than `limit` · never: just fix it */
+  mode: 'always' | 'over' | 'never'
+  /** Dollars; used with mode "over" */
+  limit: number
+  /** Check with them once a month's approved work passes this (empty = no budget) */
+  monthly_budget: number | null
+  /** Emergencies (leaks, no heat, lockouts): go ahead right away up to this (empty = same rules as other work) */
+  emergency_limit: number | null
+  /** Before a turnover between tenants, send one estimate to approve */
+  turnover_estimate: boolean
+  /** How they like to get approval requests */
+  contact: 'text' | 'whatsapp' | 'email'
+  note: string
 }

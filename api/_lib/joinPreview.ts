@@ -29,7 +29,7 @@ export async function joinPreview(req: Req, res: Res) {
   }
   const free = !price
   const title = company ? `${company} · Maintenance plan for landlords` : 'Maintenance plan for landlords'
-  const description = `${free ? 'Free to join. ' : `$${price}/month per house. `}One text and it's handled: repairs, turnovers and inspections for your rentals. Sign up in a minute.`
+  const description = `Free sign-up. We handle the hassle with your tenants; you approve the work, your way and on your budget.${free ? '' : ` Plan: $${price}/month per house.`}`
   const url = `${base}/l/${encodeURIComponent(slug)}`
   const tags = [
     `<meta name="description" content="${esc(description)}" />`,

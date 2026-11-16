@@ -1,3 +1,4 @@
+import { decideApproval, normalizeApprovalPrefs } from './approvalRules'
 import { shrinkPhoto } from '../lib/images'
 import type { Auth, Db } from './db'
 import { addressKey, cleanSlug, defaultServiceSettings, splitList } from './requests'
@@ -88,6 +89,19 @@ export function createRequestsApi(db: Db, me: () => Promise<AppUser>, base: Base
       hours_left: live.length,
       next_expiry: live.map((c) => c.expires_at).sort()[0] ?? null,
     }
+  }
+
+  /** What the landlord's approval rules say about this amount (null when they haven't set rules) */
+  async function landlordRule(landlord: Landlord | null | undefined, amount: number, emergency: boolean) {
+    const prefs = normalizeApprovalPrefs(landlord?.approval_prefs)
+    if (!landlord || !prefs) return null
+    const monthStart = new Date()
+    monthStart.setDate(1)
+    monthStart.setHours(0, 0, 0, 0)
+    const spent = (await db.select<Approval>('approvals', { landlord_id: landlord.id }))
+      .filter((a) => a.status === 'approved' && a.decided_at && Date.parse(a.decided_at) >= monthStart.getTime())
+      .reduce((sum, a) => sum + Number(a.estimate_amount ?? 0), 0)
+    return decideApproval(prefs, amount, { emergency, spentThisMonth: spent })
   }
 
   const api = {
@@ -342,7 +356,7 @@ export function createRequestsApi(db: Db, me: () => Promise<AppUser>, base: Base
       const propertyId = input.request?.property_id ?? input.propertyId ?? null
       const house = propertyId ? (await db.select<Property>('properties', { id: propertyId }))[0] : undefined
       const created = now()
-      return db.insert<Approval>('approvals', {
+      const approval = await db.insert<Approval>('approvals', {
         id: newId(), company_id: user.companyId, request_id: input.request?.id ?? null, job_id: input.jobId ?? input.request?.job_id ?? null,
         property_id: propertyId, landlord_id: house?.landlord_id ?? null, kind: input.kind, title: input.title.trim(),
         details: input.details.trim(), estimate_hours: input.estimate_hours, estimate_amount: input.estimate_amount, parts: input.parts,
@@ -350,6 +364,15 @@ export function createRequestsApi(db: Db, me: () => Promise<AppUser>, base: Base
         charge_status: 'none', stripe_payment_intent: null, charged_at: null,
         expires_at: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(), created_by: user.id, created_at: created,
       })
+      // The landlord's own rules may say go ahead without asking
+      if (input.kind === 'repair' && input.estimate_amount != null && house?.landlord_id) {
+        const [landlord] = await db.select<Landlord>('landlords', { id: house.landlord_id })
+        const rule = await landlordRule(landlord, input.estimate_amount, input.request?.urgency === 'emergency')
+        if (rule?.auto) {
+          return db.update<Approval>('approvals', approval.id, { status: 'approved', auto: true, decided_at: now(), decision_note: rule.reason })
+        }
+      }
+      return approval
     },
     async cancelApproval(id: string) {
       return db.update<Approval>('approvals', id, { status: 'cancelled' })
@@ -504,8 +527,11 @@ export function createRequestsApi(db: Db, me: () => Promise<AppUser>, base: Base
       const approval = await api.createApproval({
         kind: 'parts', title, details: '', estimate_hours: null, estimate_amount: total, parts, jobId, propertyId,
       })
-      if (landlord && total <= limit) {
-        return db.update<Approval>('approvals', approval.id, { status: 'approved', auto: true, decided_at: now(), charge_status: 'pending' })
+      const rule = await landlordRule(landlord, total, false)
+      if (landlord && (rule ? rule.auto : total <= limit)) {
+        return db.update<Approval>('approvals', approval.id, {
+          status: 'approved', auto: true, decided_at: now(), charge_status: 'pending', ...(rule ? { decision_note: rule.reason } : {}),
+        })
       }
       return approval
     },

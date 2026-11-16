@@ -13,4 +13,5 @@ it already contains everything below.
 | 16 | A planned time on each punch list item |
 | 17 | A photo on each part (Orders) |
 | 18 | A store link on each part |
+| 19 | Landlord approval rules (when to ask, budget, emergencies) |
 | 10 to 14 | Request Inbox & Landlord Maintenance Plan: request page, inbox, houses, tenants, landlords, plans and hour bank, approvals, house profiles, guides, alerts |

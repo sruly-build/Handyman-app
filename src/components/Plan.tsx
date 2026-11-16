@@ -1,3 +1,4 @@
+import { describeApprovalPrefs, normalizeApprovalPrefs } from '../data/approvalRules'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -177,7 +178,16 @@ export function LandlordCard({ house }: { house: HouseView }) {
                   {[l.phone, l.email].filter(Boolean).join(' · ')}
                   {l.user_id ? ' · has a login' : ' · no login yet'}
                 </p>
-                <p className="text-[13px] text-muted">Parts auto-approve: {l.auto_approve_limit != null ? money(l.auto_approve_limit) : 'company default'}</p>
+                {normalizeApprovalPrefs(l.approval_prefs) ? (
+                  <div className="mt-1.5 rounded-xl bg-canvas px-3 py-2">
+                    <p className="text-[12px] font-bold uppercase tracking-wide text-muted">Their approval rules</p>
+                    {describeApprovalPrefs(normalizeApprovalPrefs(l.approval_prefs)!).map((line) => (
+                      <p key={line} className="text-[14px]">{line}</p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[13px] text-muted">Parts auto-approve: {l.auto_approve_limit != null ? money(l.auto_approve_limit) : 'company default'}</p>
+                )}
                 <Link to={`/landlords/${l.id}`} className="mt-1 block text-[15px] font-semibold text-brand">
                   See what they see
                 </Link>

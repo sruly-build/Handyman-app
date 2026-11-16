@@ -1,7 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { Navigate, useParams, useSearchParams } from 'react-router-dom'
+import { ApprovalPrefsEditor } from '../components/ApprovalPrefsEditor'
 import { EmailCodeForm } from '../components/EmailCodeForm'
+import { defaultApprovalPrefs } from '../data/approvalRules'
+import type { ApprovalPrefs } from '../data/types'
 import { CheckIcon, MessageIcon, PhoneIcon } from '../components/Icons'
 import { Card, Divider, ErrorNote, Field, Loading } from '../components/ui'
 import { publicApi } from '../data/backend'
@@ -10,13 +13,15 @@ import { useAuth } from '../lib/auth'
 import { phoneLink } from '../lib/links'
 import { PublicShell } from './PublicShell'
 
+/** Where the sign-up page keeps the chosen approval rules until the landlord is logged in */
+export const PENDING_RULES_KEY = 'pending-approval-rules'
+
 /** What the plan covers when the business hasn't listed its own services */
 export const defaultPerks = [
-  'Repairs and small jobs, one text away',
-  'Turnovers between tenants',
-  'Regular inspections and filter changes',
+  'We deal with your tenants for you',
+  'You approve the work, your way, by budget',
+  'Repairs, turnovers and inspections',
   'Before and after photos of every job',
-  'Parts only with your OK',
 ]
 
 /**
@@ -31,6 +36,7 @@ export function LandlordJoinPage() {
   const [mode, setMode] = useState<'signup' | 'login'>('signup')
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
+  const [rules, setRules] = useState<ApprovalPrefs>(defaultApprovalPrefs)
   const { data: page, isLoading, error } = useQuery({ queryKey: ['public-page', slug], queryFn: () => publicApi.page(slug), retry: false })
   useEffect(() => {
     document.title = page?.name ? `${page.name} · Maintenance plan for landlords` : 'Maintenance plan for landlords'
@@ -54,7 +60,7 @@ export function LandlordJoinPage() {
   }
   const plan = page.plan
   const free = !plan?.price
-  const perks = plan?.services?.length ? plan.services : defaultPerks
+  const perks = defaultPerks
   const whatsapp = page.whatsapp?.replace(/\D/g, '')
 
   return (
@@ -64,15 +70,17 @@ export function LandlordJoinPage() {
         <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-[#064e3b] via-[#047857] to-[#0f766e] px-5 pb-6 pt-5 text-white shadow-[0_16px_36px_-14px_rgba(6,78,59,0.6)]">
           <p className="text-[13px] font-semibold uppercase tracking-wide text-[#a7f3d0]">{page.name}</p>
           <span className="mt-3 inline-block rounded-full bg-[#fbbf24] px-3 py-1 text-[13px] font-extrabold uppercase tracking-wide text-[#3b2a00]">
-            {free ? 'Free to join' : `${money(plan!.price!)} / month per house`}
+            Free sign-up
           </span>
           <h1 className="mt-3 text-[32px] font-extrabold leading-[1.08] tracking-tight">Maintenance plan for landlords</h1>
-          <p className="mt-2 text-[17px] leading-snug text-[#d1fae5]">One text and it's handled: repairs, turnovers and inspections for your rentals.</p>
+          <p className="mt-2 text-[17px] leading-snug text-[#d1fae5]">
+            We take care of the hassle with your tenants. You just approve the work, your way.
+          </p>
           <a
             href="#signup"
             className="mt-5 flex min-h-13 items-center justify-center rounded-2xl bg-white py-3.5 text-[17px] font-bold text-[#064e3b] active:scale-[0.98]"
           >
-            {free ? 'Sign up free' : 'Sign up'}
+            Sign up free
           </a>
         </section>
 
@@ -91,9 +99,9 @@ export function LandlordJoinPage() {
         <h2 className="mb-2 mt-7 px-1 text-[13px] font-bold uppercase tracking-wide text-muted">How it works</h2>
         <div className="grid grid-cols-3 gap-2">
           {[
-            ['1', free ? 'Sign up free' : 'Sign up', 'Takes a minute'],
+            ['1', 'Sign up free', 'Set your approval rules'],
             ['2', 'Add your houses', 'We confirm each one'],
-            ['3', 'Text us', 'When something needs fixing'],
+            ['3', 'We handle tenants', 'You approve the work'],
           ].map(([n, title, sub]) => (
             <div key={n} className="rounded-2xl bg-card px-3 py-3 ring-1 ring-black/[0.05]">
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#064e3b] text-[14px] font-bold text-white">{n}</span>
@@ -104,14 +112,28 @@ export function LandlordJoinPage() {
         </div>
 
         <section id="signup" className="scroll-mt-4">
-          <h2 className="mb-2 mt-7 px-1 text-[13px] font-bold uppercase tracking-wide text-muted">
-            {mode === 'signup' ? 'Create your account' : 'Log in'}
-          </h2>
+          {mode === 'login' && <h2 className="mb-2 mt-7 px-1 text-[13px] font-bold uppercase tracking-wide text-muted">Log in</h2>}
           {mode === 'signup' ? (
             <EmailCodeForm
               key="signup"
-              submitLabel={free ? 'Sign up free' : 'Create my account'}
-              landlord={() => (name.trim() ? { fullName: name.trim(), phone: phone.trim(), companySlug: slug, referral: params.get('ref') ?? '' } : null)}
+              submitLabel="Sign up free"
+              landlord={() => {
+                if (!name.trim()) return null
+                try {
+                  localStorage.setItem(PENDING_RULES_KEY, JSON.stringify(rules))
+                } catch {
+                  // they can set the rules after logging in
+                }
+                return { fullName: name.trim(), phone: phone.trim(), companySlug: slug, referral: params.get('ref') ?? '' }
+              }}
+              before={
+                <div className="mb-4">
+                  <p className="mb-2 mt-7 px-1 text-[13px] font-bold uppercase tracking-wide text-muted">Your approval rules</p>
+                  <ApprovalPrefsEditor value={rules} onChange={setRules} />
+                  <p className="mt-1.5 px-1 text-[13px] text-muted">You can change these any time after signing up.</p>
+                  <p className="mb-2 mt-5 px-1 text-[13px] font-bold uppercase tracking-wide text-muted">Your details</p>
+                </div>
+              }
             >
               <Divider />
               <Field label="Your name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
@@ -132,7 +154,7 @@ export function LandlordJoinPage() {
 
         {plan && (
           <p className="mt-4 px-1 text-[13px] leading-snug text-muted">
-            {free ? 'Joining is free for now. ' : ''}
+            {free ? 'Joining is free for now. ' : `Signing up is free. The plan is ${money(plan.price!)} a month per house, only once you start it on a house. `}
             {plan.hours} hour{plan.hours === 1 ? '' : 's'} of work added every {plan.every_months} months
             {free ? '' : ' while the plan is paid'}. Each visit uses one full hour. Unused hours roll over (up to {plan.cap}) and each hour expires{' '}
             {plan.expire_months} months after it's added. Parts are extra, with your approval.{free ? '' : ' Monthly only; cancel any time.'}

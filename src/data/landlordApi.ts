@@ -1,7 +1,9 @@
+import { autoLimitOf, normalizeApprovalPrefs } from './approvalRules'
 import type { Db } from './db'
 import { addressKey } from './requests'
 import type {
   AppUser,
+  ApprovalPrefs,
   HourCredit,
   Inspection,
   Job,
@@ -204,6 +206,31 @@ export function createLandlordApi(db: Db, me: () => Promise<AppUser>) {
       return (await db.insert<PropertyClaim>('property_claims', {
         id: newId(), company_id: l.company_id, landlord_id: l.id, property_id: house.id, status: 'pending', decided_at: null, created_at: now(),
       })).id
+    },
+    /** The landlord's approval rules (null until they choose them) */
+    async approvalPrefs(landlordId: string): Promise<ApprovalPrefs | null> {
+      if (db.mode === 'supabase') {
+        try {
+          return normalizeApprovalPrefs(await db.rpc<unknown>('landlord_approval_prefs', { landlord: landlordId }))
+        } catch {
+          return null // before the database update
+        }
+      }
+      const [l] = await db.select<Landlord>('landlords', { id: landlordId })
+      return normalizeApprovalPrefs(l?.approval_prefs)
+    },
+    async saveApprovalPrefs(landlordId: string, prefs: ApprovalPrefs) {
+      if (db.mode === 'supabase') {
+        try {
+          await db.rpc('set_my_approval_prefs', { prefs })
+        } catch (e) {
+          if (e instanceof Error && /set_my_approval_prefs|function/i.test(e.message))
+            throw new Error('Approval rules need a quick database update first (supabase/updates/19-approval-rules.sql).')
+          throw e
+        }
+        return
+      }
+      await db.update<Landlord>('landlords', landlordId, { approval_prefs: prefs, auto_approve_limit: autoLimitOf(prefs) })
     },
     async setMyNotifications(newRequest: boolean, repairDone: boolean) {
       if (db.mode === 'supabase') return db.rpc('set_my_notifications', { new_request: newRequest, repair_done: repairDone })
