@@ -1,6 +1,6 @@
 import { lookup } from 'node:dns/promises'
 import { isIP } from 'node:net'
-import { HttpError, caller, jsonBody, send, type Req, type Res } from './server.js'
+import { HttpError, jsonBody, send, signedIn, type Req, type Res } from './server.js'
 
 /**
  * A store link pasted on a part: read the page's name, price, store and
@@ -58,7 +58,9 @@ async function fetchPublic(raw: string, max: number, accept: string) {
       url = await checkUrl(new URL(res.headers.get('location')!, url).toString())
       continue
     }
-    if (!res.ok || !res.body) throw new HttpError(422, `The store's page did not open (${res.status}).`)
+    if ([401, 403, 429, 503].includes(res.status))
+      throw new HttpError(422, 'This store blocks apps from reading its pages. The link is still saved; add a photo or screenshot yourself.')
+    if (!res.ok || !res.body) throw new HttpError(422, `The store's page did not open (${res.status}). The link is still saved.`)
     const chunks: Uint8Array[] = []
     let size = 0
     const reader = res.body.getReader()
@@ -132,7 +134,7 @@ export function readPage(html: string) {
 
 /** POST /api/link-preview { url } → { title, price, site, image (a data: picture or null) } */
 export async function linkPreview(req: Req, res: Res) {
-  await caller(req)
+  await signedIn(req)
   const { url } = await jsonBody<{ url?: string }>(req)
   if (!url || url.length > 2000) throw new HttpError(400, 'Paste a link first.')
   const page = await fetchPublic(url.trim(), MAX_PAGE, 'text/html,application/xhtml+xml')

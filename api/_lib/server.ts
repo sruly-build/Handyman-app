@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from './publicConfig.js'
 
 /**
  * Shared helpers for the app's small server (Vercel functions). Secret keys
@@ -70,6 +71,22 @@ export async function caller(req: Req) {
     role: (profile?.role as string | undefined) ?? 'owner',
     name: (profile?.full_name as string | undefined) ?? '',
   }
+}
+
+/**
+ * Just checks the caller is logged in (no secret key needed, so it works
+ * before the server's Supabase settings are added in Vercel).
+ */
+export async function signedIn(req: Req): Promise<{ id: string }> {
+  const header = String(req.headers.authorization ?? '')
+  const token = header.startsWith('Bearer ') ? header.slice(7) : ''
+  if (!token) throw new HttpError(401, 'Please log in.')
+  const url = env('SUPABASE_URL') || env('VITE_SUPABASE_URL') || PUBLIC_SUPABASE_URL
+  const key = env('SUPABASE_ANON_KEY') || env('VITE_SUPABASE_ANON_KEY') || PUBLIC_SUPABASE_ANON_KEY
+  const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
+  const { data, error } = await db.auth.getUser(token)
+  if (error || !data.user) throw new HttpError(401, 'Please log in again.')
+  return { id: data.user.id }
 }
 
 /** The web address the app runs at (for links in alerts and Stripe) */
