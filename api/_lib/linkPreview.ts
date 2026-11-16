@@ -171,33 +171,76 @@ export async function linkPreview(req: Req, res: Res) {
  * charges). It only sees the link being read.
  */
 async function previewService(link: string) {
+  type Found = { url?: string; title?: string; publisher?: string; image?: { url?: string } | null; logo?: { url?: string } | null }
+  const ask = async (extra = ''): Promise<Found | null> => {
+    try {
+      const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(link)}${extra}`, {
+        signal: AbortSignal.timeout(15000),
+        headers: { Accept: 'application/json' },
+      })
+      const body = (await res.json()) as { status?: string; data?: Found }
+      return body.status === 'success' && body.data ? body.data : null
+    } catch {
+      return null
+    }
+  }
+  // A store's own logo or a generic page title is no use as the part's picture or name
+  const useless = (d: Found) => ({
+    image: !d.image?.url || d.image.url === d.logo?.url || /logo|nav-sprite|share-icons|favicon|prime_logo/i.test(d.image.url),
+    title: !d.title || /^(amazon(\.[a-z.]+)?|amazon\.com: online shopping.*|page not found|robot check|sorry.*)$/i.test(d.title.trim()),
+  })
+  let d = await ask()
+  if (d && (useless(d).image || useless(d).title)) {
+    // Try once more with a full browser (slower, but sees the real product page)
+    const again = await ask('&prerender=true')
+    if (again && !(useless(again).image && useless(again).title)) d = again
+  }
+  if (!d) return null
+  const bad = useless(d)
+  let imageUrl = bad.image ? null : d.image!.url!
+  let title = bad.title ? '' : d.title!.replace(/^Amazon\.com\s*:\s*/i, '').trim()
+  // Amazon: the product's own picture and name from its address
+  const asin = (d.url && safeUrl(d.url) && amazonId(safeUrl(d.url)!)) || (safeUrl(link) && amazonId(safeUrl(link)!))
+  if (asin && !imageUrl) imageUrl = `https://images-na.ssl-images-amazon.com/images/P/${asin}.01.L.jpg`
+  if (!title && d.url && safeUrl(d.url)) title = nameFromAddress(safeUrl(d.url)!)
+  let image: string | null = null
+  if (imageUrl) {
+    try {
+      const pic = await fetchPublic(imageUrl, MAX_IMAGE, 'image/*')
+      const type = pic.type.split(';')[0].trim()
+      // (tiny files are "no picture" placeholders)
+      if (/^image\/(jpeg|png|webp|gif|avif)$/i.test(type) && pic.body.length > 1000 && pic.body.length < MAX_IMAGE)
+        image = `data:${type};base64,${pic.body.toString('base64')}`
+      else if (asin) imageUrl = null
+    } catch {
+      // show it from its own address instead
+    }
+  }
+  if (!title && !image && !imageUrl) return null
+  const site = asin ? 'Amazon' : (d.publisher ?? '').slice(0, 80)
+  return { title: title.slice(0, 200), price: null, site, image, imageUrl: image ? null : imageUrl }
+}
+
+function safeUrl(u: string): URL | null {
   try {
-    const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(link)}`, {
-      signal: AbortSignal.timeout(12000),
-      headers: { Accept: 'application/json' },
-    })
-    const body = (await res.json()) as {
-      status?: string
-      data?: { title?: string; publisher?: string; image?: { url?: string } | null; logo?: { url?: string } | null }
-    }
-    if (body.status !== 'success' || !body.data) return null
-    const d = body.data
-    const imageUrl = d.image?.url ?? null
-    let image: string | null = null
-    if (imageUrl) {
-      try {
-        const pic = await fetchPublic(imageUrl, MAX_IMAGE, 'image/*')
-        const type = pic.type.split(';')[0].trim()
-        if (/^image\/(jpeg|png|webp|gif|avif)$/i.test(type) && pic.body.length < MAX_IMAGE)
-          image = `data:${type};base64,${pic.body.toString('base64')}`
-      } catch {
-        // show it from its own address instead
-      }
-    }
-    const title = (d.title ?? '').replace(/^Amazon\.com\s*:\s*/i, '').trim()
-    if (!title && !imageUrl) return null
-    return { title: title.slice(0, 200), price: null, site: (d.publisher ?? '').slice(0, 80), image, imageUrl: image ? null : imageUrl }
+    return new URL(u)
   } catch {
     return null
   }
+}
+
+/** Amazon's product number (ASIN) from an Amazon address (exported for tests) */
+export function amazonId(u: URL): string | null {
+  const amazon = /(^|\.)amazon\.[a-z.]+$/i.test(u.hostname) || /(^|\.)(a\.co|amzn\.to|amzn\.com)$/i.test(u.hostname)
+  if (!amazon) return null
+  return u.pathname.match(/\/(?:dp|gp\/product|gp\/aw\/d)\/([A-Z0-9]{10})(?:[/?]|$)/i)?.[1]?.toUpperCase() ?? null
+}
+
+/** Product names often sit in the address: /Amerock-Cabinet-Pull/dp/… (exported for tests) */
+export function nameFromAddress(u: URL): string {
+  const parts = u.pathname.split('/').filter(Boolean)
+  const at = parts.findIndex((x) => /^(dp|gp)$/i.test(x))
+  if (at < 1) return ''
+  const words = decodeURIComponent(parts[at - 1]).replace(/[-_+]+/g, ' ').trim()
+  return /^(ref|gp|dp)$/i.test(words) ? '' : words
 }

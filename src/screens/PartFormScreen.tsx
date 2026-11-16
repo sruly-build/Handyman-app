@@ -60,9 +60,11 @@ export function PartFormScreen() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   // The part's photo: a new one picked (saved with the part), or removed
-  const [newPhoto, setNewPhoto] = useState<{ blob: Blob; url: string } | null>(
-    null,
-  );
+  const [newPhoto, setNewPhoto] = useState<{
+    blob: Blob;
+    url: string;
+    fromLink?: boolean;
+  } | null>(null);
   const [removePhoto, setRemovePhoto] = useState(false);
   const { data: pictures = {} } = usePartPictures(part ? [part] : []);
   // What a pasted store link said (name, price, store, picture)
@@ -105,8 +107,15 @@ export function PartFormScreen() {
           const small = await shrinkPhoto(
             new File([blob], "store.jpg", { type: blob.type }),
           ).catch(() => blob);
+          // Replaces a picture from an earlier link, never one you took
           setNewPhoto((current) =>
-            current ? current : { blob: small, url: URL.createObjectURL(small) },
+            current && !current.fromLink
+              ? current
+              : {
+                  blob: small,
+                  url: URL.createObjectURL(small),
+                  fromLink: true,
+                },
           );
           setRemovePhoto(false);
         } catch {

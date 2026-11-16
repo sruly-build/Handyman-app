@@ -23,3 +23,15 @@ describe('checkUrl', () => {
       await expect(checkUrl(bad)).rejects.toThrow()
   })
 })
+
+describe('Amazon addresses', async () => {
+  const { amazonId, nameFromAddress } = await import('./linkPreview.js')
+  it('finds the product number and name', () => {
+    const u = new URL('https://www.amazon.com/Amerock-Cabinet-Pull/dp/B07abcdef1/ref=sr_1_1?x=1')
+    expect(amazonId(u)).toBe('B07ABCDEF1')
+    expect(nameFromAddress(u)).toBe('Amerock Cabinet Pull')
+    expect(amazonId(new URL('https://www.amazon.com/gp/product/B07ABCDEF1'))).toBe('B07ABCDEF1')
+    expect(nameFromAddress(new URL('https://www.amazon.com/dp/B07ABCDEF1'))).toBe('')
+    expect(amazonId(new URL('https://www.homedepot.com/dp/B07ABCDEF1'))).toBeNull()
+  })
+})
