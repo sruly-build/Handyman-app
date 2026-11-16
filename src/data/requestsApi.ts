@@ -564,7 +564,7 @@ export function createRequestsApi(db: Db, me: () => Promise<AppUser>, base: Base
 
     /** AI reads the brand and model from a photo of an appliance's sticker (needs the server's AI key) */
     /** Read a pasted store link: the product's name, price, store and picture (a data: address) */
-    async linkPreview(url: string): Promise<{ title: string; price: number | null; site: string; image: string | null }> {
+    async linkPreview(url: string): Promise<{ title: string; price: number | null; site: string; image: string | null; imageUrl?: string | null }> {
       return server('link-preview', { url })
     },
     async readSticker(image: Blob): Promise<{ brand: string; model: string; serial: string; kind: string }> {

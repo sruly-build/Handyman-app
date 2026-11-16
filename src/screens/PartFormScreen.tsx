@@ -82,7 +82,7 @@ export function PartFormScreen() {
     setLinkInfo({ url, loading: true });
     try {
       const info = await backend.linkPreview(url);
-      setLinkInfo({ url, ...info });
+      setLinkInfo({ url, ...info, image: info.image ?? info.imageUrl ?? null });
       setForm((f) => {
         if (!f) return f;
         const qty = parseFloat(f.quantity) > 0 ? parseFloat(f.quantity) : 1;
@@ -98,15 +98,20 @@ export function PartFormScreen() {
       });
       // Use the store's picture if the part has no photo of its own
       const hasOwn = part && pictures[part.id]?.own && !removePhoto;
-      if (info.image && !hasOwn) {
-        const blob = await (await fetch(info.image)).blob();
-        const small = await shrinkPhoto(
-          new File([blob], "store.jpg", { type: blob.type }),
-        ).catch(() => blob);
-        setNewPhoto((current) =>
-          current ? current : { blob: small, url: URL.createObjectURL(small) },
-        );
-        setRemovePhoto(false);
+      const picture = info.image ?? info.imageUrl;
+      if (picture && !hasOwn) {
+        try {
+          const blob = await (await fetch(picture)).blob();
+          const small = await shrinkPhoto(
+            new File([blob], "store.jpg", { type: blob.type }),
+          ).catch(() => blob);
+          setNewPhoto((current) =>
+            current ? current : { blob: small, url: URL.createObjectURL(small) },
+          );
+          setRemovePhoto(false);
+        } catch {
+          // The picture shows above but can't be saved; a screenshot still works
+        }
       }
     } catch (e) {
       setLinkInfo({

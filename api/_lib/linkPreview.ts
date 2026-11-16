@@ -58,8 +58,8 @@ async function fetchPublic(raw: string, max: number, accept: string) {
       url = await checkUrl(new URL(res.headers.get('location')!, url).toString())
       continue
     }
-    if ([401, 403, 429, 503].includes(res.status))
-      throw new HttpError(422, 'This store blocks apps from reading its pages. The link is still saved; add a photo or screenshot yourself.')
+    if ([401, 403, 405, 429, 503].includes(res.status))
+      throw new HttpError(423, 'This store blocks apps from reading its pages. The link is still saved; add a photo or screenshot yourself.')
     if (!res.ok || !res.body) throw new HttpError(422, `The store's page did not open (${res.status}). The link is still saved.`)
     const chunks: Uint8Array[] = []
     let size = 0
@@ -137,7 +137,16 @@ export async function linkPreview(req: Req, res: Res) {
   await signedIn(req)
   const { url } = await jsonBody<{ url?: string }>(req)
   if (!url || url.length > 2000) throw new HttpError(400, 'Paste a link first.')
-  const page = await fetchPublic(url.trim(), MAX_PAGE, 'text/html,application/xhtml+xml')
+  let page: Awaited<ReturnType<typeof fetchPublic>>
+  try {
+    page = await fetchPublic(url.trim(), MAX_PAGE, 'text/html,application/xhtml+xml')
+  } catch (e) {
+    // The store blocked us: ask a link-preview service the store already lets in
+    if (!(e instanceof HttpError && e.status === 423)) throw e
+    const viaService = await previewService(url.trim())
+    if (!viaService) throw new HttpError(422, e.message)
+    return send(res, 200, viaService)
+  }
   if (!/html/i.test(page.type)) throw new HttpError(422, 'That link is not a web page.')
   const info = readPage(page.body.toString('utf8'))
   let image: string | null = null
@@ -153,4 +162,42 @@ export async function linkPreview(req: Req, res: Res) {
   }
   const site = info.site || page.url.hostname.replace(/^www\./, '')
   send(res, 200, { title: info.title.slice(0, 200), price: info.price, site: site.slice(0, 80), image })
+}
+
+/**
+ * Microlink (microlink.io): a link-preview service, like the ones WhatsApp and
+ * email use, that stores such as Amazon let read their pages. Its free plan
+ * needs no account (about 50 links a day; over that it just says no, it never
+ * charges). It only sees the link being read.
+ */
+async function previewService(link: string) {
+  try {
+    const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(link)}`, {
+      signal: AbortSignal.timeout(12000),
+      headers: { Accept: 'application/json' },
+    })
+    const body = (await res.json()) as {
+      status?: string
+      data?: { title?: string; publisher?: string; image?: { url?: string } | null; logo?: { url?: string } | null }
+    }
+    if (body.status !== 'success' || !body.data) return null
+    const d = body.data
+    const imageUrl = d.image?.url ?? null
+    let image: string | null = null
+    if (imageUrl) {
+      try {
+        const pic = await fetchPublic(imageUrl, MAX_IMAGE, 'image/*')
+        const type = pic.type.split(';')[0].trim()
+        if (/^image\/(jpeg|png|webp|gif|avif)$/i.test(type) && pic.body.length < MAX_IMAGE)
+          image = `data:${type};base64,${pic.body.toString('base64')}`
+      } catch {
+        // show it from its own address instead
+      }
+    }
+    const title = (d.title ?? '').replace(/^Amazon\.com\s*:\s*/i, '').trim()
+    if (!title && !imageUrl) return null
+    return { title: title.slice(0, 200), price: null, site: (d.publisher ?? '').slice(0, 80), image, imageUrl: image ? null : imageUrl }
+  } catch {
+    return null
+  }
 }
