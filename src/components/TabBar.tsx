@@ -3,11 +3,11 @@ import { useRequests } from '../data/queries'
 import { CalendarIcon, HomeIcon, InboxIcon, JobsIcon, MoreIcon } from './Icons'
 
 const tabs = [
-  { to: '/', label: 'Home', Icon: HomeIcon, end: true },
-  { to: '/requests', label: 'Requests', Icon: InboxIcon, end: false },
-  { to: '/jobs', label: 'Jobs', Icon: JobsIcon, end: false },
-  { to: '/schedule', label: 'Schedule', Icon: CalendarIcon, end: false },
-  { to: '/more', label: 'Me', Icon: MoreIcon, end: false },
+  { to: '/', on: 'text-[#6ee7b7]', label: 'Home', Icon: HomeIcon, end: true },
+  { to: '/requests', on: 'text-[#fdba74]', label: 'Requests', Icon: InboxIcon, end: false },
+  { to: '/jobs', on: 'text-[#93b4f5]', label: 'Jobs', Icon: JobsIcon, end: false },
+  { to: '/schedule', on: 'text-[#5eead4]', label: 'Schedule', Icon: CalendarIcon, end: false },
+  { to: '/more', on: 'text-[#cbd5e1]', label: 'Me', Icon: MoreIcon, end: false },
 ]
 
 /** Bottom tab bar with big tap targets (easy with gloves on) */
@@ -23,14 +23,14 @@ export function TabBar() {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 px-3 pb-[calc(env(safe-area-inset-bottom)+8px)] print:hidden">
       <ul className="mx-auto flex max-w-2xl rounded-[24px] bg-night/95 shadow-[0_12px_30px_-6px_rgba(15,23,42,0.55)] ring-1 ring-white/10 backdrop-blur-xl">
-        {tabs.map(({ to, label, Icon, end }) => (
+        {tabs.map(({ to, label, Icon, end, on }) => (
           <li key={to} className="flex-1">
             <NavLink
               to={to}
               end={end}
               className={({ isActive }) =>
                 `flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-semibold transition-colors active:opacity-60 ${
-                  isActive || (to === '/more' && salesOpen) || (to === '/requests' && requestsOpen) ? 'text-white [&_.tab-pill]:bg-white/15' : 'text-white/55'
+                  isActive || (to === '/more' && salesOpen) || (to === '/requests' && requestsOpen) ? `${on} [&_.tab-pill]:bg-white/12` : 'text-white/55'
                 }`
               }
             >

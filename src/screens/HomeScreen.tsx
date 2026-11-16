@@ -56,8 +56,8 @@ export function HomeScreen() {
     <Screen
       title={`${greeting()}, ${user.name}`}
       hero={
-        <div className="shine mb-5 mt-1 rounded-[28px] bg-gradient-to-br from-[#0f172a] to-[#1e293b] px-5 py-5 text-white shadow-[0_14px_36px_-10px_rgba(15,23,42,0.5)]">
-          <p className="text-[13px] font-semibold uppercase tracking-wide text-white/60">{dateLine}</p>
+        <div className="mb-4 mt-1 rounded-2xl bg-gradient-to-br from-[#064e3b] to-[#047857] px-5 py-5 text-white shadow-[0_14px_36px_-10px_rgba(15,23,42,0.5)]">
+          <p className="text-[13px] font-semibold uppercase tracking-wide text-[#a7f3d0]">{dateLine}</p>
           <h1 className="mt-1 text-[30px] font-bold leading-tight tracking-tight">
             {greeting()}, {user.name}
           </h1>

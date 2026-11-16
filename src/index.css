@@ -18,17 +18,17 @@
   --color-night: #0f172a;
   --color-night-soft: #1e293b;
   --color-mint: #6ee7b7;
-  /* Extra colours, kept calm: one slate blue for links and icons, amber for dates */
-  --color-sky: #3b5b7d;
-  --color-sky-soft: #e9eef4;
-  --color-sun: #b45309;
-  --color-sun-soft: #fdf3e3;
-  --color-grape: #475569;
-  --color-grape-soft: #eef1f5;
-  --color-rose: #475569;
-  --color-rose-soft: #eef1f5;
-  --color-teal: #3b5b7d;
-  --color-teal-soft: #e9eef4;
+  /* Extra colours: deep, muted tones (no neon) */
+  --color-sky: #1d4ed8;
+  --color-sky-soft: #e3eaf8;
+  --color-sun: #c2410c;
+  --color-sun-soft: #fbece2;
+  --color-grape: #4f46e5;
+  --color-grape-soft: #e8e7fb;
+  --color-rose: #0f766e;
+  --color-rose-soft: #ddf0ed;
+  --color-teal: #0e7490;
+  --color-teal-soft: #dceef3;
 
   --font-sans: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 
