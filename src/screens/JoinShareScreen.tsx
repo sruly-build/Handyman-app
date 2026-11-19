@@ -97,7 +97,7 @@ async function drawStatus(canvas: HTMLCanvasElement, o: { company: string; link:
 /** Me → Landlords → Share: the sign-up link, a ready WhatsApp message and a status image */
 export function JoinShareScreen() {
   const user = useUser()
-  const { data: settings, isLoading } = useServiceSettings()
+  const { data: settings, isLoading, error: settingsError } = useServiceSettings()
   const { data: company } = useCompany(user.companyId)
   const name = company?.name || 'Our team'
   const link = settings?.public_slug ? `${window.location.origin}/l/${settings.public_slug}` : ''
@@ -157,6 +157,16 @@ export function JoinShareScreen() {
     return (
       <Screen title="Share sign-up page" back={back}>
         <Loading />
+      </Screen>
+    )
+  }
+  if (settingsError) {
+    return (
+      <Screen title="Share sign-up page" back={back}>
+        <ErrorNote error={settingsError} />
+        <p className="mt-2 px-1 text-[14px] text-muted">
+          The database is missing the Request Inbox updates (parts 1 to 5 on the setup page). Run them in Supabase, then come back.
+        </p>
       </Screen>
     )
   }
