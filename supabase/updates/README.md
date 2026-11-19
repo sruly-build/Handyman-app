@@ -17,3 +17,10 @@ it already contains everything below.
 | 20 | Live invoice links (send the customer a page with the bill) |
 | 21 | Before and after photos on live invoice links |
 | 10 to 14 | Request Inbox & Landlord Maintenance Plan: request page, inbox, houses, tenants, landlords, plans and hour bank, approvals, house profiles, guides, alerts |
+
+## Updating an older database in one go
+
+`supabase/full-update/` has the whole `schema.sql` split into 7 steps small
+enough to paste from a phone. Running them in order brings any older database
+fully up to date (it's the same as running `schema.sql`) and keeps all data.
+Regenerate them after changing `schema.sql`.
